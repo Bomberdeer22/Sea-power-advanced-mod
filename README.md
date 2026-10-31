@@ -141,6 +141,7 @@ signature moved and the error message names it exactly — send it over and it g
 | `mod/_info.ini` | Name and description shown in the mod manager. |
 | `build.ps1` / `build.sh` | Build, then lay out `dist/` (and optionally install). |
 | `tools/build-portable.*` | Fetch a portable SDK into `.dotnet/` and run the build script. |
+| `tools/dump-game-api.ps1` | Dump the game's type/member names to `game-api.txt` (reads the DLL, installs nothing). |
 
 Reference paths are never copied into `StreamingAssets`: Anchor Chain would load the game's own DLLs
 a second time.
@@ -167,6 +168,7 @@ a second time.
 | Entry present but nothing moves | Open `LogOutput.log`: the line after each click names the strategy it used. Run the ship dump and send it. |
 | "Orders" not found warning | The menu label lookup failed (a localisation or version difference). Send the log. |
 | Game CTD on startup | Remove the mod folder, then send `LogOutput.log`. Everything in this mod is wrapped in try/catch, so a crash here is important information. |
+| Wanting to help pin down hatch members | `tools/dump-game-api.ps1` writes `game-api.txt` from `Seapower-Scripts.dll` — no installs, no compiler. Attach that instead of the DLL. |
 
 ## How it works
 
