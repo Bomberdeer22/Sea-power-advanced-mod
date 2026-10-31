@@ -6,6 +6,9 @@ dist/
 # Local machine paths
 Directory.Build.local.props
 
+# Portable SDK fetched by tools/build-portable.*
+.dotnet/
+
 # IDE
 .vs/
 .idea/

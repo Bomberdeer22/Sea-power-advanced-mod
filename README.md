@@ -92,21 +92,45 @@ Send either file back and the hatch strategy gets pointed at the exact member. D
 
 ## Build from source
 
-Requires the .NET SDK (6 or newer is fine; the project targets `netstandard2.1`).
+The mod is compiled against **your** game's DLLs, so the DLL always matches your Sea Power version.
+Two ways in; the first one installs nothing.
+
+### Route A — nothing installed (portable SDK)
+
+One command downloads the official .NET SDK into `.dotnet/` inside this repo (about 200 MB, once),
+builds, and lays out the mod. No installer, no admin rights, no PATH or registry changes; delete
+`.dotnet/` to undo it entirely.
 
 ```powershell
 # Windows
 Copy-Item Directory.Build.local.props.example Directory.Build.local.props
-# edit Directory.Build.local.props: SeaPowerDir and AnchorChainDir
+notepad Directory.Build.local.props          # set SeaPowerDir and AnchorChainDir
+.\tools\build-portable.ps1 -Install
+```
+
+```bash
+# Linux / Steam Proton
+cp Directory.Build.local.props.example Directory.Build.local.props
+$EDITOR Directory.Build.local.props          # set the two paths
+./tools/build-portable.sh --install
+```
+
+`-Install` / `--install` copies the result straight into
+`StreamingAssets/SeaPowerAdvanced/`. Without it you get `dist/SeaPowerAdvanced/` and can copy it
+yourself.
+
+### Route B — if you already have the .NET SDK
+
+```powershell
 .\build.ps1 -Install
 ```
 
 ```bash
-# Linux / Steam Proton users can build the DLL anywhere and copy it over
-cp Directory.Build.local.props.example Directory.Build.local.props
-# edit the two paths
-./build.sh
+./build.sh --install
 ```
+
+Either way, the first build is the interesting one: if the compiler rejects a line, the game's
+signature moved and the error message names it exactly — send it over and it gets fixed in minutes.
 
 `dist/SeaPowerAdvanced/` then holds exactly what goes into `StreamingAssets`.
 
@@ -116,6 +140,7 @@ cp Directory.Build.local.props.example Directory.Build.local.props
 | `Directory.Build.props` | Default Steam paths; overridden by `Directory.Build.local.props`. |
 | `mod/_info.ini` | Name and description shown in the mod manager. |
 | `build.ps1` / `build.sh` | Build, then lay out `dist/` (and optionally install). |
+| `tools/build-portable.*` | Fetch a portable SDK into `.dotnet/` and run the build script. |
 
 Reference paths are never copied into `StreamingAssets`: Anchor Chain would load the game's own DLLs
 a second time.

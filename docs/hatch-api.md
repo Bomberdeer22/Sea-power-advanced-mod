@@ -80,3 +80,18 @@ hatch animation entirely from animation *clips* (no named parameters). In that c
 approach is to play the clip directly (`Animation.Play("...")`) or to hook the game's own launch
 routine and reuse whatever it calls — both need the game's launch method, which the log will name
 once a launch happens with `VerboseLog` on.
+
+## Reading the API without running the game
+
+`Seapower-Scripts.dll` is a normal .NET assembly: its type and member names can be read straight
+from the metadata, with no game running and no compiler. That is the quickest way to settle the
+open question above — the file is
+
+```
+Sea Power_Data/Managed/Seapower-Scripts.dll
+```
+
+and a metadata reader (for example the Python `dnfile` package) lists every `WeaponContainer`,
+`WeaponSystem` and `CodeAnimation` member, including private fields such as a hatch animator
+reference. Once those names are known, the strategy chain can be pointed at them directly instead
+of probing, and the `hatch-api-dump.txt` run becomes a confirmation rather than a discovery.
