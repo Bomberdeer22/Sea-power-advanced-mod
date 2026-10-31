@@ -1,8 +1,6 @@
 using System;
 using AnchorChain;
 using HarmonyLib;
-using SeaPower;
-using SeaPowerAdvanced.Diagnostics;
 using SeaPowerAdvanced.Menu;
 
 namespace SeaPowerAdvanced;
@@ -27,15 +25,13 @@ public sealed class Plugin : IAnchorChainMod
             ModLog.Info("Loading " + ModInfo.Name + " " + ModInfo.Version);
             ModSettings.Bind();
 
-            if (!ModActivation.IsEnabled(typeof(FileManager), ModFolders.Package))
+            if (!ModActivation.IsEnabled(ModFolders.Package))
             {
                 ModLog.Info("Disabled in the mod manager; no patches installed.");
                 return;
             }
 
             HatchMenu.Install(harmony);
-
-            if (ModSettings.DumpApiOnLoad) ApiDump.Write("startup");
 
             ModLog.Info("Ready. Right-click a ship > Orders > Weapon hatches.");
         }

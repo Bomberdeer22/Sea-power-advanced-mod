@@ -1,45 +1,40 @@
 using System;
-using System.Collections;
 using System.IO;
-using System.Reflection;
+using SeaPower;
 
 namespace SeaPowerAdvanced;
 
 /// <summary>
-/// Anchor Chain loads every DLL in every mod folder, ticked or not, so each mod has to switch
-/// itself off when the mod-manager checkbox is clear. This reads the game's own file manager for
-/// that answer (the same approach used by other Anchor Chain mods).
+/// Anchor Chain loads every DLL in every mod folder, ticked or not, so a mod has to switch itself
+/// off when the mod-manager checkbox is clear. The answer lives in the game's own file manager.
 /// </summary>
 internal static class ModActivation
 {
-    internal static bool IsEnabled(Type fileManagerType, string packagePath)
+    internal static bool IsEnabled(string packagePath)
     {
-        object? manager = fileManagerType
-            .GetProperty("Instance", BindingFlags.Public | BindingFlags.Static | BindingFlags.FlattenHierarchy)
-            ?.GetValue(null);
-        if (manager == null) throw new InvalidOperationException("Sea Power's file manager is not ready.");
-
-        var entries = fileManagerType.GetProperty("Directories", BindingFlags.Public | BindingFlags.Instance)
-            ?.GetValue(manager) as IEnumerable
-            ?? throw new InvalidOperationException("Sea Power's mod directories are unavailable.");
-
-        foreach (object? entry in entries)
+        try
         {
-            if (entry == null) continue;
-            Type type = entry.GetType();
-            if (type.GetProperty("DirectoryInfo", BindingFlags.Public | BindingFlags.Instance)?.GetValue(entry) is not DirectoryInfo directory)
-                continue;
-            if (!string.Equals(Normalize(directory.FullName), Normalize(packagePath), StringComparison.OrdinalIgnoreCase))
-                continue;
+            TrulyObservableCollection<SearchDirectory>? directories = Singleton<FileManager>.Instance?.Directories;
+            if (directories == null) return true;
 
-            var checkedProperty = type.GetProperty("IsChecked", BindingFlags.Public | BindingFlags.Instance)
-                ?? throw new InvalidOperationException("The mod entry has no IsChecked property.");
-            return (bool)(checkedProperty.GetValue(entry) ?? false);
+            string wanted = Normalize(packagePath);
+            foreach (SearchDirectory entry in directories)
+            {
+                if (entry?.DirectoryInfo == null) continue;
+                if (!string.Equals(Normalize(entry.DirectoryInfo.FullName), wanted, StringComparison.OrdinalIgnoreCase))
+                    continue;
+                return entry.IsChecked;
+            }
+
+            // Not registered with the mod manager (a loose dev build): let it run.
+            ModLog.Warn("Mod folder is not registered with the mod manager: " + packagePath);
+            return true;
         }
-
-        // Not registered: treat as enabled so a dev build in a loose folder still runs.
-        ModLog.Warn("Mod folder is not registered with the mod manager: " + packagePath);
-        return true;
+        catch (Exception error)
+        {
+            ModLog.Error("Could not read the mod-manager state; assuming enabled", error);
+            return true;
+        }
     }
 
     private static string Normalize(string path) =>

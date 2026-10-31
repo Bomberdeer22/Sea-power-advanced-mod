@@ -1,97 +1,198 @@
-# How a hatch opens — research notes
+# The hatch API, verified
 
-This is the technical background for feature 1. It separates what is **known** from what the mod
-has to **discover at runtime**, because that distinction is the whole design.
+Everything on this page was read out of the game's own assembly
+(`Sea Power_Data/Managed/Seapower-Scripts.dll`) — type names, field names, method signatures, the
+`public`/`protected`/`private` flags, and which parameters are optional. It is not inferred from
+INI files or from behaviour.
 
-## What is known
+Version read: the `Seapower-Scripts.dll` supplied for 0.8.x (4,490 types).
 
-Sea Power's gameplay code lives in `Sea Power_Data/Managed/Seapower-Scripts.dll`. Code mods attach
-to it with HarmonyX under Anchor Chain. Verified against public mod sources for game 0.8.x:
+## The short version
 
-| Member | Meaning | Seen in |
-|---|---|---|
-| `ObjectBase._obp` | the unit's blueprint instance (live objects, not just data) | several mods |
-| `_obp._weaponSystems` | the unit's weapon systems | SeaPowerRadio, seapower-survivors |
-| `_obp._codeAnimations` | dictionary of named model animations; values have `setClosedState()` | seapower-survivors |
-| `_obp._magazineSystems`, `_obp._launcherWeapons`, `_obp._gunWeapons` | other mount collections | seapower-survivors |
-| `WeaponSystem._vwp` | the visual weapon part (mount) — `_systemName`, `_magazineReloadTime`, `_fireRatePerMinute`, `_preLaunchDelay` | several mods |
-| `WeaponSystem._containers` | list of **`WeaponContainer`** — one per cell/tube/barrel; `_initialAmmunition`, `_weapons`, `_initialAmmoCount`, `RefillAmmo` | seapower-survivors |
-| `WeaponSystemLauncher` | launcher subclass (also `WeaponSystemGun`, `WeaponSystemCIWS`, `WeaponSystemChaff`) | seapower-survivors |
-| `WeaponSystem.EngageState.TargetTooFarToOpenSystem` | the game has a concept of a system being **opened** | SeaPowerRadio |
+```csharp
+// One cell (one silo / tube): open and close its hatches.
+bool opened  = weaponContainer.openHatches();
+bool closed  = weaponContainer.closeHatches();
+bool isOpen  = weaponContainer._areHatchesOpen;
 
-`_containers` is the key one: it is per **cell**, which is exactly the granularity "open individual
-silos" needs. A 32-cell Mk 41 shows up as a launcher with 32 containers.
-
-The unit `.ini` format does not reference hatches: a weapon system declares `ContainerBase=`,
-`Container1=`, `Container1_Position`, `AreContainersRotatable`, `FiringArcs`, `AssociatedMagazine`
-and a collider. So a hatch is a property of the *model* (an animation), not of the data file.
-
-## What is not known
-
-**Which member actually plays the hatch animation.** No public mod opens a hatch, the Anchor Chain
-docs do not cover gameplay internals, and the game has no published API reference. Candidates, in
-the order this mod probes them:
-
-1. a named member on `WeaponContainer` — `Open()`, `OpenHatch()`, `IsOpen`, `_hatchOpen`, …
-2. a Unity `Animator` on the cell's model GameObject, with a bool/trigger parameter whose name
-   contains `hatch`, `cover`, `lid`, `silo`, `door`, `canopy`, `vls`, `tube` or `cell`
-3. a `_obp._codeAnimations` entry whose name matches both a hatch word and the mount's name
-   (e.g. `Mk41_Hatch_Open`), driven with `setOpenState()` / `setClosedState()`
-4. the same member/animator search on the mount (`WeaponSystem` / `_vwp`), for launchers that open
-   one cover over all cells
-
-The mod tries 1 → 2 → 3 per cell, then 4 for the mount, and stops at the first that works. It logs
-the winner in `LogOutput.log` and in `hatch-unit-dump.txt`.
-
-Deliberate safety choices:
-
-* A code animation is only driven when it unambiguously belongs to the mount by name, **or** when
-  the ship has exactly one hatch-like animation. Otherwise it is skipped — opening a random radar
-  mast would be worse than doing nothing.
-* Ambiguous container members are not tried in bulk; the first candidate that exists wins and is
-  logged, so it can be corrected in the next release.
-
-## The two diagnostic files
-
-**`hatch-api-dump.txt`** (mod folder, written at startup when `Diagnostics/DumpApiOnLoad` is on)
-
-* every member of every type in the game assembly whose *name* contains hatch/cover/lid/silo/door/
-  canopy/cell — the section that would reveal `WeaponContainer._hatchAnimator` style members
-* the full member list of every container, launcher, weapon, code-animation and blueprint type
-* the resolved `UnityEngine.Animator` type
-
-**`hatch-unit-dump.txt`** (mod folder, from the menu's *Dump hatch data for this ship*)
-
-* the ship's `_codeAnimations`: every key, and the fields of its value object
-* every openable weapon system: type, display name, cell count, fields of the mount
-* every cell: its fields, plus the animators found on its model and each animator's parameters
-
-## If a hatch does nothing
-
-1. Run *Dump hatch data for this ship* on that ship class.
-2. Send `hatch-unit-dump.txt` and `hatch-api-dump.txt` (or the relevant lines of
-   `BepInEx/LogOutput.log`).
-3. The next step is mechanical: whichever handle appears is added at the front of the strategy
-   chain in `Hatches/HatchControl.cs`. If a handle is per-mount rather than per-cell, the menu
-   already has the mount-level path for it.
-
-If the dump shows **no** hatch-ish member and **no** animator on the cells, then the game drives
-hatch animation entirely from animation *clips* (no named parameters). In that case the remaining
-approach is to play the clip directly (`Animation.Play("...")`) or to hook the game's own launch
-routine and reuse whatever it calls — both need the game's launch method, which the log will name
-once a launch happens with `VerboseLog` on.
-
-## Reading the API without running the game
-
-`Seapower-Scripts.dll` is a normal .NET assembly: its type and member names can be read straight
-from the metadata, with no game running and no compiler. That is the quickest way to settle the
-open question above — the file is
-
-```
-Sea Power_Data/Managed/Seapower-Scripts.dll
+// One mount: its cover / system animation.
+bool opened  = weaponSystem.openSystem();
+weaponSystem.closeSystem(0f);          // float = delay
 ```
 
-and a metadata reader (for example the Python `dnfile` package) lists every `WeaponContainer`,
-`WeaponSystem` and `CodeAnimation` member, including private fields such as a hatch animator
-reference. Once those names are known, the strategy chain can be pointed at them directly instead
-of probing, and the `hatch-api-dump.txt` run becomes a confirmation rather than a discovery.
+That is the whole feature. No simulation, no animation poking: these are the same methods the
+game's own launch sequence calls.
+
+## `SeaPower.WeaponContainer` — one cell
+
+```csharp
+class WeaponContainer : SeaPower.WeaponAttacher
+{
+    public List<GameObject> _hatches;            // the actual hatch models of this cell
+    public ObjectCodeAnimation _openAnimation;
+    public ObjectCodeAnimation _closeAnimation;
+    public AudioClip _hatchSoundClip;
+    public bool _playOpenAnimation;
+    public bool _playCloseAnimation;
+    public bool _areHatchesOpen;                  // live state
+    public AudioSource _audioSource;
+    public double _closeStartTime;
+    public float _closeStartDelay;
+    public bool _triggerCloseAnimation;           // a pending auto-close after firing
+    public WeaponSystemLauncher _weaponSystem;
+    public List<WeaponBase> _weapons;
+    public Ammunition _loadedAmmunition;
+    public Ammunition _initialAmmunition;
+    public int _initialAmmoCount;
+    public int _containerIndex;
+    public List<Vector3> _attachmentPositions;
+    public List<double> _cellReloadEnd;
+    public List<ReactiveProperty<string>> SlotStatus;
+
+    public void addHatch(GameObject hatch);
+    public bool openHatches();
+    public bool closeHatches();
+    public void update();
+    public void launch(ObjectBase, Vector3, Vector3, float, string);
+    // …ammunition handling…
+}
+```
+
+One container is one cell. `_hatches` holds that cell's hatch GameObjects, so a container with four
+hatches is a four-lid box launcher; `openHatches()` moves them all, which is the correct unit of
+"an individual silo".
+
+## Exact behaviour, read from the IL
+
+The method bodies settle the details that matter for a manual control:
+
+```csharp
+bool WeaponContainer.openHatches()          // mirror image for closeHatches()
+{
+    if (_openAnimation == null) return false;        // no animation -> nothing can happen
+    if (_areHatchesOpen) { _areHatchesOpen = true; return false; }   // already open
+    if (_playOpenAnimation) return false;            // already running
+    _openAnimation.playAnim(null);
+    if (_hatchSoundClip != null) { _audioSource.clip = _hatchSoundClip;
+                                   _audioSource.Stop(); _audioSource.Play(); }
+    _playOpenAnimation = true;
+    return true;
+}
+
+void WeaponContainer.update()               // runs every frame
+{
+    if (_playOpenAnimation) {
+        ToggleWeaponsVisibility(true);      // missiles become visible as the lid opens
+        if (!_openAnimation.update()) {     // animation finished
+            _playOpenAnimation = false;
+            _areHatchesOpen = true;
+        }
+    }
+    if (_playCloseAnimation) { /* mirror: hides weapons, clears _playCloseAnimation */ }
+}
+```
+
+Consequences the mod accounts for:
+
+* **The bool return is not the state.** It means "started something"; opening an already-open cell
+  returns `false`. Success is judged by `_areHatchesOpen`, `_playOpenAnimation` and
+  `_playCloseAnimation`, never by the return value alone.
+* **`_areHatchesOpen` only becomes `true` when the animation finishes** (or on the already-open
+  early return), so "open or opening" is `_areHatchesOpen || _playOpenAnimation`. The menu uses
+  that, minus `_playCloseAnimation`, which makes a second click during a close start opening again
+  instead of stopping half way.
+* **No animation, no hatch.** A container with hatch models but a null `_openAnimation` can never
+  move, so those cells are hidden and reported rather than silently ignored.
+* **`_triggerCloseAnimation` is the pending auto-close** the launch sequence parks on a cell;
+  a manual open clears it, otherwise the hatch shuts again on the next update.
+* **`WeaponSystem.closeSystem(float)` stores its argument into `_closeStartDelay`** — it is a delay
+  in seconds, so `0f` closes immediately. `openSystem()` refuses while a load, unload or close
+  animation is playing, and requires `_openSystemAnimation`.
+
+## `SeaPower.WeaponSystem` and its subclasses — one mount
+
+```csharp
+class WeaponSystem : SeaPower.BaseSystem
+{
+    public WeaponParameters _vwp;
+    protected HatchesState _hatchesState;        // protected: not readable from a mod
+    public List<WeaponContainer> _containers;
+    public List<WeaponBase> _launchedWeapons;
+    public bool _isReloading;
+    public bool _executingEngageTask;
+    public bool _isOffline;
+    public bool openSystem();
+    public void closeSystem(float);
+    public void OnUpdate();
+}
+
+class WeaponSystemLauncher : WeaponSystem
+{
+    public bool openHatches(int);          // mount-wide, argument meaning undocumented
+    public void closeHatches(int, float);
+    private List<int> _containersToClose;
+}
+
+class BaseSystem
+{
+    public ObjectCodeAnimation _openSystemAnimation;
+    public ObjectCodeAnimation _closeSystemAnimation;
+}
+```
+
+`WeaponSystemGun` and `WeaponSystemCIWS` derive from `WeaponSystem` too, and their containers
+normally have no hatches — hence `IncludeGuns` is off by default.
+
+The launcher's `openHatches(int)` / `closeHatches(int, float)` were deliberately **not** used: their
+integer argument is not documented, and looping `WeaponContainer.openHatches()` gives exact per-cell
+control with no ambiguity.
+
+## `SeaPower.WeaponParameters` (`WeaponSystem._vwp`) — what the INI set up
+
+```csharp
+public string _sectionName, _systemName, _moduleName;
+public string _openSystemAnimation;       // name of the code animation, from the INI
+public string _closeSystemAnimation;
+public int _numberOfHatchesPerContainers; // hatches per cell, from the INI
+public GameObject _mountObject;
+public WeaponMount _mount;
+public GameObject _containerBaseObject;
+public bool _areContainersRotatable, _areContainersJoinedTogether;
+```
+
+So the INI does configure hatches after all — `_numberOfHatchesPerContainers` and the
+`AssociatedMagazine`-style open/close animation names — but only as *data*; the runtime logic lives
+in `WeaponContainer`.
+
+## Related enums
+
+```csharp
+enum HatchesState { HatchesOpen, HatchesClosed, OpeningHatches, ClosingHatches }
+enum EngageState  { …, OpeningHatches, ClosingHatches, … }
+```
+
+`EngageState.OpeningHatches` explains the `TargetTooFarToOpenSystem` result other mods report: a
+launch is refused when there is not enough time to open the system first. Interesting for a future
+option ("open ahead of the order"), not needed for manual control.
+
+## The menu surface (also verified)
+
+| Member | Signature |
+|---|---|
+| `SeapowerUI.ViewModels.ObjectBaseViewModel.GetContextMenuItems` | `TrulyObservableCollection<ContextMenuItem> GetContextMenuItems()` — no parameters |
+| `ObjectBaseViewModel._objectBase` | `public ObjectBase` |
+| `ContextMenuItem..ctor` | `(string label = null, TrulyObservableCollection<ContextMenuItem> items = null, ICommand command = null, ReadOnlyReactiveProperty<bool> enabled = null, ReadOnlyReactiveProperty<bool> isChecked = null, string tooltip = null, …)` — **every** parameter optional |
+| `ContextMenuItem..ctor` | `(string labelSection, string labelKey, …)` — first two required |
+| `SeaPower.DelegateCommand..ctor` | `(Action<object>)` |
+| `SeaPower.LanguageResourceHandler.getText` | `(string section, string key, bool logError = …, bool verboseError = …)` |
+| `SeaPower.Globals._playerTaskforce` | `public Taskforce` |
+| `SeaPower.FileManager.Directories` | `TrulyObservableCollection<SearchDirectory>` with `IsChecked`, `DirectoryInfo` |
+
+Because both `ContextMenuItem` constructors have only optional parameters, positional calls are
+ambiguous, so the mod uses named arguments everywhere.
+
+## How this was read
+
+No game, compiler or packager involved: a .NET assembly is a PE file whose metadata tables list
+every type, field, method, parameter name and `[opt]` flag. `tools/dump-game-api.ps1` produces the
+same information on a Windows machine, and `tools/read-metadata.py` reads it without Windows at all.

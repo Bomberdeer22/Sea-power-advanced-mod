@@ -1,6 +1,5 @@
 using System;
 using System.Collections.Generic;
-using System.Reflection;
 using HarmonyLib;
 using SeaPower;
 using SeaPowerAdvanced.Diagnostics;
@@ -17,49 +16,57 @@ namespace SeaPowerAdvanced.Menu;
 /// <code>
 /// Orders
 ///   Weapon hatches
-///     Mk 41 VLS (32)
-///       Cell 1   [x]
+///     Mk 41 VLS  (32)
+///       Cell 1  [x]
 ///       ...
 ///       Open all cells / Close all cells
-///     Mk 141 Harpoon (4)
-///       ...
+///     Mk 141 Harpoon
+///       Hatch
 ///     Open all hatches / Close all hatches
-///     Dump hatch data for this ship
+///     Log hatch report
 /// </code>
 ///
-/// The list is rebuilt every time the menu is built, so it always matches the selected unit.
+/// The menu is rebuilt from live game state every time it opens, so the check marks always match
+/// the actual hatches — including ones the game opened itself while firing.
+///
+/// Every <see cref="ContextMenuItem"/> is constructed with named arguments: the type has two
+/// constructors whose parameters are all optional, so positional calls are ambiguous.
 /// </summary>
 internal static class HatchMenu
 {
-    private const string MenuLabel = "Weapon hatches";
+    internal const string MenuLabel = "Weapon hatches";
 
     internal static void Install(Harmony harmony)
     {
-        MethodInfo? target = AccessTools.Method(typeof(ObjectBaseViewModel), "GetContextMenuItems");
-        if (target == null)
+        try
         {
-            ModLog.Warn("ObjectBaseViewModel.GetContextMenuItems was not found; the hatch menu is unavailable.");
-            return;
+            harmony.Patch(
+                AccessTools.Method(typeof(ObjectBaseViewModel), nameof(ObjectBaseViewModel.GetContextMenuItems)),
+                postfix: new HarmonyMethod(typeof(HatchMenu), nameof(Postfix)));
+            ModLog.Info("Hatch menu installed.");
         }
-
-        harmony.Patch(target, postfix: new HarmonyMethod(typeof(HatchMenu), nameof(Postfix)));
-        ModLog.Info("Hatch menu installed.");
+        catch (Exception error)
+        {
+            ModLog.Error("Could not patch the context menu; hatch control is unavailable", error);
+        }
     }
 
-    private static void Postfix(ObjectBase ____objectBase, TrulyObservableCollection<ContextMenuItem> __result)
+    private static void Postfix(ObjectBaseViewModel __instance, TrulyObservableCollection<ContextMenuItem> __result)
     {
         try
         {
-            if (!ModSettings.Enabled || ____objectBase == null || __result == null) return;
-            if (!IsControllable(____objectBase)) return;
+            if (!ModSettings.Enabled || __result == null) return;
 
-            List<HatchGroup> groups = HatchBay.Read(____objectBase);
+            ObjectBase? unit = __instance?._objectBase;
+            if (unit == null || unit.IsDestroyed || !IsControllable(unit)) return;
+
+            List<HatchGroup> groups = HatchBay.Read(unit);
             if (groups.Count == 0) return;
 
             ContextMenuItem? orders = FindOrders(__result);
             if (orders?.Items == null) return;
 
-            orders.Items.Insert(0, Build(____objectBase, groups));
+            orders.Items.Insert(0, Build(unit, groups));
         }
         catch (Exception error)
         {
@@ -67,12 +74,8 @@ internal static class HatchMenu
         }
     }
 
-    private static bool IsControllable(ObjectBase unit)
-    {
-        if (unit == null || unit.IsDestroyed) return false;
-        bool playerUnit = ReferenceEquals(unit._taskforce, Globals._playerTaskforce);
-        return playerUnit || ModSettings.AllowEnemyUnits;
-    }
+    private static bool IsControllable(ObjectBase unit) =>
+        ReferenceEquals(unit._taskforce, Globals._playerTaskforce) || ModSettings.AllowEnemyUnits;
 
     private static ContextMenuItem? FindOrders(IEnumerable<ContextMenuItem> roots)
     {
@@ -82,8 +85,8 @@ internal static class HatchMenu
 
         foreach (ContextMenuItem item in roots)
         {
-            if (item?.Items != null && string.Equals(item.Label as string, label, StringComparison.Ordinal))
-                return item;
+            if (item?.Items == null) continue;
+            if (string.Equals(item.Label as string, label, StringComparison.Ordinal)) return item;
         }
         return null;
     }
@@ -94,57 +97,78 @@ internal static class HatchMenu
 
         foreach (HatchGroup group in groups) items.Add(BuildGroup(unit, group));
 
-        items.Add(new ContextMenuItem("Open all hatches", null,
-            new DelegateCommand((object _) => HatchControl.ApplyAll(unit, groups, true))));
-        items.Add(new ContextMenuItem("Close all hatches", null,
-            new DelegateCommand((object _) => HatchControl.ApplyAll(unit, groups, false))));
+        items.Add(Action("Open all hatches", "Open every hatch on this ship without firing.",
+            _ => HatchControl.SetAll(unit, groups, true)));
+        items.Add(Action("Close all hatches", "Close every hatch on this ship.",
+            _ => HatchControl.SetAll(unit, groups, false)));
 
         if (ModSettings.ShowDiagnostics)
         {
-            items.Add(new ContextMenuItem("Dump hatch data for this ship", null,
-                new DelegateCommand((object _) => UnitDump.Write(unit))));
+            items.Add(Action("Log hatch report", "Write this ship's hatch data to hatch-report.txt in the mod folder.",
+                _ => ShipReport.Write(unit, groups)));
         }
 
-        return new ContextMenuItem(MenuLabel, items);
+        return new ContextMenuItem(
+            label: MenuLabel,
+            items: items,
+            tooltip: "Open or close silo hatches, launcher covers and torpedo tube shutters without launching.");
     }
 
     private static ContextMenuItem BuildGroup(ObjectBase unit, HatchGroup group)
     {
         var items = new TrulyObservableCollection<ContextMenuItem>();
 
-        if (group.HasCells)
+        if (group.HasHatches)
         {
             for (int index = 0; index < group.Cells.Count; index++)
             {
                 int cell = index;
-                bool open = HatchState.IsOpen(HatchState.CellKey(unit, group, cell));
-                items.Add(new ContextMenuItem(HatchBay.CellLabel(group, cell), Check(open),
-                    new DelegateCommand((object _) => Toggle(unit, group, cell))));
+                if (!HatchControl.HasHatches(group.Cells[cell])) continue;
+
+                items.Add(new ContextMenuItem(
+                    label: HatchBay.CellLabel(group, cell) + HatchBay.CellDetail(group, cell),
+                    items: null,
+                    command: new DelegateCommand(_ => ToggleCell(unit, group, cell)),
+                    isChecked: Check(HatchControl.IsOpen(group.Cells[cell]))));
             }
 
-            items.Add(new ContextMenuItem("Open all cells", null,
-                new DelegateCommand((object _) => HatchControl.ApplyAll(unit, new[] { group }, true))));
-            items.Add(new ContextMenuItem("Close all cells", null,
-                new DelegateCommand((object _) => HatchControl.ApplyAll(unit, new[] { group }, false))));
+            items.Add(Action("Open all cells", "Open every cell of this mount.",
+                _ => LogSetGroup(unit, group, true)));
+            items.Add(Action("Close all cells", "Close every cell of this mount.",
+                _ => LogSetGroup(unit, group, false)));
         }
         else
         {
-            // Fixed launchers and guns: one cover over the whole mount.
-            items.Add(new ContextMenuItem("Open", null,
-                new DelegateCommand((object _) => HatchControl.ApplyAll(unit, new[] { group }, true))));
-            items.Add(new ContextMenuItem("Close", null,
-                new DelegateCommand((object _) => HatchControl.ApplyAll(unit, new[] { group }, false))));
+            items.Add(Action("Open cover", "Open this mount's cover without launching.",
+                _ => LogSetGroup(unit, group, true)));
+            items.Add(Action("Close cover", "Close this mount's cover.",
+                _ => LogSetGroup(unit, group, false)));
         }
 
-        return new ContextMenuItem(group.Label, items);
+        return new ContextMenuItem(
+            label: group.Label,
+            items: items,
+            tooltip: group.HatchCount + " hatch(es) on " + group.Cells.Count + " cell(s)");
     }
 
-    private static void Toggle(ObjectBase unit, HatchGroup group, int cell)
+    private static void ToggleCell(ObjectBase unit, HatchGroup group, int cell)
     {
-        string key = HatchState.CellKey(unit, group, cell);
-        HatchControl.ApplyCell(unit, group, cell, !HatchState.IsOpen(key));
+        bool open = !HatchControl.IsOpen(group.Cells[cell]);
+        HatchControl.SetCell(unit, group, cell, open);
     }
 
-    private static ReadOnlyReactiveProperty<bool> Check(bool value) =>
-        new ReactiveProperty<bool>(value).ToReadOnlyReactiveProperty();
+    private static void LogSetGroup(ObjectBase unit, HatchGroup group, bool open)
+    {
+        bool changed = HatchControl.SetGroup(group, open, out string report);
+        string message = $"{(open ? "Open" : "Close")} {group.Name} on {HatchControl.UnitName(unit)}: {report}";
+        if (changed) ModLog.Info(message);
+        else ModLog.Warn(message);
+    }
+
+    private static ContextMenuItem Action(string label, string tooltip, Action<object> action) =>
+        new ContextMenuItem(label: label, items: null, command: new DelegateCommand(action), tooltip: tooltip);
+
+    /// <summary>Snapshot of a cell's real state, for the check mark next to the entry.</summary>
+    private static ReadOnlyReactiveProperty<bool> Check(bool open) =>
+        new ReactiveProperty<bool>(open).ToReadOnlyReactiveProperty();
 }

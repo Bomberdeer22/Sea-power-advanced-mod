@@ -5,8 +5,8 @@
 
 .DESCRIPTION
   Seapower-Scripts.dll is a normal .NET assembly, so its type, field and method names can be listed
-  without the game, a compiler or any extra tooling. The result (game-api.txt) is what makes it
-  possible to point the mod's hatch code at the real members instead of guessing.
+  without the game, a compiler or any extra tooling. The result (game-api.txt) is how the members
+  the mod relies on are checked against a new game version.
 
   By default only types that look relevant are dumped (hatch, silo, cover, container, launcher,
   weapon, animation, blueprint). Use -Everything for all types; the file gets big.

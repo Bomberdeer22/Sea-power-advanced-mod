@@ -4,78 +4,111 @@ using SeaPower;
 
 namespace SeaPowerAdvanced.Hatches;
 
-/// <summary>One weapon system that can be opened: a VLS, a box launcher, a torpedo tube nest.</summary>
+/// <summary>
+/// One openable weapon system on a ship: a VLS, a box launcher, a torpedo tube nest.
+///
+/// The game models this as a <see cref="WeaponSystem"/> whose <see cref="WeaponSystem._containers"/>
+/// are the individual cells. Each <see cref="WeaponContainer"/> owns the hatch GameObjects for its
+/// cell (<see cref="WeaponContainer._hatches"/>) and can open and close them itself.
+/// </summary>
 internal sealed class HatchGroup
 {
-    internal HatchGroup(object system, int index, string name, string kind, int duplicateSuffix, List<object> cells)
+    internal HatchGroup(WeaponSystem system, int index, string name, string kind, int duplicateSuffix)
     {
-        System = system;
+        Weapon = system;
         Index = index;
         Name = name;
         Kind = kind;
         DuplicateSuffix = duplicateSuffix;
-        Cells = cells;
+        Cells = system._containers ?? new List<WeaponContainer>();
     }
 
-    /// <summary>The game's weapon system object (a WeaponSystem, WeaponSystemLauncher, ...).</summary>
-    internal object System { get; }
+    internal WeaponSystem Weapon { get; }
 
-    /// <summary>Position in <c>_obp._weaponSystems</c>. Stable for the life of the ship, used as a state key.</summary>
+    /// <summary>Position in <c>_obp._weaponSystems</c>; stable for the life of the ship.</summary>
     internal int Index { get; }
 
     internal string Name { get; }
     internal string Kind { get; }
     internal int DuplicateSuffix { get; }
 
-    /// <summary>The game's containers (WeaponContainer): one per silo cell, tube or barrel.</summary>
-    internal List<object> Cells { get; }
+    /// <summary>The cells (silo hatches, tubes, barrels) of this mount.</summary>
+    internal IReadOnlyList<WeaponContainer> Cells { get; }
 
-    internal bool HasCells => Cells.Count > 0;
+    internal int HatchCount
+    {
+        get
+        {
+            int total = 0;
+            foreach (WeaponContainer cell in Cells)
+            {
+                if (cell?._hatches != null) total += cell._hatches.Count;
+            }
+            return total;
+        }
+    }
+
+    /// <summary>True when at least one cell has a hatch the player can drive.</summary>
+    internal bool HasHatches
+    {
+        get
+        {
+            foreach (WeaponContainer cell in Cells)
+            {
+                if (HatchControl.HasHatches(cell)) return true;
+            }
+            return false;
+        }
+    }
+
+    /// <summary>
+    /// A mount with no per-cell hatches but a mount-level cover: rail launchers such as the
+    /// Mk 141 or a box launcher whose single lid opens through the system animation.
+    /// </summary>
+    internal bool HasMountCover => !HasHatches && Weapon._openSystemAnimation != null;
 
     internal string Label
     {
         get
         {
             string suffix = DuplicateSuffix > 1 ? " #" + DuplicateSuffix : string.Empty;
-            return HasCells ? Name + suffix + "  (" + Cells.Count + ")" : Name + suffix;
+            int cells = Cells.Count;
+            if (cells > 1) return Name + suffix + "  (" + cells + ")";
+            return Name + suffix;
         }
     }
 }
 
-/// <summary>Reads the openable systems of a unit. Read-only: all reflection lives here.</summary>
+/// <summary>Reads the openable systems of a unit. Read-only; never changes game state.</summary>
 internal static class HatchBay
 {
     internal static List<HatchGroup> Read(ObjectBase unit)
     {
         var groups = new List<HatchGroup>();
-        if (unit == null) return groups;
+        ObjectBaseParameters? blueprint = unit?._obp;
+        List<WeaponSystem>? systems = blueprint?._weaponSystems;
+        if (systems == null) return groups;
 
-        object? blueprint = R.Get(unit, "_obp");
-        List<object> systems = R.Items(R.Get(blueprint, "_weaponSystems"));
         var nameCounts = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
 
         for (int index = 0; index < systems.Count; index++)
         {
-            object system = systems[index];
+            WeaponSystem? system = systems[index];
+            if (system == null) continue;
+
             try
             {
-                Type type = system.GetType();
-                bool launcher = type.Name.IndexOf("Launcher", StringComparison.OrdinalIgnoreCase) >= 0;
-                List<object> cells = R.Items(R.Get(system, "_containers"));
+                string name = NameOf(system);
+                var group = new HatchGroup(system, index, name, KindOf(system), 1);
 
-                // Missile/torpedo launchers and anything with cells are always interesting.
-                // Guns only when the player asks for them: a gun barrel has no silo hatch.
-                if (!launcher && cells.Count == 0 && !ModSettings.IncludeGuns) continue;
-
-                string name = ReadSystemName(system) ?? type.Name;
-                string kind = launcher ? "launcher"
-                    : type.Name.IndexOf("Gun", StringComparison.OrdinalIgnoreCase) >= 0 ? "gun"
-                    : "other";
+                // Keep anything with hatches, anything that can open a mount cover, and (only when
+                // asked for) plain guns and CIWS, which have neither.
+                if (!group.HasHatches && !group.HasMountCover && !ModSettings.IncludeGuns) continue;
 
                 nameCounts.TryGetValue(name, out int seen);
                 nameCounts[name] = ++seen;
 
-                groups.Add(new HatchGroup(system, index, name, kind, seen, cells));
+                groups.Add(new HatchGroup(system, index, name, group.Kind, seen));
             }
             catch (Exception error)
             {
@@ -86,28 +119,40 @@ internal static class HatchBay
         return groups;
     }
 
-    /// <summary>The display name the game uses for the mount, e.g. "Mk 41 VLS" or "Mk 141 Harpoon".</summary>
-    private static string? ReadSystemName(object system)
+    /// <summary>The display name the game uses for the mount, e.g. "Mk 41 VLS".</summary>
+    internal static string NameOf(WeaponSystem system)
     {
-        object? vwp = R.Get(system, "_vwp");
-        foreach (string member in new[] { "_systemName", "systemName", "_name", "Name" })
-        {
-            if (R.Get(vwp, member) is string fromMount && fromMount.Trim().Length > 0) return fromMount.Trim();
-            if (R.Get(system, member) is string fromSystem && fromSystem.Trim().Length > 0) return fromSystem.Trim();
-        }
-        return null;
+        string? name = system._vwp?._systemName;
+        if (!string.IsNullOrWhiteSpace(name)) return name!.Trim();
+
+        name = system._vwp?._moduleName;
+        if (!string.IsNullOrWhiteSpace(name)) return name!.Trim();
+
+        return system.GetType().Name;
     }
 
-    /// <summary>Best label for a single cell: the game's own name when it has one, otherwise "Cell N".</summary>
-    internal static string CellLabel(HatchGroup group, int cellIndex)
+    internal static string KindOf(WeaponSystem system) => system switch
     {
-        object cell = group.Cells[cellIndex];
-        foreach (string member in new[] { "_name", "_cellName", "name", "_id" })
-        {
-            if (R.Get(cell, member) is string text && text.Trim().Length > 0) return text.Trim();
-        }
+        WeaponSystemLauncher => "launcher",
+        WeaponSystemGun => "gun",
+        WeaponSystemCIWS => "ciws",
+        _ => "system"
+    };
 
-        if (group.Cells.Count == 1) return "Open / close";
-        return "Cell " + (cellIndex + 1);
+    /// <summary>Label for one cell: the hatch count when a cell holds several lids.</summary>
+    internal static string CellLabel(HatchGroup group, int index)
+    {
+        WeaponContainer cell = group.Cells[index];
+        int number = cell._containerIndex >= 0 ? cell._containerIndex + 1 : index + 1;
+
+        if (group.Cells.Count == 1) return "Hatch";
+        return "Cell " + number;
+    }
+
+    internal static string CellDetail(HatchGroup group, int index)
+    {
+        WeaponContainer cell = group.Cells[index];
+        int hatches = cell._hatches?.Count ?? 0;
+        return hatches > 1 ? "  (" + hatches + " hatches)" : string.Empty;
     }
 }
