@@ -1,0 +1,43 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>netstandard2.1</TargetFramework>
+    <AssemblyName>SeaPowerAdvanced</AssemblyName>
+    <RootNamespace>SeaPowerAdvanced</RootNamespace>
+    <LangVersion>latest</LangVersion>
+    <Nullable>enable</Nullable>
+    <AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
+    <GenerateDependencyFile>false</GenerateDependencyFile>
+    <DebugType>none</DebugType>
+    <Version>0.1.0</Version>
+    <AssemblyVersion>0.1.0.0</AssemblyVersion>
+    <FindDependenciesOfExternallyResolvedReferences>false</FindDependenciesOfExternallyResolvedReferences>
+    <!-- Keep warnings visible but non-fatal: a first build on a new game version should not stop. -->
+    <TreatWarningsAsErrors>false</TreatWarningsAsErrors>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Reference Include="AnchorChain" HintPath="$(AnchorChainDir)\AnchorChain.dll" Private="false" ExternallyResolved="true" />
+    <Reference Include="BepInEx" HintPath="$(SeaPowerDir)\BepInEx\core\BepInEx.dll" Private="false" ExternallyResolved="true" />
+    <Reference Include="0Harmony" HintPath="$(SeaPowerDir)\BepInEx\core\0Harmony.dll" Private="false" ExternallyResolved="true" />
+    <Reference Include="Seapower-Scripts" HintPath="$(ManagedDir)\Seapower-Scripts.dll" Private="false" ExternallyResolved="true" />
+    <Reference Include="UniRx" HintPath="$(ManagedDir)\UniRx.dll" Private="false" ExternallyResolved="true" />
+    <Reference Include="UnityEngine.CoreModule" HintPath="$(ManagedDir)\UnityEngine.CoreModule.dll" Private="false" ExternallyResolved="true" />
+
+    <!-- Optional: only needed if a game version moves the UI collection types out of Seapower-Scripts. -->
+    <Reference Include="Libraries" HintPath="$(ManagedDir)\Libraries.dll" Private="false" ExternallyResolved="true"
+               Condition="Exists('$(ManagedDir)\Libraries.dll')" />
+    <Reference Include="Noesis.NoesisGUI" HintPath="$(ManagedDir)\Noesis.NoesisGUI.dll" Private="false" ExternallyResolved="true"
+               Condition="Exists('$(ManagedDir)\Noesis.NoesisGUI.dll')" />
+  </ItemGroup>
+
+  <Target Name="CheckGameReferences" BeforeTargets="ResolveReferences">
+    <Error Condition="!Exists('$(ManagedDir)\Seapower-Scripts.dll')"
+           Text="Sea Power not found. Set SeaPowerDir in Directory.Build.local.props (see Directory.Build.local.props.example)." />
+    <Error Condition="!Exists('$(SeaPowerDir)\BepInEx\core\0Harmony.dll')"
+           Text="BepInEx not found under $(SeaPowerDir). Install BepInEx/Anchor Chain first." />
+    <Error Condition="!Exists('$(AnchorChainDir)\AnchorChain.dll')"
+           Text="AnchorChain.dll not found. Set AnchorChainDir in Directory.Build.local.props." />
+  </Target>
+
+</Project>

@@ -1,0 +1,13 @@
+# Build output
+bin/
+obj/
+dist/
+
+# Local machine paths
+Directory.Build.local.props
+
+# IDE
+.vs/
+.idea/
+*.user
+*.suo
