@@ -1,5 +1,18 @@
 # Changelog
 
+## 0.5.1 — reference UnityEngine
+
+Build fix for 0.5.0: `BaseUnityPlugin` derives from `MonoBehaviour`, which lives in the legacy
+monolithic `UnityEngine.dll`, not in `UnityEngine.CoreModule.dll`. Only the latter was referenced, so
+the BepInEx entry point failed with `CS0012: The type 'MonoBehaviour' is defined in an assembly that
+is not referenced`.
+
+- Added the `UnityEngine` reference (game's `Managed\UnityEngine.dll`), plus a build-time check with
+  a readable message if it is missing.
+- Verified against BepInEx 5.4.23.2's source that `BaseUnityPlugin : MonoBehaviour`, that it declares
+  no `Awake` (so this plugin's `Awake` is not a hiding override), and that it requires `[BepInPlugin]`
+  on the class, which is present.
+
 ## 0.5.0 — load as a BepInEx plugin
 
 Confirmed from the user's game log: AnchorChain logged `Loaded assembly SeaPowerAdvanced,
