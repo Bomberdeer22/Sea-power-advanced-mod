@@ -5,11 +5,13 @@ using SeaPower;
 namespace SeaPowerAdvanced.Hatches;
 
 /// <summary>
-/// One openable weapon system on a ship: a VLS, a box launcher, a torpedo tube nest.
+/// One weapon mount on a ship that could have hatches: a VLS, a box launcher, a torpedo tube nest.
 ///
-/// The game models this as a <see cref="WeaponSystem"/> whose <see cref="WeaponSystem._containers"/>
-/// are the individual cells. Each <see cref="WeaponContainer"/> owns the hatch GameObjects for its
-/// cell (<see cref="WeaponContainer._hatches"/>) and can open and close them itself.
+/// A mount is a <see cref="WeaponSystem"/> whose <see cref="WeaponSystem._containers"/> are its
+/// cells. Whether a mount can actually open depends on the ship's data: the game builds the
+/// per-cell animations and hatch models in <see cref="WeaponSystemLauncher"/>'s constructor, from
+/// the animation names in the unit's INI. Mounts whose data has none are still listed, so the menu
+/// always reflects reality instead of silently disappearing.
 /// </summary>
 internal sealed class HatchGroup
 {
@@ -32,7 +34,7 @@ internal sealed class HatchGroup
     internal string Kind { get; }
     internal int DuplicateSuffix { get; }
 
-    /// <summary>The cells (silo hatches, tubes, barrels) of this mount.</summary>
+    /// <summary>The cells (silo tubes, launch boxes, barrels) of this mount.</summary>
     internal IReadOnlyList<WeaponContainer> Cells { get; }
 
     internal int HatchCount
@@ -48,41 +50,76 @@ internal sealed class HatchGroup
         }
     }
 
-    /// <summary>True when at least one cell has a hatch the player can drive.</summary>
-    internal bool HasHatches
+    internal int AnimatedCells
     {
         get
         {
+            int total = 0;
             foreach (WeaponContainer cell in Cells)
             {
-                if (HatchControl.HasHatches(cell)) return true;
+                if (cell != null && (cell._openAnimation != null || cell._closeAnimation != null)) total++;
             }
-            return false;
+            return total;
         }
     }
 
-    /// <summary>
-    /// A mount with no per-cell hatches but a mount-level cover: rail launchers such as the
-    /// Mk 141 or a box launcher whose single lid opens through the system animation.
-    /// </summary>
-    internal bool HasMountCover => !HasHatches && Weapon._openSystemAnimation != null;
+    internal int OpenableCells
+    {
+        get
+        {
+            int total = 0;
+            foreach (WeaponContainer cell in Cells)
+            {
+                if (HatchControl.HasHatches(cell)) total++;
+            }
+            return total;
+        }
+    }
+
+    /// <summary>True when at least one cell has a hatch animation or hatch model to drive.</summary>
+    internal bool HasHatchData => OpenableCells > 0;
+
+    /// <summary>A mount-level cover, for launchers whose single lid covers every cell.</summary>
+    internal bool HasMountCover => Weapon._openSystemAnimation != null;
+
+    /// <summary>Anything can be made to move on this mount.</summary>
+    internal bool CanDrive => HasHatchData || HasMountCover;
+
+    internal bool IsLauncher => Kind == "launcher";
 
     internal string Label
     {
         get
         {
             string suffix = DuplicateSuffix > 1 ? " #" + DuplicateSuffix : string.Empty;
-            int cells = Cells.Count;
-            if (cells > 1) return Name + suffix + "  (" + cells + ")";
-            return Name + suffix;
+            string count = Cells.Count > 1 ? "  (" + Cells.Count + ")" : string.Empty;
+            return Name + suffix + count;
+        }
+    }
+
+    /// <summary>Why this mount is listed but cannot open, for the menu and the log.</summary>
+    internal string Status
+    {
+        get
+        {
+            if (HasHatchData) return HatchCount > 0
+                ? HatchCount + " hatch model(s) on " + AnimatedCells + "/" + Cells.Count + " cell(s)"
+                : AnimatedCells + "/" + Cells.Count + " cell(s) animated";
+            if (HasMountCover) return "mount cover only";
+            return "no hatch data";
         }
     }
 }
 
-/// <summary>Reads the openable systems of a unit. Read-only; never changes game state.</summary>
+/// <summary>Reads the mounts of a unit. Read-only; never changes game state.</summary>
 internal static class HatchBay
 {
-    internal static List<HatchGroup> Read(ObjectBase unit)
+    /// <summary>
+    /// Mounts the player can see in the menu: every launcher (a silo or tube mount, whether or not
+    /// its data has hatches), anything else that does have hatch data, and — only when asked for —
+    /// plain guns and CIWS.
+    /// </summary>
+    internal static List<HatchGroup> Read(ObjectBase? unit)
     {
         var groups = new List<HatchGroup>();
         ObjectBaseParameters? blueprint = unit?._obp;
@@ -98,17 +135,13 @@ internal static class HatchBay
 
             try
             {
-                string name = NameOf(system);
-                var group = new HatchGroup(system, index, name, KindOf(system), 1);
+                var probe = new HatchGroup(system, index, NameOf(system), KindOf(system), 1);
+                if (!probe.IsLauncher && !probe.HasHatchData && !ModSettings.IncludeGuns) continue;
 
-                // Keep anything with hatches, anything that can open a mount cover, and (only when
-                // asked for) plain guns and CIWS, which have neither.
-                if (!group.HasHatches && !group.HasMountCover && !ModSettings.IncludeGuns) continue;
+                nameCounts.TryGetValue(probe.Name, out int seen);
+                nameCounts[probe.Name] = ++seen;
 
-                nameCounts.TryGetValue(name, out int seen);
-                nameCounts[name] = ++seen;
-
-                groups.Add(new HatchGroup(system, index, name, group.Kind, seen));
+                groups.Add(new HatchGroup(system, index, probe.Name, probe.Kind, seen));
             }
             catch (Exception error)
             {
@@ -119,7 +152,22 @@ internal static class HatchBay
         return groups;
     }
 
-    /// <summary>The display name the game uses for the mount, e.g. "Mk 41 VLS".</summary>
+    /// <summary>One-line summary of what a ship offered, for the log.</summary>
+    internal static string Summary(ObjectBase? unit, List<HatchGroup> groups)
+    {
+        int launchers = 0, driveable = 0, hatches = 0;
+        foreach (HatchGroup group in groups)
+        {
+            if (group.IsLauncher) launchers++;
+            if (group.CanDrive) driveable++;
+            hatches += group.HatchCount;
+        }
+
+        int systems = unit?._obp?._weaponSystems?.Count ?? 0;
+        return $"{systems} weapon system(s), {groups.Count} listed ({launchers} launcher(s)), "
+               + $"{driveable} with hatch control, {hatches} hatch model(s)";
+    }
+
     internal static string NameOf(WeaponSystem system)
     {
         string? name = system._vwp?._systemName;
@@ -139,20 +187,20 @@ internal static class HatchBay
         _ => "system"
     };
 
-    /// <summary>Label for one cell: the hatch count when a cell holds several lids.</summary>
     internal static string CellLabel(HatchGroup group, int index)
     {
         WeaponContainer cell = group.Cells[index];
         int number = cell._containerIndex >= 0 ? cell._containerIndex + 1 : index + 1;
-
-        if (group.Cells.Count == 1) return "Hatch";
-        return "Cell " + number;
+        return group.Cells.Count == 1 ? "Hatch" : "Cell " + number;
     }
 
     internal static string CellDetail(HatchGroup group, int index)
     {
         WeaponContainer cell = group.Cells[index];
         int hatches = cell._hatches?.Count ?? 0;
-        return hatches > 1 ? "  (" + hatches + " hatches)" : string.Empty;
+        bool animated = cell._openAnimation != null || cell._closeAnimation != null;
+        if (hatches > 1) return "  (" + hatches + " hatches)";
+        if (!animated && hatches == 0) return "  (no data)";
+        return string.Empty;
     }
 }

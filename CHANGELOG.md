@@ -1,5 +1,25 @@
 # Changelog
 
+## 0.3.0 — the menu shows up
+
+Reported: after installing and enabling, the Weapon hatches section never appeared. Cause: the
+mount filter required hatch data, and hatches are only built for launchers whose unit data declares
+them (in `WeaponSystemLauncher`'s constructor), so on many ships every mount was filtered out and the
+whole submenu was skipped.
+
+- Every launcher is now listed whether or not its data has hatches, and mounts without hatch data
+  say so in the label and tooltip instead of disappearing.
+- The submenu appears even on units with no mounts (`Menu/ShowWhenNoMounts`, default on), with a
+  report action, so "mod is running but this ship has nothing to open" is distinguishable from "mod
+  is not running".
+- If the localised Orders submenu cannot be identified, the menu is added at the top level and the
+  reason is logged, instead of failing silently.
+- Logs what it found per unit, once per distinct result: number of weapon systems, launchers, mounts
+  with hatch control and hatch models, plus a status line per mount.
+- Logs the package folder and the active settings at startup, to make activation problems obvious.
+- `hatch-report.txt` now records whether each cell has open/close animations, which is the usual
+  reason a hatch cannot move.
+
 ## 0.2.0 — real API
 
 The game's hatch code was located in `Seapower-Scripts.dll` (see `docs/hatch-api.md`), so the

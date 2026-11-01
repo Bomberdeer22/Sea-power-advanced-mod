@@ -27,10 +27,13 @@ namespace SeaPowerAdvanced.Menu;
 /// </code>
 ///
 /// The menu is rebuilt from live game state every time it opens, so the check marks always match
-/// the actual hatches — including ones the game opened itself while firing.
+/// the actual hatches. Mounts whose ship data has no hatch animation are listed and labelled rather
+/// than hidden, and if a ship has nothing at all the submenu still appears when
+/// <c>Menu/ShowWhenNoMounts</c> is on — during development that tells "mod is running but this ship
+/// has no hatch data" apart from "mod is not running".
 ///
-/// Every <see cref="ContextMenuItem"/> is constructed with named arguments: the type has two
-/// constructors whose parameters are all optional, so positional calls are ambiguous.
+/// Every <see cref="ContextMenuItem"/> is built with named arguments: the type has two constructors
+/// whose parameters are all optional, so positional calls are ambiguous.
 /// </summary>
 internal static class HatchMenu
 {
@@ -58,15 +61,28 @@ internal static class HatchMenu
             if (!ModSettings.Enabled || __result == null) return;
 
             ObjectBase? unit = __instance?._objectBase;
-            if (unit == null || unit.IsDestroyed || !IsControllable(unit)) return;
+            if (unit == null || unit.IsDestroyed) return;
+            if (!IsControllable(unit)) return;
 
             List<HatchGroup> groups = HatchBay.Read(unit);
-            if (groups.Count == 0) return;
+            MenuLog.Once(unit, groups, HatchBay.Summary(unit, groups));
+
+            if (groups.Count == 0 && !ModSettings.ShowWhenNoMounts) return;
+
+            ContextMenuItem menu = Build(unit, groups);
 
             ContextMenuItem? orders = FindOrders(__result);
-            if (orders?.Items == null) return;
+            if (orders?.Items != null)
+            {
+                orders.Items.Insert(0, menu);
+                return;
+            }
 
-            orders.Items.Insert(0, Build(unit, groups));
+            // The localised "Orders" entry could not be identified. Still show the feature rather
+            // than vanishing silently, and say so once.
+            ModLog.Warn("No Orders submenu found on " + HatchControl.UnitName(unit)
+                        + "; adding the hatch menu at the top level instead.");
+            __result.Insert(0, menu);
         }
         catch (Exception error)
         {
@@ -88,6 +104,19 @@ internal static class HatchMenu
             if (item?.Items == null) continue;
             if (string.Equals(item.Label as string, label, StringComparison.Ordinal)) return item;
         }
+
+        // Fall back to a case-insensitive match, then to any submenu whose label mentions orders.
+        foreach (ContextMenuItem item in roots)
+        {
+            if (item?.Items == null) continue;
+            if (string.Equals(item.Label as string, label, StringComparison.OrdinalIgnoreCase)) return item;
+        }
+        foreach (ContextMenuItem item in roots)
+        {
+            if (item?.Items == null) continue;
+            string? text = item.Label as string;
+            if (text != null && text.IndexOf("order", StringComparison.OrdinalIgnoreCase) >= 0) return item;
+        }
         return null;
     }
 
@@ -96,6 +125,15 @@ internal static class HatchMenu
         var items = new TrulyObservableCollection<ContextMenuItem>();
 
         foreach (HatchGroup group in groups) items.Add(BuildGroup(unit, group));
+
+        if (groups.Count == 0)
+        {
+            items.Add(Action("This ship has no launchers - click for a report",
+                "Writes the full weapon-mount list for this unit into LogOutput.log and hatch-report.txt.",
+                _ => ShipReport.Write(unit, groups)));
+            return new ContextMenuItem(label: MenuLabel, items: items,
+                tooltip: "Hatch control: no weapon mounts found on this unit.");
+        }
 
         items.Add(Action("Open all hatches", "Open every hatch on this ship without firing.",
             _ => HatchControl.SetAll(unit, groups, true)));
@@ -118,7 +156,7 @@ internal static class HatchMenu
     {
         var items = new TrulyObservableCollection<ContextMenuItem>();
 
-        if (group.HasHatches)
+        if (group.HasHatchData)
         {
             for (int index = 0; index < group.Cells.Count; index++)
             {
@@ -137,18 +175,25 @@ internal static class HatchMenu
             items.Add(Action("Close all cells", "Close every cell of this mount.",
                 _ => LogSetGroup(unit, group, false)));
         }
-        else
+        else if (group.HasMountCover)
         {
             items.Add(Action("Open cover", "Open this mount's cover without launching.",
                 _ => LogSetGroup(unit, group, true)));
             items.Add(Action("Close cover", "Close this mount's cover.",
                 _ => LogSetGroup(unit, group, false)));
         }
+        else
+        {
+            items.Add(Action("No hatch data in this ship's files",
+                "This mount has no hatch animation or hatch models in the unit's INI data. "
+                + "Click to write a report for it.",
+                _ => ShipReport.Write(unit, new List<HatchGroup> { group })));
+        }
 
         return new ContextMenuItem(
-            label: group.Label,
+            label: group.Label + (group.CanDrive ? string.Empty : "  -  no hatch data"),
             items: items,
-            tooltip: group.HatchCount + " hatch(es) on " + group.Cells.Count + " cell(s)");
+            tooltip: group.Status + " | " + group.Kind);
     }
 
     private static void ToggleCell(ObjectBase unit, HatchGroup group, int cell)
@@ -168,7 +213,6 @@ internal static class HatchMenu
     private static ContextMenuItem Action(string label, string tooltip, Action<object> action) =>
         new ContextMenuItem(label: label, items: null, command: new DelegateCommand(action), tooltip: tooltip);
 
-    /// <summary>Snapshot of a cell's real state, for the check mark next to the entry.</summary>
     private static ReadOnlyReactiveProperty<bool> Check(bool open) =>
         new ReactiveProperty<bool>(open).ToReadOnlyReactiveProperty();
 }

@@ -23,7 +23,11 @@ public sealed class Plugin : IAnchorChainMod
         try
         {
             ModLog.Info("Loading " + ModInfo.Name + " " + ModInfo.Version);
+            ModLog.Info("Package folder: " + ModFolders.Package);
             ModSettings.Bind();
+            ModLog.Info("Settings: enabled=" + ModSettings.Enabled
+                        + " includeGuns=" + ModSettings.IncludeGuns
+                        + " allowEnemyUnits=" + ModSettings.AllowEnemyUnits);
 
             if (!ModActivation.IsEnabled(ModFolders.Package))
             {

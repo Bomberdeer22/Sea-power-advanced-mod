@@ -27,6 +27,7 @@ internal static class ShipReport
             text.AppendLine("Class:    " + Safe(() => unit.ClassNameFull));
             text.AppendLine("When:     " + DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss"));
             text.AppendLine("Mounts:   " + groups.Count);
+            text.AppendLine("Summary:  " + HatchBay.Summary(unit, groups));
             text.AppendLine();
 
             foreach (HatchGroup group in groups)
@@ -44,6 +45,8 @@ internal static class ShipReport
                     if (cell == null) continue;
                     text.AppendLine($"   cell {index + 1}: index={cell._containerIndex}"
                                     + $" hatches={cell._hatches?.Count ?? 0}"
+                                    + $" anim={(cell._openAnimation != null ? "open" : "-")}"
+                                    + $"/{(cell._closeAnimation != null ? "close" : "-")}"
                                     + $" open={cell._areHatchesOpen}"
                                     + $" ammo={cell._initialAmmoCount}"
                                     + $" pendingClose={cell._triggerCloseAnimation}");

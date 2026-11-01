@@ -15,12 +15,14 @@ internal static class ModSettings
     private static ConfigEntry<bool>? includeGuns;
     private static ConfigEntry<bool>? allowEnemyUnits;
     private static ConfigEntry<bool>? showDiagnostics;
+    private static ConfigEntry<bool>? showWhenNoMounts;
     private static ConfigEntry<bool>? verboseLog;
 
     internal static bool Enabled => enabled?.Value ?? true;
     internal static bool IncludeGuns => includeGuns?.Value ?? false;
     internal static bool AllowEnemyUnits => allowEnemyUnits?.Value ?? false;
     internal static bool ShowDiagnostics => showDiagnostics?.Value ?? true;
+    internal static bool ShowWhenNoMounts => showWhenNoMounts?.Value ?? true;
     internal static bool VerboseLog => verboseLog?.Value ?? true;
 
     internal static void Bind()
@@ -41,6 +43,10 @@ internal static class ModSettings
 
             showDiagnostics = file.Bind("Menu", "ShowDiagnosticsItem", true,
                 "Add a 'Log hatch report' entry to the hatch menu.");
+
+            showWhenNoMounts = file.Bind("Menu", "ShowWhenNoMounts", true,
+                "Show the Weapon hatches entry even on units with no launchers, so it is obvious the "
+                + "mod is running. Set to false for a cleaner menu once everything works.");
 
             verboseLog = file.Bind("Diagnostics", "VerboseLog", true,
                 "Log every hatch action with the game method used and its result.");

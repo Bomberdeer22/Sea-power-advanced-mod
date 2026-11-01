@@ -80,8 +80,10 @@ own `openHatches()` does for a container. Individual lids inside one cell are no
   and closes what it needs and can override your last manual order. If a hatch you opened shuts by
   itself while the ship is firing or reloading, that is the game, not a bug. The check marks will
   show the outcome next time you open the menu.
-- **A mount with no hatch animation cannot be opened.** Some kitbashes and older models have no
-  hatch animation data on their containers; those cells never appear in the menu.
+- **A mount with no hatch animation cannot be opened.** Some ships and kitbashes have no hatch
+  animation data on their containers. Those mounts are still listed, marked `no hatch data` (their
+  tooltip says why), so an empty-looking feature is never mistaken for a broken install. Clicking
+  such an entry writes a report for it.
 - **Guns and CIWS are hidden by default** — they have no silo hatch. See settings below.
 
 ## Log hatch report
@@ -126,8 +128,9 @@ animation for it. Run **Log hatch report** and send the file.
 
 | What you see | What it means |
 |---|---|
-| No `Weapon hatches` entry at all | Not ticked, or the game was not restarted. Check the log first. |
-| Entry, but no mounts listed | That ship has no launchers (or only guns, with `IncludeGuns` off). |
+| No `Weapon hatches` entry at all | Not ticked, or the game was not restarted. Check `LogOutput.log` for `Hatch menu installed.` first. |
+| Entry says "This ship has no launchers" | That unit genuinely has no launcher mounts (or guns only, with `IncludeGuns` off). |
+| A mount says `no hatch data` | That ship's files define no hatch animation for the mount, so the game cannot open it. |
 | Cell click logs `cell has no open animation` | That cell's data cannot be opened in this game build. Note the ship class. |
 | Hatch opens, then shuts again | The game's launch/reload cycle took it back. Note what the ship was doing. |
 | Nothing in the log after clicking | The cell entry is a leftover from an older menu state — reopen the menu. |
