@@ -181,7 +181,7 @@ internal static class HatchControl
         if (unit == null) return "this unit";
         try
         {
-            string? display = unit.get_DisplayNameShort();
+            string? display = unit.DisplayNameShort;
             if (!string.IsNullOrWhiteSpace(display)) return display!.Trim();
             string? plain = unit.getName();
             if (!string.IsNullOrWhiteSpace(plain)) return plain!.Trim();

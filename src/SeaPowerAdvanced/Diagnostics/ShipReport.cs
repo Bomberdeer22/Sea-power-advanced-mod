@@ -24,7 +24,7 @@ internal static class ShipReport
 
             text.AppendLine("Sea Power Advanced " + ModInfo.Version + " - hatch report");
             text.AppendLine("Ship:     " + HatchControl.UnitName(unit));
-            text.AppendLine("Class:    " + Safe(unit.get_ClassNameFull));
+            text.AppendLine("Class:    " + Safe(() => unit.ClassNameFull));
             text.AppendLine("When:     " + DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss"));
             text.AppendLine("Mounts:   " + groups.Count);
             text.AppendLine();

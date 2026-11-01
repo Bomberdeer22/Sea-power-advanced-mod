@@ -79,7 +79,12 @@ if (-not (Test-Path $propsPath) -and [string]::IsNullOrWhiteSpace($env:SEAPOWER_
 }
 
 dotnet build $project -c $Configuration
-if ($LASTEXITCODE -ne 0) { throw "Build failed." }
+if ($LASTEXITCODE -ne 0) {
+    Write-Host ''
+    Write-Host 'Build failed - the CS#### lines above are the cause.' -ForegroundColor Red
+    Write-Host 'Send those lines on and it will be fixed.' -ForegroundColor Red
+    exit 1
+}
 
 $dist = Join-Path $root 'dist\SeaPowerAdvanced'
 New-Item -ItemType Directory -Force -Path $dist | Out-Null
@@ -90,10 +95,12 @@ Write-Host "Package ready: $dist"
 if ($Install) {
     if ([string]::IsNullOrWhiteSpace($SeaPowerDir)) { $SeaPowerDir = Get-ConfiguredGameDir }
     if ([string]::IsNullOrWhiteSpace($SeaPowerDir)) {
-        throw 'Set SeaPowerDir in Directory.Build.local.props, or pass -SeaPowerDir.'
+        Write-Host 'Set SeaPowerDir in Directory.Build.local.props, or pass -SeaPowerDir.' -ForegroundColor Red
+        exit 1
     }
     if (-not (Test-Path (Join-Path $SeaPowerDir 'Sea Power_Data\Managed'))) {
-        throw "SeaPowerDir does not look like a Sea Power folder: $SeaPowerDir"
+        Write-Host "SeaPowerDir does not look like a Sea Power folder: $SeaPowerDir" -ForegroundColor Red
+        exit 1
     }
     $target = Join-Path $SeaPowerDir 'Sea Power_Data\StreamingAssets\SeaPowerAdvanced'
     New-Item -ItemType Directory -Force -Path $target | Out-Null
