@@ -1,5 +1,23 @@
 # Changelog
 
+## 0.4.0 — the map menu is a different code path
+
+Reported: right-clicking a ship showed Orders with only "Identify". The cause was found in the
+assembly: a unit's map right-click is built by `MapUnitViewModel.GetContextMenuItems()`, which
+constructs its own list (it only calls `get_Unit`, `get_Identified`, `get_Value` and three `Add`s)
+and never delegates to `ObjectBaseViewModel`. Patching only `ObjectBaseViewModel` therefore never
+touched the menu a player actually uses.
+
+- Patches **both** menu surfaces: `MapUnitViewModel.GetContextMenuItems` (map right-click, taking the
+  unit from `MapUnitViewModel.Unit.BaseObject`) and `ObjectBaseViewModel.GetContextMenuItems`.
+- `TryAdd` is idempotent (skips if a `Weapon hatches` entry is already present), so a shared
+  collection cannot produce duplicates.
+- Each surface logs `Context menu patch is live (map menu)` / `(unit menu)` the first time it runs,
+  which distinguishes "patch never called" from "patch called and declined".
+- Logs to its **own file** as well as BepInEx: `StreamingAssets\SeaPowerAdvanced\seapoweradvanced.log`.
+  "Is the mod running at all?" is now answerable without reading another mod's log.
+- The entry point announces itself: `=== Sea Power Advanced 0.4.0 entry point reached ===`.
+
 ## 0.3.1 — say why, never silently
 
 Reported: hovering Orders showed only the vanilla "Identify", with no hatch entry. That is the

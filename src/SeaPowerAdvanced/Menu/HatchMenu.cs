@@ -41,78 +41,122 @@ internal static class HatchMenu
 
     internal static void Install(Harmony harmony)
     {
-        try
-        {
-            harmony.Patch(
-                AccessTools.Method(typeof(ObjectBaseViewModel), nameof(ObjectBaseViewModel.GetContextMenuItems)),
-                postfix: new HarmonyMethod(typeof(HatchMenu), nameof(Postfix)));
-            ModLog.Info("Hatch menu installed.");
-        }
-        catch (Exception error)
-        {
-            ModLog.Error("Could not patch the context menu; hatch control is unavailable", error);
-        }
+        // Two different builders produce a right-click menu in this game:
+        //   MapUnitViewModel.GetContextMenuItems    - the map right-click on a unit (this is the
+        //                                             one a player actually uses, and it builds its
+        //                                             own list rather than delegating)
+        //   ObjectBaseViewModel.GetContextMenuItems - the unit panel / bottom bar path
+        // Patching only the second one leaves the map menu untouched, which is why the entry did
+        // not appear. Both are patched, and TryAdd is idempotent so a shared collection is safe.
+        Patch(harmony, typeof(MapUnitViewModel), nameof(MapUnitViewModel.GetContextMenuItems),
+            nameof(MapPostfix));
+        Patch(harmony, typeof(ObjectBaseViewModel), nameof(ObjectBaseViewModel.GetContextMenuItems),
+            nameof(UnitPostfix));
     }
 
-    private static bool firstMenuLogged;
-
-    private static void Postfix(ObjectBaseViewModel __instance, TrulyObservableCollection<ContextMenuItem> __result)
+    private static void Patch(Harmony harmony, Type type, string method, string postfix)
     {
         try
         {
-            if (__result == null) return;
-
-            if (!firstMenuLogged)
+            var target = AccessTools.Method(type, method);
+            if (target == null)
             {
-                firstMenuLogged = true;
-                ModLog.Info("Context menu patch is live (first menu built).");
-            }
-
-            if (!ModSettings.Enabled)
-            {
-                ModLog.Warn("General/Enabled is false in the config, so the hatch menu is skipped.");
+                ModLog.Warn($"Patch target not found: {type.Name}.{method} (game version change?)");
                 return;
             }
 
-            ObjectBase? unit = __instance?._objectBase;
-            if (unit == null) return;
-
-            if (unit.IsDestroyed)
-            {
-                MenuLog.Once(unit, "skipped: unit is destroyed");
-                return;
-            }
-
-            if (!IsControllable(unit, out string reason))
-            {
-                MenuLog.Once(unit, "skipped: " + reason);
-                return;
-            }
-
-            List<HatchGroup> groups = HatchBay.Read(unit);
-            MenuLog.Once(unit, groups, HatchBay.Summary(unit, groups));
-
-            if (groups.Count == 0 && !ModSettings.ShowWhenNoMounts) return;
-
-            ContextMenuItem menu = Build(unit, groups);
-
-            ContextMenuItem? orders = FindOrders(__result);
-            if (orders?.Items != null)
-            {
-                orders.Items.Insert(0, menu);
-                return;
-            }
-
-            // The localised "Orders" entry could not be identified. Still show the feature rather
-            // than vanishing silently, and say so once.
-            ModLog.Warn("No Orders submenu found on " + HatchControl.UnitName(unit)
-                        + "; adding the hatch menu at the top level instead.");
-            __result.Insert(0, menu);
+            harmony.Patch(target, postfix: new HarmonyMethod(typeof(HatchMenu), postfix));
+            ModLog.Info($"Patched {type.Name}.{method}.");
         }
         catch (Exception error)
         {
-            ModLog.Error("Could not build the hatch menu", error);
+            ModLog.Error($"Could not patch {type.Name}.{method}", error);
         }
+    }
+
+    /// <summary>Map right-click on a unit: the path a player uses to give orders.</summary>
+    private static void MapPostfix(MapUnitViewModel __instance, TrulyObservableCollection<ContextMenuItem> __result)
+    {
+        try
+        {
+            ObjectBase? unit = __instance?.Unit?.BaseObject;
+            TryAdd(unit, __result, "map menu");
+        }
+        catch (Exception error)
+        {
+            ModLog.Error("Could not add the hatch menu to the map menu", error);
+        }
+    }
+
+    /// <summary>Unit panel / bottom-bar menu.</summary>
+    private static void UnitPostfix(ObjectBaseViewModel __instance, TrulyObservableCollection<ContextMenuItem> __result)
+    {
+        try
+        {
+            TryAdd(__instance?._objectBase, __result, "unit menu");
+        }
+        catch (Exception error)
+        {
+            ModLog.Error("Could not add the hatch menu to the unit menu", error);
+        }
+    }
+
+    private static readonly HashSet<string> SourcesSeen = new(StringComparer.Ordinal);
+
+    private static void TryAdd(ObjectBase? unit, TrulyObservableCollection<ContextMenuItem>? result, string source)
+    {
+        if (result == null) return;
+
+        if (!SourcesSeen.Contains(source))
+        {
+            SourcesSeen.Add(source);
+            ModLog.Info($"Context menu patch is live ({source}).");
+        }
+
+        if (unit == null) return;
+
+        if (!ModSettings.Enabled)
+        {
+            MenuLog.Once(unit, "skipped: General/Enabled is false");
+            return;
+        }
+
+        if (unit.IsDestroyed)
+        {
+            MenuLog.Once(unit, "skipped: unit is destroyed");
+            return;
+        }
+
+        if (!IsControllable(unit, out string reason))
+        {
+            MenuLog.Once(unit, "skipped: " + reason);
+            return;
+        }
+
+        // Both builders can be involved in one menu: never add the entry twice.
+        foreach (ContextMenuItem existing in result)
+        {
+            if (string.Equals(existing?.Label as string, MenuLabel, StringComparison.Ordinal)) return;
+        }
+
+        List<HatchGroup> groups = HatchBay.Read(unit);
+        MenuLog.Once(unit, groups, HatchBay.Summary(unit, groups));
+
+        if (groups.Count == 0 && !ModSettings.ShowWhenNoMounts) return;
+
+        ContextMenuItem menu = Build(unit, groups);
+
+        ContextMenuItem? orders = FindOrders(result);
+        if (orders?.Items != null)
+        {
+            orders.Items.Insert(0, menu);
+            return;
+        }
+
+        // No Orders submenu in this menu: show the feature at the top level rather than vanishing.
+        ModLog.Warn($"No Orders submenu in the {source} for {HatchControl.UnitName(unit)}; "
+                    + "adding the hatch menu at the top level instead.");
+        result.Insert(0, menu);
     }
 
     /// <summary>

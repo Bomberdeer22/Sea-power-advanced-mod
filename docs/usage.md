@@ -128,7 +128,7 @@ animation for it. Run **Log hatch report** and send the file.
 
 | What you see | What it means |
 |---|---|
-| No `Weapon hatches` entry at all | Not ticked, or the game was not restarted. Check `LogOutput.log` for `Hatch menu installed.` first. |
+| No `Weapon hatches` entry at all | Check `StreamingAssets\SeaPowerAdvanced\seapoweradvanced.log` first: it records the entry point, both patch targets and every menu built. No file at all means the mod never ran. |
 | Entry says "This ship has no launchers" | That unit genuinely has no launcher mounts (or guns only, with `IncludeGuns` off). |
 | A mount says `no hatch data` | That ship's files define no hatch animation for the mount, so the game cannot open it. |
 | Cell click logs `cell has no open animation` | That cell's data cannot be opened in this game build. Note the ship class. |

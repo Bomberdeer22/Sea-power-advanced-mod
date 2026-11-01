@@ -22,8 +22,9 @@ public sealed class Plugin : IAnchorChainMod
         var harmony = new Harmony(ModInfo.Id);
         try
         {
-            ModLog.Info("Loading " + ModInfo.Name + " " + ModInfo.Version);
+            ModLog.Info("=== " + ModInfo.Name + " " + ModInfo.Version + " entry point reached ===");
             ModLog.Info("Package folder: " + ModFolders.Package);
+            ModLog.Info("Own log file:   " + (ModLog.FilePath ?? ModFolders.Package + "\\seapoweradvanced.log"));
             ModSettings.Bind();
             ModLog.Info("Settings: enabled=" + ModSettings.Enabled
                         + " includeGuns=" + ModSettings.IncludeGuns
