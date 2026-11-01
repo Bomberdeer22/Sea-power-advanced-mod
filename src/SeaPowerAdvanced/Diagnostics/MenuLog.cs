@@ -51,6 +51,22 @@ internal static class MenuLog
         }
     }
 
+    /// <summary>Logs a note about a unit once (used for skipped units, so silence is never a mystery).</summary>
+    internal static void Once(ObjectBase? unit, string note)
+    {
+        try
+        {
+            string key = Key(unit) + "|" + note;
+            if (!Seen.Add(key)) return;
+            if (Seen.Count > 500) Seen.Clear();
+            ModLog.Info("Menu for " + HatchControl.UnitName(unit) + ": " + note);
+        }
+        catch (Exception error)
+        {
+            ModLog.Error("Menu logging failed", error);
+        }
+    }
+
     internal static void Reset() => Seen.Clear();
 
     private static string Key(ObjectBase? unit)

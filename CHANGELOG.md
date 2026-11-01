@@ -1,5 +1,18 @@
 # Changelog
 
+## 0.3.1 — say why, never silently
+
+Reported: hovering Orders showed only the vanilla "Identify", with no hatch entry. That is the
+0.2.0 filter bug (fixed in 0.3.0), but a missing entry should never require guessing which build is
+installed.
+
+- The submenu tooltip now carries the mod version, so hovering proves which DLL is loaded.
+- Logs "Context menu patch is live" the first time any context menu is built, which separates "the
+  patch is not installed" from "the patch ran and declined".
+- Every skipped unit is logged once with the reason: destroyed, not a player unit, no taskforce,
+  or `General/Enabled` false in the config.
+- A missing player taskforce no longer hides the feature; it is treated as "cannot compare, allow".
+
 ## 0.3.0 — the menu shows up
 
 Reported: after installing and enabling, the Weapon hatches section never appeared. Cause: the

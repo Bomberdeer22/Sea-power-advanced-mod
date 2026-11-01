@@ -54,15 +54,40 @@ internal static class HatchMenu
         }
     }
 
+    private static bool firstMenuLogged;
+
     private static void Postfix(ObjectBaseViewModel __instance, TrulyObservableCollection<ContextMenuItem> __result)
     {
         try
         {
-            if (!ModSettings.Enabled || __result == null) return;
+            if (__result == null) return;
+
+            if (!firstMenuLogged)
+            {
+                firstMenuLogged = true;
+                ModLog.Info("Context menu patch is live (first menu built).");
+            }
+
+            if (!ModSettings.Enabled)
+            {
+                ModLog.Warn("General/Enabled is false in the config, so the hatch menu is skipped.");
+                return;
+            }
 
             ObjectBase? unit = __instance?._objectBase;
-            if (unit == null || unit.IsDestroyed) return;
-            if (!IsControllable(unit)) return;
+            if (unit == null) return;
+
+            if (unit.IsDestroyed)
+            {
+                MenuLog.Once(unit, "skipped: unit is destroyed");
+                return;
+            }
+
+            if (!IsControllable(unit, out string reason))
+            {
+                MenuLog.Once(unit, "skipped: " + reason);
+                return;
+            }
 
             List<HatchGroup> groups = HatchBay.Read(unit);
             MenuLog.Once(unit, groups, HatchBay.Summary(unit, groups));
@@ -90,8 +115,42 @@ internal static class HatchMenu
         }
     }
 
-    private static bool IsControllable(ObjectBase unit) =>
-        ReferenceEquals(unit._taskforce, Globals._playerTaskforce) || ModSettings.AllowEnemyUnits;
+    /// <summary>
+    /// Player units only, unless the setting says otherwise. Written as a series of explicit cases
+    /// so that a null taskforce on either side cannot quietly hide the whole feature.
+    /// </summary>
+    private static bool IsControllable(ObjectBase unit, out string reason)
+    {
+        if (ModSettings.AllowEnemyUnits)
+        {
+            reason = "allowed by AllowEnemyUnits";
+            return true;
+        }
+
+        Taskforce? player = Globals._playerTaskforce;
+        if (player == null)
+        {
+            // Nothing to compare against; showing the menu is the more useful failure.
+            reason = "player taskforce unavailable, allowing";
+            return true;
+        }
+
+        Taskforce? own = unit._taskforce;
+        if (own == null)
+        {
+            reason = "unit has no taskforce";
+            return false;
+        }
+
+        if (ReferenceEquals(own, player))
+        {
+            reason = "player unit";
+            return true;
+        }
+
+        reason = "not a player unit";
+        return false;
+    }
 
     private static ContextMenuItem? FindOrders(IEnumerable<ContextMenuItem> roots)
     {
@@ -132,7 +191,8 @@ internal static class HatchMenu
                 "Writes the full weapon-mount list for this unit into LogOutput.log and hatch-report.txt.",
                 _ => ShipReport.Write(unit, groups)));
             return new ContextMenuItem(label: MenuLabel, items: items,
-                tooltip: "Hatch control: no weapon mounts found on this unit.");
+                tooltip: "Hatch control found no weapon mounts on this unit.  (Sea Power Advanced "
+                         + ModInfo.Version + ")");
         }
 
         items.Add(Action("Open all hatches", "Open every hatch on this ship without firing.",
@@ -149,7 +209,8 @@ internal static class HatchMenu
         return new ContextMenuItem(
             label: MenuLabel,
             items: items,
-            tooltip: "Open or close silo hatches, launcher covers and torpedo tube shutters without launching.");
+            tooltip: "Open or close silo hatches, launcher covers and torpedo tube shutters without "
+                     + "launching.  (Sea Power Advanced " + ModInfo.Version + ")");
     }
 
     private static ContextMenuItem BuildGroup(ObjectBase unit, HatchGroup group)
