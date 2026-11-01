@@ -29,8 +29,20 @@ echo "Package ready: $dist"
 
 if $install; then
   sp="${SEAPOWER_DIR:-}"
+  # Fall back to the SeaPowerDir already configured for the build.
   if [ -z "$sp" ]; then
-    echo "Set SEAPOWER_DIR to the Sea Power folder to use --install." >&2
+    for props in "$root/Directory.Build.local.props" "$root/Directory.Build.props"; do
+      [ -f "$props" ] || continue
+      sp="$(sed -n 's:.*<SeaPowerDir>\([^<]*\)</SeaPowerDir>.*:\1:p' "$props" | head -n 1)"
+      [ -n "$sp" ] && break
+    done
+  fi
+  if [ -z "$sp" ]; then
+    echo "Set SeaPowerDir in Directory.Build.local.props (or SEAPOWER_DIR) to use --install." >&2
+    exit 2
+  fi
+  if [ ! -d "$sp/Sea Power_Data/Managed" ]; then
+    echo "SeaPowerDir does not look like a Sea Power folder: $sp" >&2
     exit 2
   fi
   target="$sp/Sea Power_Data/StreamingAssets/SeaPowerAdvanced"

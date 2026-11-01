@@ -38,17 +38,17 @@ Version 0.2.0 — hatch control implemented against the game's real API (see
 
 ## Install
 
-1. Install Anchor Chain following its own guide (the preloader in `BepInEx/plugins/` is the one
-   manual step).
-2. Copy the `SeaPowerAdvanced` folder (`SeaPowerAdvanced.dll` + `_info.ini`) into
+**Full walkthrough: [INSTALL.md](INSTALL.md)** — every step, from a stock install to a working
+`Weapon hatches` menu, including the two loader pieces and how to confirm it loaded.
 
-   ```
-   <Steam>\steamapps\common\Sea Power\Sea Power_Data\StreamingAssets\
-   ```
+The short version, once BepInEx + Anchor Chain are in place:
 
-3. Start the game, tick **Sea Power Advanced** in the mod manager, restart the game.
+```powershell
+Copy-Item Directory.Build.local.props.example Directory.Build.local.props   # set the game paths
+.\tools\build-portable.ps1 -Install        # build + copy into StreamingAssets
+```
 
-`build.ps1 -Install` / `build.sh --install` do step 2 for you.
+Then tick **Sea Power Advanced** in the mod manager and restart the game.
 
 ## Use it
 
