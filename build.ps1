@@ -1,4 +1,4 @@
-<#
+﻿<#
 .SYNOPSIS
   Builds Sea Power Advanced and lays out an installable folder in dist\SeaPowerAdvanced.
 
@@ -16,6 +16,47 @@ param(
 $ErrorActionPreference = 'Stop'
 $root = $PSScriptRoot
 
+# Finds the game folder without any configuration: Steam's registry entry first, then the usual
+# default libraries. Returns $null when nothing plausible is installed.
+function Find-SeaPowerDir {
+    $candidates = New-Object System.Collections.Generic.List[string]
+    try {
+        $steam = (Get-ItemProperty -Path 'HKCU:\Software\Valve\Steam' -Name SteamPath -ErrorAction Stop).SteamPath
+        if (-not [string]::IsNullOrWhiteSpace($steam)) {
+            $candidates.Add((Join-Path ($steam -replace '/', '\') 'steamapps\common\Sea Power'))
+        }
+    } catch { }
+    foreach ($guess in @(
+        'C:\Program Files (x86)\Steam\steamapps\common\Sea Power',
+        'C:\Program Files\Steam\steamapps\common\Sea Power',
+        'D:\Steam\steamapps\common\Sea Power',
+        'D:\SteamLibrary\steamapps\common\Sea Power',
+        'E:\SteamLibrary\steamapps\common\Sea Power')) {
+        $candidates.Add($guess)
+    }
+    foreach ($candidate in $candidates) {
+        if (Test-Path (Join-Path $candidate 'Sea Power_Data\Managed\Seapower-Scripts.dll')) { return $candidate }
+    }
+    return $null
+}
+
+# Writes the one file that tells MSBuild where the game and Anchor Chain are.
+function Write-LocalProps([string]$gameDir) {
+    $sa = Split-Path (Split-Path $gameDir -Parent) -Parent
+    $anchorChain = Join-Path $sa 'workshop\content\1286220\3380210757'
+    $lines = @(
+        '<Project>',
+        '  <PropertyGroup>',
+        ('    <SeaPowerDir>' + $gameDir + '</SeaPowerDir>'),
+        ('    <AnchorChainDir>' + $anchorChain + '</AnchorChainDir>'),
+        '  </PropertyGroup>',
+        '</Project>')
+    Set-Content -Path (Join-Path $root 'Directory.Build.local.props') -Value $lines -Encoding UTF8
+    Write-Host "Detected Sea Power:   $gameDir"
+    Write-Host "Detected AnchorChain: $anchorChain"
+    Write-Host "Wrote Directory.Build.local.props"
+}
+
 # -Install needs the game folder. Take it from the same props file the build uses, so there is
 # only one place to configure.
 function Get-ConfiguredGameDir {
@@ -28,6 +69,14 @@ function Get-ConfiguredGameDir {
     return $null
 }
 $project = Join-Path $root 'src\SeaPowerAdvanced\SeaPowerAdvanced.csproj'
+
+# First run on a new machine: work the paths out instead of demanding that they be typed in.
+$propsPath = Join-Path $root 'Directory.Build.local.props'
+if (-not (Test-Path $propsPath) -and [string]::IsNullOrWhiteSpace($env:SEAPOWER_DIR)) {
+    $detected = Find-SeaPowerDir
+    if ($null -ne $detected) { Write-LocalProps $detected }
+    else { Write-Host 'Could not find Sea Power automatically; see Directory.Build.local.props.example.' }
+}
 
 dotnet build $project -c $Configuration
 if ($LASTEXITCODE -ne 0) { throw "Build failed." }

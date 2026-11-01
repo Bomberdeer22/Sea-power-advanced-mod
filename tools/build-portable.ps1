@@ -1,4 +1,4 @@
-<#
+﻿<#
 .SYNOPSIS
   Builds the mod with a portable .NET SDK, so nothing has to be installed.
 
@@ -40,8 +40,11 @@ $env:PATH = "$dotnetDir;$env:PATH"
 $env:DOTNET_CLI_TELEMETRY_OPTOUT = '1'
 $env:DOTNET_NOLOGO = '1'
 
-$arguments = @('-Configuration', $Configuration)
-if ($Install) { $arguments += '-Install' }
-if (-not [string]::IsNullOrWhiteSpace($SeaPowerDir)) { $arguments += @('-SeaPowerDir', $SeaPowerDir) }
+# Hashtable splatting binds by name. An array splat would pass "-Configuration" as a positional
+# VALUE, which is exactly what made the first version fail ValidateSet.
+$parameters = @{ Configuration = $Configuration }
+if ($Install) { $parameters['Install'] = $true }
+if (-not [string]::IsNullOrWhiteSpace($SeaPowerDir)) { $parameters['SeaPowerDir'] = $SeaPowerDir }
 
-& (Join-Path $root 'build.ps1') @arguments
+& (Join-Path $root 'build.ps1') @parameters
+exit $LASTEXITCODE
