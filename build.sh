@@ -45,8 +45,17 @@ if $install; then
     echo "SeaPowerDir does not look like a Sea Power folder: $sp" >&2
     exit 2
   fi
-  target="$sp/Sea Power_Data/StreamingAssets/SeaPowerAdvanced"
+  # BepInEx plugin route: no mod-manager checkbox, no AnchorChain loader in between.
+  target="$sp/BepInEx/plugins/SeaPowerAdvanced"
   mkdir -p "$target"
   cp "$dist/SeaPowerAdvanced.dll" "$dist/_info.ini" "$target/"
   echo "Installed to: $target"
+
+  stale="$sp/Sea Power_Data/StreamingAssets/SeaPowerAdvanced"
+  if [ -d "$stale" ]; then
+    echo
+    echo "NOTE: an older copy also exists at:"
+    echo "      $stale"
+    echo "      Delete that folder so the mod is not loaded twice."
+  fi
 fi

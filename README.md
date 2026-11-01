@@ -51,7 +51,9 @@ Copy-Item Directory.Build.local.props.example Directory.Build.local.props   # se
 Blocked by PowerShell's execution policy (`is not digitally signed`)? Use `build.cmd install`
 instead — batch files are not affected by it.
 
-Then tick **Sea Power Advanced** in the mod manager and restart the game.
+The DLL goes into `BepInEx\plugins\SeaPowerAdvanced\`, so **BepInEx loads it directly** — there is
+no mod-manager checkbox on this route. BepInEx's log then shows `Loading [Sea Power Advanced 0.5.0]`,
+and the mod writes its own `seapoweradvanced.log` next to the DLL.
 
 ## Use it
 

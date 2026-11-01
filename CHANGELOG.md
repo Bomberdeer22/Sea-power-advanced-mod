@@ -1,5 +1,25 @@
 # Changelog
 
+## 0.5.0 — load as a BepInEx plugin
+
+Confirmed from the user's game log: AnchorChain logged `Loaded assembly SeaPowerAdvanced,
+Version=0.4.0.0` but never `Loaded plugin Sea Power Advanced`, no entry point output appeared and the
+mod's own log file was never created. The same log shows **no** `Loaded plugin` line for any of the
+other 28 AnchorChain mods either, so AnchorChain's trigger loop is not starting mods on that install.
+
+Rather than depend on it:
+
+- The DLL is now also a native BepInEx plugin (`[BepInPlugin]`, `BaseUnityPlugin.Awake`), and
+  `-Install` puts it in `BepInEx\plugins\SeaPowerAdvanced\`, where BepInEx itself loads it. BepInEx's
+  startup log then shows `Loading [Sea Power Advanced 0.5.0]`.
+- Both entry points call one idempotent `Boot.Run`, so a double installation cannot patch anything
+  twice, and the AnchorChain route still works where that loader functions.
+- `Boot.Run` writes the log file before anything else, so the file's existence is proof the code
+  ran; it prints the entry point, assembly path, log path, resolved settings and each patch target.
+- The installer warns when a second copy is still present in `StreamingAssets`, which would be
+  loaded twice.
+- Docs updated: no mod-manager checkbox on the BepInEx route, and how to verify both ways.
+
 ## 0.4.0 — the map menu is a different code path
 
 Reported: right-clicking a ship showed Orders with only "Identify". The cause was found in the

@@ -150,22 +150,39 @@ builds the mod, and copies it into `StreamingAssets`.
 
 ---
 
-## Step 4 — Enable the mod
+## Step 4 — Start the game
 
-1. Start Sea Power.
-2. Open the **Mod Manager**.
-3. Find **Sea Power Advanced** (it is a *Local* mod) and tick it.
-4. **Restart the game.** Mod code loads once per launch — ticking the box alone does nothing until
-   you restart.
+`-Install` puts the DLL in `BepInEx\plugins\SeaPowerAdvanced\`, so **BepInEx loads it directly**.
+There is no mod-manager checkbox to tick on this route: the plugin is present, so it runs.
+
+If you previously installed it into `StreamingAssets\SeaPowerAdvanced\`, **delete that folder**. A
+copy in both places is loaded twice; the installer prints a warning when it sees one.
+
+Why this route: a copy in `StreamingAssets` is only started if AnchorChain's own loader recognises
+and triggers it, and on some installs that trigger never happens — the game log shows the assembly
+being loaded but never says `Loaded plugin Sea Power Advanced`. The BepInEx route has no such step.
 
 ## Step 5 — Check it loaded
 
-Open `BepInEx\LogOutput.log` in the game folder and search for `Sea Power Advanced`. You want:
+Two things to look at.
+
+**1. BepInEx's plugin list**, near the top of `BepInEx\LogOutput.log`. It must say:
 
 ```
-[Info] Sea Power Advanced: Loading Sea Power Advanced 0.2.0
-[Info] Sea Power Advanced: Hatch menu installed.
-[Info] Sea Power Advanced: Ready. Right-click a ship > Orders > Weapon hatches.
+[Info   :   BepInEx] Loading [Sea Power Advanced 0.5.0]
+```
+
+**2. The mod's own log**, `BepInEx\plugins\SeaPowerAdvanced\seapoweradvanced.log`. This file only
+exists if the code actually ran, which makes "did it load?" unambiguous:
+
+```
+================ Sea Power Advanced 0.5.0 ================
+Entry point:  BepInEx plugin
+Settings: enabled=True includeGuns=False allowEnemyUnits=False showWhenNoMounts=True
+Patched MapUnitViewModel.GetContextMenuItems.
+Patched ObjectBaseViewModel.GetContextMenuItems.
+Hatch menu installed.
+Ready. Right-click a ship > Orders > Weapon hatches.
 ```
 
 If you see `no patches installed` instead, the box in the Mod Manager is not ticked (or the game was
@@ -225,7 +242,7 @@ To remove Anchor Chain itself, unsubscribe on Steam and delete `winhttp.dll`,
 | `AnchorChain.dll not found` | Anchor Chain is not subscribed (step 2), or `AnchorChainDir` points at the wrong folder. |
 | `error CS0117: ... does not contain a definition` | The game's API moved in an update. Send me the full error — it names the member exactly. |
 | `.ps1 cannot be loaded ... is not digitally signed` | Execution policy. See [the three fixes](#if-windows-blocks-the-script-is-not-digitally-signed); `build.cmd install` always works. |
-| Build succeeds, but no `Weapon hatches` in game, or no `Sea Power Advanced` in the log | Not ticked in the Mod Manager, or the game was not restarted. Check `LogOutput.log` first (step 5). |
+| Build succeeds, but no `Weapon hatches` in game | Read `BepInEx\plugins\SeaPowerAdvanced\seapoweradvanced.log`. No file = the plugin never ran (check that step 5 shows `Loading [Sea Power Advanced ...]`). File present = the code ran, so send it. |
 | `The Anchor Chain preloader is not running!` | Step 1: `winhttp.dll` + `doorstop_config.ini` + `BepInEx` must be **in the game folder**. |
 | Menu entry appears but the submenu is empty | That mount has no hatch animation of its own. Run **Log hatch report** and send it. |
 | Click does nothing, log says `cell has no open animation` | Real result: that cell cannot be opened in this game build. Note the ship class. |

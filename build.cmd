@@ -106,16 +106,24 @@ for /f "tokens=2 delims=<>" %%p in ('findstr /i "<SeaPowerDir>" "%PROPS%"') do i
 if not defined GAME goto no_game_dir
 if not exist "%GAME%\Sea Power_Data\Managed" goto bad_game_dir
 
-set "TARGET=%GAME%\Sea Power_Data\StreamingAssets\SeaPowerAdvanced"
+set "TARGET=%GAME%\BepInEx\plugins\SeaPowerAdvanced"
 if not exist "%TARGET%" mkdir "%TARGET%"
 copy /y "%DIST%\SeaPowerAdvanced.dll" "%TARGET%" >nul
 copy /y "%DIST%\_info.ini" "%TARGET%" >nul
 if not exist "%TARGET%\SeaPowerAdvanced.dll" goto install_failed
 
 echo Installed to: %TARGET%
+
+set "STALE=%GAME%\Sea Power_Data\StreamingAssets\SeaPowerAdvanced"
+if exist "%STALE%\SeaPowerAdvanced.dll" (
+    echo.
+    echo NOTE: an older copy also exists at:
+    echo       %STALE%
+    echo       Delete that folder so the mod is not loaded twice.
+)
 echo.
-echo Now: start Sea Power, tick "Sea Power Advanced" in the Mod Manager, and
-echo restart the game. Then right-click a ship - Orders - Weapon hatches.
+echo Now: start Sea Power. There is nothing to tick - BepInEx loads it directly.
+echo Then right-click a ship - Orders - Weapon hatches.
 goto done
 
 rem ------------------------------------------------------------------ errors

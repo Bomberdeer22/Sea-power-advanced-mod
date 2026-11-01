@@ -102,9 +102,20 @@ if ($Install) {
         Write-Host "SeaPowerDir does not look like a Sea Power folder: $SeaPowerDir" -ForegroundColor Red
         exit 1
     }
-    $target = Join-Path $SeaPowerDir 'Sea Power_Data\StreamingAssets\SeaPowerAdvanced'
+    # BepInEx plugin route: no mod-manager checkbox, no AnchorChain loader in between.
+    $target = Join-Path $SeaPowerDir 'BepInEx\plugins\SeaPowerAdvanced'
     New-Item -ItemType Directory -Force -Path $target | Out-Null
     Copy-Item (Join-Path $dist 'SeaPowerAdvanced.dll') $target -Force
     Copy-Item (Join-Path $dist '_info.ini') $target -Force
     Write-Host "Installed to: $target"
+
+    # A copy in StreamingAssets would be loaded a second time (once by AnchorChain, once by
+    # BepInEx). Point it out rather than deleting anything from the game folder unasked.
+    $stale = Join-Path $SeaPowerDir 'Sea Power_Data\StreamingAssets\SeaPowerAdvanced'
+    if (Test-Path $stale) {
+        Write-Host ''
+        Write-Host "NOTE: an older copy also exists at:" -ForegroundColor Yellow
+        Write-Host "      $stale" -ForegroundColor Yellow
+        Write-Host '      Delete that folder so the mod is not loaded twice.' -ForegroundColor Yellow
+    }
 }

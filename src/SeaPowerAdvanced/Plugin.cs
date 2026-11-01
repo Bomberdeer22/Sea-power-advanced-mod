@@ -1,50 +1,19 @@
-using System;
 using AnchorChain;
-using HarmonyLib;
-using SeaPowerAdvanced.Menu;
 
 namespace SeaPowerAdvanced;
 
 /// <summary>
-/// Anchor Chain entry point. Anchor Chain creates this type and calls
-/// <see cref="TriggerEntryPoint"/> once, shortly after the game starts.
+/// AnchorChain entry point, used when the DLL is installed in
+/// <c>Sea Power_Data\StreamingAssets\SeaPowerAdvanced\</c> for Workshop-style distribution.
+///
+/// AnchorChain creates this type and calls <see cref="TriggerEntryPoint"/> once at startup, but only
+/// if its own loader recognises the mod. If the mod seems to do nothing on this route, check that
+/// the game log contains <c>Loaded plugin Sea Power Advanced</c>. The BepInEx route
+/// (<see cref="BepInExEntry"/>) does not depend on that step, which is why it is the documented
+/// default.
 /// </summary>
 [ACPlugin(ModInfo.Id, ModInfo.Name, ModInfo.Version)]
 public sealed class Plugin : IAnchorChainMod
 {
-    private static bool initialized;
-
-    public void TriggerEntryPoint()
-    {
-        if (initialized) return;
-        initialized = true;
-
-        var harmony = new Harmony(ModInfo.Id);
-        try
-        {
-            ModLog.Info("=== " + ModInfo.Name + " " + ModInfo.Version + " entry point reached ===");
-            ModLog.Info("Package folder: " + ModFolders.Package);
-            ModLog.Info("Own log file:   " + (ModLog.FilePath ?? ModFolders.Package + "\\seapoweradvanced.log"));
-            ModSettings.Bind();
-            ModLog.Info("Settings: enabled=" + ModSettings.Enabled
-                        + " includeGuns=" + ModSettings.IncludeGuns
-                        + " allowEnemyUnits=" + ModSettings.AllowEnemyUnits);
-
-            if (!ModActivation.IsEnabled(ModFolders.Package))
-            {
-                ModLog.Info("Disabled in the mod manager; no patches installed.");
-                return;
-            }
-
-            HatchMenu.Install(harmony);
-
-            ModLog.Info("Ready. Right-click a ship > Orders > Weapon hatches.");
-        }
-        catch (Exception error)
-        {
-            try { harmony.UnpatchSelf(); }
-            catch (Exception rollback) { ModLog.Error("Patch rollback failed", rollback); }
-            ModLog.Error("Initialization failed; hatch control is unavailable", error);
-        }
-    }
+    public void TriggerEntryPoint() => Boot.Run("AnchorChain mod", honourModManager: true);
 }
