@@ -61,11 +61,14 @@ Then tick **Sea Power Advanced** in the mod manager and restart the game.
    and each click logs exactly what happened:
 
    ```
-   Sea Power Advanced: Open Spruance / Cell 7: openHatches -> ok (1 hatch)
+   Sea Power Advanced: Open Ticonderoga / Cell 7: openHatches -> started [open=yes, hatches=1]
    ```
 
 **Open all hatches** does the whole ship. Because the list is rebuilt from live game state, the
 check marks stay truthful even when the game opens a hatch itself while firing.
+
+Full walkthrough, including what the menu is telling you and what the mod does not control:
+**[docs/usage.md](docs/usage.md)**.
 
 ## How it works
 
@@ -174,6 +177,7 @@ $EDITOR Directory.Build.local.props
 | `build.ps1` / `build.sh` | Build, then lay out `dist/` (and optionally install). |
 | `tools/build-portable.*` | Fetch a portable SDK into `.dotnet/` and run the build script. |
 | `build.cmd` | Same thing as a batch file, for machines where PowerShell policy blocks `.ps1`. |
+| `docs/usage.md` | How to use the mod once it is installed. |
 | `tools/read-metadata.py`, `tools/dump-game-api.ps1` | Read the game's API out of `Seapower-Scripts.dll` — no game, no compiler. |
 
 Reference paths are never copied into `StreamingAssets`: Anchor Chain would load the game's own DLLs
