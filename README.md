@@ -48,6 +48,9 @@ Copy-Item Directory.Build.local.props.example Directory.Build.local.props   # se
 .\tools\build-portable.ps1 -Install        # build + copy into StreamingAssets
 ```
 
+Blocked by PowerShell's execution policy (`is not digitally signed`)? Use `build.cmd install`
+instead — batch files are not affected by it.
+
 Then tick **Sea Power Advanced** in the mod manager and restart the game.
 
 ## Use it
@@ -170,6 +173,7 @@ $EDITOR Directory.Build.local.props
 | `mod/_info.ini` | Name and description shown in the mod manager. |
 | `build.ps1` / `build.sh` | Build, then lay out `dist/` (and optionally install). |
 | `tools/build-portable.*` | Fetch a portable SDK into `.dotnet/` and run the build script. |
+| `build.cmd` | Same thing as a batch file, for machines where PowerShell policy blocks `.ps1`. |
 | `tools/read-metadata.py`, `tools/dump-game-api.ps1` | Read the game's API out of `Seapower-Scripts.dll` — no game, no compiler. |
 
 Reference paths are never copied into `StreamingAssets`: Anchor Chain would load the game's own DLLs

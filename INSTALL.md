@@ -96,6 +96,9 @@ build to use these paths.
 .\tools\build-portable.ps1 -Install
 ```
 
+If Windows blocks that script — `is not digitally signed` — skip to
+[the fix below](#if-windows-blocks-the-script-is-not-digitally-signed) and use `build.cmd install`.
+
 What it does:
 
 1. sees there is no .NET SDK in `.dotnet\`, downloads one (about 200 MB, **once**, no installer),
@@ -111,12 +114,39 @@ Package ready: ...\dist\SeaPowerAdvanced
 Installed to: C:\Program Files (x86)\Steam\steamapps\common\Sea Power\Sea Power_Data\StreamingAssets\SeaPowerAdvanced
 ```
 
-If PowerShell refuses to run the script, that is the execution policy talking. Run it in a way that
-does not change any system setting:
+### If Windows blocks the script ("is not digitally signed")
+
+Scripts downloaded from the internet are blocked by PowerShell's **execution policy**. It is not a
+problem with the mod, and you do not have to change any system setting. Three fixes, easiest first:
+
+**A. Unblock the downloaded files** (right fix for the common case):
+
+```powershell
+Get-ChildItem .\tools\*.ps1, .\*.ps1 | Unblock-File
+.\tools\build-portable.ps1 -Install
+```
+
+This clears the "came from the internet" mark on those files. It changes no Windows settings.
+
+**B. Run it with the policy bypassed for that one command:**
 
 ```powershell
 powershell -NoProfile -ExecutionPolicy Bypass -File .\tools\build-portable.ps1 -Install
 ```
+
+**C. Use `build.cmd` instead — no PowerShell script at all.**
+
+```bat
+build.cmd install
+```
+
+Batch files are not covered by the execution policy, so this works even on a machine where the
+policy is locked down by IT. It does the same thing: fetches the portable SDK into `.dotnet\`,
+builds the mod, and copies it into `StreamingAssets`.
+
+> Which fix you need depends on the policy: `Get-ExecutionPolicy -List` shows it. If `MachinePolicy`
+> or `UserPolicy` says `AllSigned`, options A and B cannot override it — IT set it — so use
+> **option C**.
 
 ---
 
@@ -194,7 +224,8 @@ To remove Anchor Chain itself, unsubscribe on Steam and delete `winhttp.dll`,
 | `Sea Power not found. Set SeaPowerDir in Directory.Build.local.props` | You skipped 3a, or the path has a typo. It must contain `Sea Power_Data\Managed`. |
 | `AnchorChain.dll not found` | Anchor Chain is not subscribed (step 2), or `AnchorChainDir` points at the wrong folder. |
 | `error CS0117: ... does not contain a definition` | The game's API moved in an update. Send me the full error — it names the member exactly. |
-| Build succeeds, no `Weapon hatches` in game | Not ticked in the Mod Manager, or the game was not restarted. Check `LogOutput.log` first (step 5). |
+| `.ps1 cannot be loaded ... is not digitally signed` | Execution policy. See [the three fixes](#if-windows-blocks-the-script-is-not-digitally-signed); `build.cmd install` always works. |
+| Build succeeds, but no `Weapon hatches` in game, or no `Sea Power Advanced` in the log | Not ticked in the Mod Manager, or the game was not restarted. Check `LogOutput.log` first (step 5). |
 | `The Anchor Chain preloader is not running!` | Step 1: `winhttp.dll` + `doorstop_config.ini` + `BepInEx` must be **in the game folder**. |
 | Menu entry appears but the submenu is empty | That mount has no hatch animation of its own. Run **Log hatch report** and send it. |
 | Click does nothing, log says `cell has no open animation` | Real result: that cell cannot be opened in this game build. Note the ship class. |
