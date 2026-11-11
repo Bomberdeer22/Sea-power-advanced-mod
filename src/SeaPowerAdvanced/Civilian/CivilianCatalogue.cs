@@ -20,7 +20,6 @@ internal static class CivilianCatalogue
 {
     private static readonly List<string> ships = new();
     private static readonly List<string> planes = new();
-    private static bool tried;
 
     /// <summary>Civilian vessel INI names, alphabetical.</summary>
     internal static IReadOnlyList<string> Ships => ships;
@@ -33,11 +32,13 @@ internal static class CivilianCatalogue
 
     internal static void Refresh(bool force = false)
     {
-        if (tried && !force) return;
-        tried = true;
+        // Only a successful read is cached. An early call (before the unit database exists) leaves
+        // Ready false so the next Generate — or the Refresh button — tries again.
+        if (Ready && !force) return;
 
         ships.Clear();
         planes.Clear();
+        Ready = false;
 
         try
         {
