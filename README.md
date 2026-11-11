@@ -1,11 +1,15 @@
 # Sea Power Advanced
 
 An advanced mod for **Sea Power: Naval Combat in the Missile Age**, built as an
-[Anchor Chain](https://github.com/SeaPower-Modders/AnchorChain) code mod.
+[Anchor Chain](https://github.com/SeaPower-Modders/AnchorChain) code mod and loadable as a plain
+BepInEx plugin.
 
-**Feature 1 (this release): manual hatch control.** Right-click one of your ships and open
-**Orders → Weapon hatches** to open or close individual silo cells, VLS hatches, box-launcher
-covers and torpedo tube shutters *without* launching a weapon.
+**Version 0.6.0** — two features:
+
+### 1. Manual hatch control
+
+Right-click one of your ships and open **Orders → Weapon hatches** to open or close individual silo
+cells, VLS hatches, box-launcher covers and torpedo tube shutters *without* launching a weapon.
 
 ```
 Orders
@@ -23,8 +27,25 @@ Orders
       Log hatch report
 ```
 
-Version 0.2.0 — hatch control implemented against the game's real API (see
-[docs/hatch-api.md](docs/hatch-api.md) for the verified signatures).
+### 2. Civilian traffic zones (mission editor)
+
+Press **F8** in the mission editor for a small panel: draw a polygon on the map, type **min/max
+ships** and **min/max planes**, press **Spawn traffic**. The mod creates real civilian routes in
+that area, each lane drawing from your install's own civilian unit classes for variety, and they
+are saved with the mission.
+
+```
+Civilian traffic
+  Zone: 6 points  ~14 800 nm²      [Draw zone]
+  Ships (vessels, alive at once)    min [2]  max [6]
+  Planes (aircraft, alive at once)  min [0]  max [2]
+  [Spawn traffic]  [Remove generated]
+  Classes: 23 ship class(es), 9 aircraft class(es)   [Refresh]
+```
+
+How it works, and the verified mission-file format:
+[docs/civilian-traffic.md](docs/civilian-traffic.md). Hatch API:
+[docs/hatch-api.md](docs/hatch-api.md).
 
 ---
 
@@ -52,10 +73,12 @@ Blocked by PowerShell's execution policy (`is not digitally signed`)? Use `build
 instead — batch files are not affected by it.
 
 The DLL goes into `BepInEx\plugins\SeaPowerAdvanced\`, so **BepInEx loads it directly** — there is
-no mod-manager checkbox on this route. BepInEx's log then shows `Loading [Sea Power Advanced 0.5.0]`,
+no mod-manager checkbox on this route. BepInEx's log then shows `Loading [Sea Power Advanced 0.6.0]`,
 and the mod writes its own `seapoweradvanced.log` next to the DLL.
 
 ## Use it
+
+### Hatch control
 
 1. Right-click one of your ships.
 2. **Orders → Weapon hatches**.
@@ -69,8 +92,18 @@ and the mod writes its own `seapoweradvanced.log` next to the DLL.
 **Open all hatches** does the whole ship. Because the list is rebuilt from live game state, the
 check marks stay truthful even when the game opens a hatch itself while firing.
 
-Full walkthrough, including what the menu is telling you and what the mod does not control:
-**[docs/usage.md](docs/usage.md)**.
+### Civilian traffic
+
+1. Open the **mission editor** on a mission (new or existing).
+2. Press **F8**. The *Civilian traffic* panel appears; drag it by its title bar.
+3. **Draw zone** → left-click around the area on the map → middle-click to finish, or press
+   **Finish**.
+4. Set the four numbers and press **Spawn traffic**.
+5. Save the mission. The routes are part of it now and spawn when the mission is played.
+
+**Remove generated** takes back the routes this session created, in case you want a different roll.
+
+Full walkthrough: **[docs/usage.md](docs/usage.md)**.
 
 ## How it works
 
@@ -122,6 +155,12 @@ Two details that matter in practice:
 | General | `AllowEnemyUnits` | `false` | Show the menu on enemy/neutral ships too. |
 | Menu | `ShowDiagnosticsItem` | `true` | Adds "Log hatch report". |
 | Diagnostics | `VerboseLog` | `true` | Log every hatch action with the game method used and its result. |
+| CivilianTraffic | `ShowPanel` | `true` | Show the panel in the mission editor. |
+| CivilianTraffic | `ToggleKey` | `F8` | Key that toggles the panel (a `UnityEngine.KeyCode` name). |
+| CivilianTraffic | `MinShips` / `MaxShips` | `2` / `6` | Default numbers for vessels; the panel remembers what you last used. |
+| CivilianTraffic | `MinPlanes` / `MaxPlanes` | `0` / `2` | Default numbers for aircraft. |
+| CivilianTraffic | `MaxLanes` | `4` | How many separate traffic lanes one generate may make (1–6). More lanes means traffic from more places. |
+| CivilianTraffic | `ClassesPerRoute` | `6` | How many different civilian classes one lane picks from (1–40). |
 
 ## Troubleshooting
 
@@ -197,6 +236,12 @@ src/SeaPowerAdvanced/
   ModSettings.cs            BepInEx config
   ModActivation.cs          honours the mod-manager checkbox
   ModFolders.cs             mod folder + diagnostic file location
+  Civilian/CivilianCatalogue.cs  civilian classes read from the game's unit database
+  Civilian/TrafficZone.cs        polygon testing + random points/paths inside it
+  Civilian/RouteFactory.cs       builds SeaPower.CivilianRoute objects (reflection, field-verified)
+  Civilian/TrafficGenerator.cs   rolls counts, splits them into lanes, adds the routes
+  Civilian/ZoneTool.cs           drives the game's own map polygon tool
+  UI/TrafficPanel.cs             the IMGUI panel (F8 in the mission editor)
   ModInfo.cs, ModLog.cs     identity and logging
 ```
 

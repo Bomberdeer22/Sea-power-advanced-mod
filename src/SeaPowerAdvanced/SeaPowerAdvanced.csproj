@@ -9,8 +9,8 @@
     <AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
     <GenerateDependencyFile>false</GenerateDependencyFile>
     <DebugType>none</DebugType>
-    <Version>0.5.1</Version>
-    <AssemblyVersion>0.5.1.0</AssemblyVersion>
+    <Version>0.6.0</Version>
+    <AssemblyVersion>0.6.0.0</AssemblyVersion>
     <FindDependenciesOfExternallyResolvedReferences>false</FindDependenciesOfExternallyResolvedReferences>
     <!-- Keep warnings visible but non-fatal: a first build on a new game version should not stop. -->
     <TreatWarningsAsErrors>false</TreatWarningsAsErrors>
@@ -26,6 +26,16 @@
     <!-- BaseUnityPlugin derives from MonoBehaviour, which lives in the legacy monolithic UnityEngine
          assembly, not in CoreModule. Without this the BepInEx entry point fails with CS0012. -->
     <Reference Include="UnityEngine" HintPath="$(ManagedDir)\UnityEngine.dll" Private="false" ExternallyResolved="true" />
+    <!-- The game is built from modular Unity assemblies. IMGUI (GUI/GUILayout) lives in
+         IMGUIModule and the legacy Input class in InputLegacyModule; both are optional so a build
+         against an install that only has the monolithic UnityEngine.dll still resolves. -->
+    <Reference Include="UnityEngine.IMGUIModule" HintPath="$(ManagedDir)\UnityEngine.IMGUIModule.dll" Condition="Exists('$(ManagedDir)\UnityEngine.IMGUIModule.dll')" Private="false" ExternallyResolved="true" />
+    <Reference Include="UnityEngine.InputLegacyModule" HintPath="$(ManagedDir)\UnityEngine.InputLegacyModule.dll" Condition="Exists('$(ManagedDir)\UnityEngine.InputLegacyModule.dll')" Private="false" ExternallyResolved="true" />
+    <Reference Include="UnityEngine.TextRenderingModule" HintPath="$(ManagedDir)\UnityEngine.TextRenderingModule.dll" Condition="Exists('$(ManagedDir)\UnityEngine.TextRenderingModule.dll')" Private="false" ExternallyResolved="true" />
+    <!-- Needed only because the mission editor's polygon state comes from the Noesis-based UI
+         assembly; the mod never draws through Noesis itself. -->
+    <Reference Include="Noesis.NoesisGUI" HintPath="$(ManagedDir)\Noesis.NoesisGUI.dll" Condition="Exists('$(ManagedDir)\Noesis.NoesisGUI.dll')" Private="false" ExternallyResolved="true" />
+    <Reference Include="Unity.Mathematics" HintPath="$(ManagedDir)\Unity.Mathematics.dll" Condition="Exists('$(ManagedDir)\Unity.Mathematics.dll')" Private="false" ExternallyResolved="true" />
 
   </ItemGroup>
 

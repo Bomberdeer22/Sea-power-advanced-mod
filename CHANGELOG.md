@@ -1,5 +1,31 @@
 # Changelog
 
+## 0.6.0 — civilian traffic zones (mission editor)
+
+New feature: random civilian traffic, spawned into an area you draw yourself.
+
+- **Zone tool.** Press **F8** in the mission editor for the *Civilian traffic* panel, then
+  **Draw zone**. That hands the mouse to the game's own polygon tool (the one the editor uses for
+  map drawing): left-click adds a point, middle-click finishes, points snap to markers. The mod
+  reads the finished polygon from that state instead of reimplementing map input.
+- **Min/max for ships and planes.** Four number fields, per type: the mod rolls a count inside
+  your range each time you press **Spawn traffic**.
+- **Variety.** Each generate creates 1–6 *lanes* — one lane is one spawn point plus one course —
+  and every lane gets its own random slice of the civilian unit classes in your install, read from
+  `UnitMetadataProvider.UnitData` (every class flagged `_isCivilian`). So one lane can be
+  container ships and the next fishing boats, and the class list follows whatever units you have.
+- **Real civilian traffic.** Routes are created as the game's own `SeaPower.CivilianRoute` objects
+  and appended to `MissionManager._civilianRoutes`, which is the list the mission file is written
+  from, so **saving the mission keeps them** and playing it spawns them. No custom file format.
+- **Remove generated** takes the routes this session created back out again.
+- New `[CivilianTraffic]` config section: panel visibility, hotkey, default numbers, lane count
+  and classes per lane.
+- New reference: `Noesis.NoesisGUI` (only because the editor's polygon state is declared there;
+  the mod never draws through Noesis), plus optional Unity module references for IMGUI input.
+
+See [docs/civilian-traffic.md](docs/civilian-traffic.md) for the mission-file format and the
+verified API details.
+
 ## 0.5.1 — reference UnityEngine
 
 Build fix for 0.5.0: `BaseUnityPlugin` derives from `MonoBehaviour`, which lives in the legacy

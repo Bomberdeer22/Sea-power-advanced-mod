@@ -1,6 +1,7 @@
 using System;
 using HarmonyLib;
 using SeaPowerAdvanced.Menu;
+using SeaPowerAdvanced.UI;
 
 namespace SeaPowerAdvanced;
 
@@ -67,12 +68,15 @@ internal static class Boot
 
             harmony = new Harmony(ModInfo.Id);
             HatchMenu.Install(harmony);
+            TrafficPanel.Install();
 
             ModLog.Info("Ready. Right-click a ship > Orders > Weapon hatches.");
+            ModLog.Info("Mission editor: press " + ModSettings.TrafficToggleKey
+                        + " for the Civilian traffic panel.");
         }
         catch (Exception error)
         {
-            ModLog.Error("Startup failed; hatch control is unavailable", error);
+            ModLog.Error("Startup failed; hatch control and civilian traffic are unavailable", error);
             try { harmony?.UnpatchSelf(); }
             catch (Exception rollback) { ModLog.Error("Patch rollback failed", rollback); }
         }
