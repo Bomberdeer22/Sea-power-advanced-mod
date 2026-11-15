@@ -219,10 +219,30 @@ $EDITOR Directory.Build.local.props
 | `tools/build-portable.*` | Fetch a portable SDK into `.dotnet/` and run the build script. |
 | `build.cmd` | Same thing as a batch file, for machines where PowerShell policy blocks `.ps1`. |
 | `docs/usage.md` | How to use the mod once it is installed. |
-| `tools/read-metadata.py`, `tools/dump-game-api.ps1` | Read the game's API out of `Seapower-Scripts.dll` — no game, no compiler. |
+| `tools/analysis/` | **Read the game's API out of `Seapower-Scripts.dll`** — types, signatures, access flags and who calls what. Self-tested against ILDasm. See [tools/analysis/README.md](tools/analysis/README.md). |
+| `tools/read-metadata.py`, `tools/dump-game-api.ps1` | Older, narrower metadata dumps (type and member names only). |
 
 Reference paths are never copied into `StreamingAssets`: Anchor Chain would load the game's own DLLs
 a second time.
+
+## Checking the API before writing code
+
+Every feature here is written against the shipped assembly rather than against guesswork, because
+"does this member exist, what is its signature, and what does the game call it from?" decides whether
+a feature is a five-line change or impossible. That reader lives in
+[tools/analysis](tools/analysis/README.md):
+
+```bat
+tools\analysis\survey.cmd              :: full API survey -> tools\analysis\analysis-report.txt
+tools\analysis\survey.cmd selftest     :: verify the reader still works
+```
+
+It reads metadata and IL only — nothing is loaded or run — and it also answers one-off questions:
+
+```bat
+python analyze.py member SeaPower.CivilianRoute
+python analyze.py find "_radarsActive" --callsites
+```
 
 ## Layout
 

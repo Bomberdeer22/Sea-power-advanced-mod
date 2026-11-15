@@ -14,3 +14,9 @@ Directory.Build.local.props
 .idea/
 *.user
 *.suo
+
+# Analysis toolchain (tools/analysis)
+tools/analysis/.venv/
+__pycache__/
+*.pyc
+analysis-report.txt
