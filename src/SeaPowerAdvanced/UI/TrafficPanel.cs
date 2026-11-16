@@ -53,7 +53,7 @@ public sealed class TrafficPanel : MonoBehaviour
         minShips = ModSettings.TrafficMinShips.ToString();
         maxShips = ModSettings.TrafficMaxShips.ToString();
         minPlanes = ModSettings.TrafficMinPlanes.ToString();
-        maxPlanes = ModSettings.TrafficMaxPlanes;
+        maxPlanes = ModSettings.TrafficMaxPlanes.ToString();
 
         ModLog.Info("Civilian traffic panel ready (" + toggleKey + " toggles it inside the mission editor).");
     }
@@ -323,7 +323,12 @@ public sealed class TrafficPanel : MonoBehaviour
     {
         try
         {
+            // FindObjectOfType is deprecated in newer Unity, but the replacement
+            // (FindFirstObjectByType) does not exist in every Unity build Sea Power might
+            // ship on. Suppressing the warning keeps the build clean without betting on it.
+#pragma warning disable CS0618
             if (FindObjectOfType<TrafficPanel>() != null) return;
+#pragma warning restore CS0618
 
             GameObject host = new("SeaPowerAdvanced.TrafficPanel");
             DontDestroyOnLoad(host);

@@ -78,9 +78,10 @@ internal sealed class TrafficZone
         if (polygon == null || polygon.Count < 3) return null;
 
         List<GeoPosition> copy = new(polygon.Count);
+        // GeoPosition is a struct: it cannot be null, so the only useless points are the ones
+        // carrying NaN coordinates.
         foreach (GeoPosition point in polygon)
         {
-            if (point is null) continue;
             if (double.IsNaN(point.Latitude) || double.IsNaN(point.Longitude)) continue;
             copy.Add(point);
         }
@@ -137,10 +138,12 @@ internal sealed class TrafficZone
 
             if (!Contains(candidate)) continue;
 
-            if (avoid != null && minimumDegrees > 0)
+            // avoid is GeoPosition? - HasValue plus .Value, not a null comparison.
+            if (minimumDegrees > 0 && avoid.HasValue)
             {
-                double dLat = candidate.Latitude - avoid.Latitude;
-                double dLon = (candidate.Longitude - avoid.Longitude) * xScale;
+                GeoPosition anchor = avoid.Value;
+                double dLat = candidate.Latitude - anchor.Latitude;
+                double dLon = (candidate.Longitude - anchor.Longitude) * xScale;
                 if (Math.Sqrt(dLat * dLat + dLon * dLon) < minimumDegrees) continue;
             }
 
