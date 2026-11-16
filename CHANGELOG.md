@@ -1,5 +1,29 @@
 # Changelog
 
+## 0.13.1 — one scope error, and a check that will catch the next one
+
+`OffensiveEcm.cs(407)`: `error CS0103: The name 'reach' does not exist in the current context`.
+`reach` was declared in `BestJammerFor` and used in `LockOnContact` — the two are neighbours, the
+edit moved one line and not the other. Fixed by computing the contact's reach where it is printed.
+
+**The more useful part.** Nothing in the source checker could see that: the braces balanced, every
+namespace resolved, every member existed. A scope error is invisible to each of those, and this
+sandbox has no compiler to ask. So `tools/check-source.py` now collects the locals each method
+declares — parameters, declarations, `foreach`/`catch`/pattern variables, lambda parameters — and
+flags a camelCase name that a method uses but that is only a local of another method in the same
+file. Fields are excluded, named arguments are excluded, and the three-pass tuning left **zero
+false positives across all 58 files**.
+
+Proved rather than assumed: re-introducing the exact line that failed makes `check-source.cmd` print
+
+```
+OffensiveEcm.cs: 'reach' used in LockOnContact() but it is a local of Lock() - CS0103
+```
+
+and exit 1, and removing it again returns clean. `build.cmd` step `[4/6]` reports findings without
+blocking the build, as before — the compiler is still the judge — but a name out of scope now shows
+up in `check-source.txt` before the two-minute build rather than after it.
+
 ## 0.13.0 — the ECM lock reaches aircraft
 
 Invisible before, and it should not have been: a jammer could only ever be pointed at a ship.

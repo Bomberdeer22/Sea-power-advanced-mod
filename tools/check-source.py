@@ -163,6 +163,179 @@ def strip_noise(text: str) -> str:
     return text
 
 
+# ---------------------------------------------------------------------------------------------
+# Locals used outside the method that declares them.
+#
+# This exists because of a build failure that nothing else here could see:
+#
+#     OffensiveEcm.cs(407,67): error CS0103: The name 'reach' does not exist in the current context
+#
+# The identifier was declared in BestJammerFor and used in LockOnContact, which is a scope error the
+# brace counter, the namespace check and the member check all pass without noticing - and the sandbox
+# this mod is written in has no compiler to catch it. So: collect the locals each method declares,
+# and flag a camelCase name used in one method that is only declared as a local in another. Fields
+# are excluded (they are not locals), which is what keeps the false-positive rate at zero.
+# ---------------------------------------------------------------------------------------------
+
+KEYWORDS = {
+    "abstract", "add", "alias", "and", "as", "ascending", "async", "await", "base", "bool", "break",
+    "by", "byte", "case", "catch", "char", "checked", "class", "const", "continue", "decimal",
+    "default", "delegate", "descending", "do", "double", "dynamic", "else", "enum", "equals",
+    "event", "explicit", "extern", "false", "finally", "fixed", "float", "for", "foreach", "from",
+    "get", "global", "goto", "group", "if", "implicit", "in", "init", "int", "interface",
+    "internal", "into", "is", "join", "let", "lock", "long", "nameof", "namespace", "new", "not",
+    "null", "object", "on", "operator", "or", "orderby", "out", "override", "params", "partial",
+    "private", "protected", "public", "readonly", "record", "ref", "remove", "return", "sbyte",
+    "sealed", "select", "set", "short", "sizeof", "stackalloc", "static", "string", "struct",
+    "switch", "this", "throw", "true", "try", "typeof", "uint", "ulong", "unchecked", "unsafe",
+    "ushort", "using", "value", "var", "virtual", "void", "volatile", "when", "where", "while",
+    "with", "yield",
+}
+
+METHOD_HEAD = re.compile(
+    r"^\s*(?:(?:public|private|internal|protected|static|async|override|virtual|sealed|new|unsafe|extern|partial)\s+)+"
+    r"[\w<>,\[\]\?\.\s]*?(\w+)\s*\([^;{}]*\)\s*$")
+
+DECLARED = re.compile(
+    r"(?<![\w.])([A-Za-z_][\w<>,\[\]\?\.]*)\s+([a-z_]\w*)\s*"
+    r"(?==|;|,|\)|\]|\}|&&|\|\||\?|:|\sin\b|\bwhen\b)")
+MULTI_DECL = re.compile(r"(?<![\w.])[A-Za-z_][\w<>,\[\]\?\.]*\s+[a-z_]\w*\s*=[^;]*;")
+MORE_DECLS = re.compile(r",\s*([a-z_]\w*)\s*=(?!=)")
+LAMBDA_ONE = re.compile(r"\(?\b([a-z_]\w*)\b\s*=>")
+LAMBDA_MANY = re.compile(r"\(([^()]*)\)\s*=>")
+USED = re.compile(r"(?<![\w.])[a-z_]\w*(?![\w])")
+
+FIELD = re.compile(
+    r"(?:private|internal|public|protected)\s+(?:static\s+)?(?:readonly\s+)?"
+    r"[\w<>,\[\]\?\. ]+\s+(\w+)\s*(?:[;=]|=>)")
+
+
+def method_bodies(code: str):
+    """Yield (name, parameter list, body) for every method with a block body in this file."""
+    lines = code.splitlines(keepends=True)
+    offsets, running = [], 0
+    for line in lines:
+        offsets.append(running)
+        running += len(line)
+
+    for index, line in enumerate(lines):
+        match = METHOD_HEAD.match(line)
+        if not match:
+            continue
+
+        # The opening brace is on a following line, ignoring blank lines.
+        start = None
+        for probe in range(index + 1, min(index + 4, len(lines))):
+            if lines[probe].strip().startswith("{"):
+                start = offsets[probe] + lines[probe].index("{")
+                break
+        if start is None:
+            continue
+
+        parameters = line[line.index("(") + 1:line.rindex(")")]
+
+        depth, position = 0, start
+        while position < len(code):
+            char = code[position]
+            if char == "{":
+                depth += 1
+            elif char == "}":
+                depth -= 1
+                if depth == 0:
+                    yield match.group(1), parameters, code[start:position + 1]
+                    break
+            position += 1
+
+
+def parameters_of(listing: str) -> set[str]:
+    """The names a parameter list declares, however many commas are inside its generics."""
+    names: set[str] = set()
+    depth, part = 0, ""
+
+    for char in listing + ",":
+        if char in "<([":
+            depth += 1
+        elif char in ">)]":
+            depth -= 1
+        if char == "," and depth == 0:
+            word = part.split("=")[0].strip()
+            token = re.findall(r"[A-Za-z_]\w*", word)
+            if token:
+                names.add(token[-1])
+            part = ""
+            continue
+        part += char
+
+    return names
+
+
+def locals_of(body: str) -> set[str]:
+    names = {name for _, name in DECLARED.findall(body)}
+    for statement in MULTI_DECL.findall(body):
+        names.update(MORE_DECLS.findall(statement))
+    names.update(LAMBDA_ONE.findall(body))
+    for group in LAMBDA_MANY.findall(body):
+        for part in group.split(","):
+            word = part.strip()
+            if word.isidentifier():
+                names.add(word)
+    return names
+
+
+def used_names(body: str) -> set[str]:
+    """Names the body reads, minus named arguments - "label:" in `new(label: x)` is a parameter
+    name from another method, not a variable."""
+    names: set[str] = set()
+
+    for match in USED.finditer(body):
+        start, end = match.span()
+
+        # Far enough back to clear a newline and indentation: "new(\n    label: x)".
+        before = body[max(0, start - 80):start].rstrip()
+        after = body[end:end + 2].lstrip()
+
+        # `(label: x)` and `, label: x` are argument names; a ternary's `a : b` never follows a
+        # bracket or a comma directly, so this does not swallow real uses.
+        if after.startswith(":") and after[1:2] != ":" and before[-1:] in {"(", ","}:
+            continue
+
+        names.add(match.group(0))
+
+    return names
+
+
+def scope_problems(files) -> list[str]:
+    problems: list[str] = []
+
+    for path in files:
+        code = strip_noise(path.read_text(encoding="utf-8"))
+        short = path.relative_to(ROOT)
+
+        fields = set(FIELD.findall(code))
+        methods = list(method_bodies(code))
+        if not methods:
+            continue
+
+        declared: dict[str, set[str]] = {}
+        for name, parameters, body in methods:
+            declared.setdefault(name, set()).update(locals_of(body))
+            declared[name].update(parameters_of(parameters))
+
+        for name, parameters, body in methods:
+            own = locals_of(body) | parameters_of(parameters)
+            for used in used_names(body):
+                if used in KEYWORDS or used in own or used in fields:
+                    continue
+                for other, locals_ in declared.items():
+                    if other == name or used not in locals_:
+                        continue
+                    problems.append(
+                        f"{short}: '{used}' used in {name}() but it is a local of {other}() - CS0103")
+                    break
+
+    return problems
+
+
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--fix", action="store_true", help="add missing using directives")
@@ -302,8 +475,11 @@ def main() -> int:
                 problems.append(
                     f"UnitState.cs: UnitRecord.{member} is never read - it is written and forgotten")
 
+    problems.extend(scope_problems(files))
+
     if not problems:
-        print(f"clean: {len(files)} file(s), no missing namespaces, UnitRecord consistent")
+        print(f"clean: {len(files)} file(s), no missing namespaces, UnitRecord consistent, "
+              f"no out-of-scope locals")
         return 0
 
     print()

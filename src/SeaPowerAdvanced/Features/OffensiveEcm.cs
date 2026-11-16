@@ -404,7 +404,11 @@ internal static class OffensiveEcm
 
         if (jammer == null)
         {
-            report = "no ship of ours with ECM is within " + (int)reach + " nm of "
+            // The reach belongs to the contact, not to this method: an aircraft is engaged out to
+            // its own horizon. Named here because the sentence has to carry the right number.
+            int reach = (int)Reach(contact);
+
+            report = "no ship of ours with ECM is within " + reach + " nm of "
                      + Name(contact) + " - nothing to jam it with";
             ModLog.Warn("Offensive ECM: " + report);
             return false;

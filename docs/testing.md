@@ -3,7 +3,7 @@
 Run this once per game version, and after any change to `HatchControl`, `HatchMenu`,
 `TrafficGenerator` or `RouteFactory`.
 
-Version under test: **0.13.0**. Mod id `io.github.bomberdeer22.seapoweradvanced`.
+Version under test: **0.13.1**. Mod id `io.github.bomberdeer22.seapoweradvanced`.
 
 **Read the log, do not guess.** Everything below is confirmed by two files:
 
@@ -17,9 +17,10 @@ If `seapoweradvanced.log` is missing, nothing else in this plan can pass — sto
 
 ## 0. Before the first test
 
-- [ ] `check-source.cmd` says **PASS**. It costs a second and catches the `using`/type mistakes that
-      otherwise show up as `CS0246` two minutes into a build. `build.cmd` runs the same check as step
-      `[4/6]`; it never blocks the build.
+- [ ] `check-source.cmd` says **PASS**. It costs a second and catches the mistakes that otherwise
+      show up as `CS0246`/`CS0103` two minutes into a build: a missing `using`, a member that does not
+      exist, and a name used outside the method that declares it. `build.cmd` runs the same check as
+      step `[4/6]`; it never blocks the build.
 
 - [ ] BepInEx + the Anchor Chain preloader in the game folder (run `build.cmd` once and it puts them
       there); the game does *not* say "The Anchor Chain preloader is not running!"
@@ -34,11 +35,11 @@ If `seapoweradvanced.log` is missing, nothing else in this plan can pass — sto
 
 In `LogOutput.log`, BepInEx's own banner should appear:
 
-- [ ] `Loading [Sea Power Advanced 0.13.0]`
+- [ ] `Loading [Sea Power Advanced 0.13.1]`
 
 Then the mod's own startup lines:
 
-- [ ] `Sea Power Advanced: ================ Sea Power Advanced 0.13.0 ================`
+- [ ] `Sea Power Advanced: ================ Sea Power Advanced 0.13.1 ================`
 - [ ] `Sea Power Advanced: Entry point:  BepInEx plugin`
 - [ ] `Sea Power Advanced: Settings: enabled=True includeGuns=False ...`
 - [ ] `Sea Power Advanced: Patched MapUnitViewModel.GetContextMenuItems.`
