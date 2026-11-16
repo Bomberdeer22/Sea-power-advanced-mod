@@ -1,41 +1,69 @@
 # Test plan
 
-Run this once per game version, and after any change to `HatchControl` or `HatchMenu`.
+Run this once per game version, and after any change to `HatchControl`, `HatchMenu`,
+`TrafficGenerator` or `RouteFactory`.
+
+Version under test: **0.6.0**. Mod id `io.github.bomberdeer22.seapoweradvanced`.
+
+**Read the log, do not guess.** Everything below is confirmed by two files:
+
+| File | What it proves |
+|---|---|
+| `BepInEx\LogOutput.log` | BepInEx listed the plugin, Harmony patched the game. |
+| `BepInEx\plugins\SeaPowerAdvanced\seapoweradvanced.log` | The mod's own log. If this file exists, the code ran. |
+
+If `seapoweradvanced.log` is missing, nothing else in this plan can pass — stop and send
+`SeaPowerAdvanced-diagnose.txt` (from `diagnose.cmd`).
 
 ## 0. Before the first test
 
-- [ ] Anchor Chain and its preloader installed; the mod manager does *not* say "The Anchor Chain
-      preloader is not running!"
-- [ ] `SeaPowerAdvanced/` (DLL + `_info.ini`) in `StreamingAssets`, ticked in the mod manager
+- [ ] Anchor Chain and its preloader installed; the game does *not* say "The Anchor Chain preloader is
+      not running!"
+- [ ] `SeaPowerAdvanced.dll` + `_info.ini` in `BepInEx\plugins\SeaPowerAdvanced\`
+- [ ] **No** leftover copy in `Sea Power_Data\StreamingAssets\SeaPowerAdvanced\` — a double install
+      loads every patch twice
 - [ ] Game fully restarted after the build (code loads once per launch)
-- [ ] `BepInEx/LogOutput.log` open in a second window
+- [ ] `LogOutput.log` open in a second window
 
 ## 1. Load
 
-- [ ] Log contains `Sea Power Advanced: Loading Sea Power Advanced 0.2.0`
-- [ ] Log contains `Hatch menu installed.`
-- [ ] Log contains `Ready. Right-click a ship > Orders > Weapon hatches.`
-- [ ] No exception or `Could not patch` line
+In `LogOutput.log`, BepInEx's own banner should appear:
 
-If any of these is missing, stop: the mod is not running and nothing below can pass.
+- [ ] `Loading [Sea Power Advanced 0.6.0]`
 
-## 2. Menu
+Then the mod's own startup lines:
+
+- [ ] `Sea Power Advanced: ================ Sea Power Advanced 0.6.0 ================`
+- [ ] `Sea Power Advanced: Entry point:  BepInEx plugin`
+- [ ] `Sea Power Advanced: Settings: enabled=True includeGuns=False ...`
+- [ ] `Sea Power Advanced: Patched MapUnitViewModel.GetContextMenuItems.`
+- [ ] `Sea Power Advanced: Context menu patch is live (...)`
+- [ ] `Sea Power Advanced: Civilian traffic panel ready (F8 toggles it inside the mission editor).`
+- [ ] `Sea Power Advanced: Ready. Right-click a ship > Orders > Weapon hatches.`
+- [ ] No `Could not patch`, no `Startup failed`
+
+If `Entry point:` says `AnchorChain mod`, the DLL is being loaded from `StreamingAssets` — that is the
+double-install case; remove that folder.
+
+## 2. Hatch menu
 
 - [ ] Right-click a player ship with launchers (Spruance, Ticonderoga, Burke, Kirov, Slava)
-- [ ] **Orders → Weapon hatches** exists, at the top of Orders
+- [ ] **Orders → Weapon hatches** exists
 - [ ] Mounts are named as the game names them (`Mk 41 VLS  (32)`), not `WeaponSystemLauncher`
 - [ ] Two mounts with the same name show ` #2`
-- [ ] A ship with no launchers shows no entry (or only guns, if `IncludeGuns` is on)
+- [ ] A ship with no launchers shows `This ship has no launchers - click for a report`
 - [ ] Enemy and neutral ships show nothing (unless `AllowEnemyUnits`)
 - [ ] Vanilla Orders entries are unchanged and still work
 
 ## 3. One cell (the feature)
 
-- [ ] **Cell 1** → the hatch opens; log reads `openHatches -> ok (N hatch…)`
+- [ ] **Cell 1** → the hatch opens; log reads `Open <mount> / Cell 1: openHatches -> started`
 - [ ] Reopen the menu: Cell 1 is ticked
-- [ ] Click Cell 1 again → closes, unticked, log reads `closeHatches -> ok`
+- [ ] Click Cell 1 again → closes, unticked, log reads `closeHatches -> started`
 - [ ] Move the camera close: the hatch animates and the hatch sound plays
 - [ ] Repeat on a cell in the middle of the mount (not just the first)
+
+`-> already running` or `-> state set` are also correct; `-> no-op` is the one worth reporting.
 
 ## 4. Whole mount / whole ship
 
@@ -43,35 +71,68 @@ If any of these is missing, stop: the mod is not running and nothing below can p
 - [ ] **Open all hatches** cycles every mount; log ends with
       `Open all hatches on <ship>: N/M mounts responded.`
 - [ ] **Close all hatches** closes them
-- [ ] A 16+ cell VLS completes smoothly, no stutter, no log spam beyond the summary
-- [ ] A rail launcher without per-cell hatches (Mk 141) offers **Open cover / Close cover** and it
-      moves the cover
+- [ ] A 16+ cell VLS completes smoothly, no stutter
+- [ ] A rail launcher without per-cell hatches (Mk 141) offers **Open cover / Close cover**, and the
+      cover moves
 
 ## 5. Coexistence with the game
 
 - [ ] Open cells manually, then launch: the launch is normal, salvo/reload counters unchanged
-- [ ] Let the ship fire with cells manually opened: note in `hatch-report.txt` whether the game
-      reopened/closed cells (expected — the game owns the cycle)
-- [ ] Hatch stays open afterwards (the mod clears `_triggerCloseAnimation`; if it slams shut, note
-      the ship and what it was doing)
+- [ ] Let the ship fire with cells manually opened: note whether the game reopened/closed cells
+      (expected — the game owns the cycle)
+- [ ] Hatch stays open afterwards (the mod clears `_triggerCloseAnimation`; if it slams shut, note the
+      ship and what it was doing)
 - [ ] Order a reload, a turn, a sensor change: nothing regresses
 - [ ] Save, then load: the menu still works (check marks come from live state, so they must survive)
 
-## 6. Robustness
+## 6. Hatch robustness
 
 - [ ] Toggle a cell twice quickly
 - [ ] Open hatches on a small boat with one mount
-- [ ] Run `Log hatch report`: `hatch-report.txt` appears in the mod folder, per-cell lines look sane
+- [ ] **Log hatch report** → `hatch-report.txt` appears in the mod folder, per-cell lines look sane
 - [ ] No `NullReferenceException` or `TypeLoadException` in `LogOutput.log`
-- [ ] Ten minutes of play with the mod on: no crash, log does not grow without bound
+- [ ] Ten minutes of play: no crash, log does not grow without bound
 
-## 7. Disable
+## 7. Civilian traffic (mission editor)
 
-- [ ] Untick the mod, restart: log says `Disabled in the mod manager; no patches installed.` and no
-      `Weapon hatches` entry appears
-- [ ] Re-enable, restart: it comes back
+This is the feature that has never run, so expect to find something here.
+
+- [ ] Open the **mission editor** on a new mission
+- [ ] Log reads `Mission editor detected; the civilian traffic panel is available.`
+- [ ] Press **F8** → a *Civilian traffic* window appears; drag it by the title bar
+- [ ] `Classes:` line shows non-zero counts, and the log reads
+      `Civilian catalogue: N civilian vessel class(es), M civilian aircraft class(es).`
+      (0/0 means nothing in this install is flagged civilian — send the log)
+- [ ] Press **Draw zone**, left-click 4–6 points around open sea, then **Finish**
+      (or middle-click). Log reads `Zone tool: polygon mode started. ...`
+- [ ] The `Zone:` line shows the point count and an area in nm²
+- [ ] Set min/max ships to `2`/`4`, planes to `0`/`0`, press **Spawn traffic**
+- [ ] Log reads `Civilian traffic: Added N ship lane(s) (up to 4 vessel(s) at a time) and 0 aircraft
+      lane(s) ...`
+- [ ] **Save the mission**, then play it: the ships appear inside the drawn area, not outside it
+- [ ] They keep coming back after finishing their run (`_maxUnits` is a concurrency cap, not a total)
+- [ ] **Remove generated** takes them back out; log reads `removed N generated route(s).`
+
+Then repeat with planes set to `1`/`2` and ships `0`/`0`.
+
+- [ ] Draw a zone that crosses land: units should stay off the land, or report what they did
+- [ ] Draw a tiny zone (a few km): the panel should refuse it, not spawn one unit on top of another
+- [ ] Reload the saved mission: does the traffic survive the round trip through the mission file?
+
+## 8. Disable
+
+- [ ] Up the `General/Enabled` toggle in
+      `BepInEx\config\io.github.bomberdeer22.seapoweradvanced.cfg`, restart: log reads
+      `General/Enabled is false; nothing will be patched.` and no `Weapon hatches` entry appears
+- [ ] Set it back to `true`, restart: it comes back
 
 ## What to send back
 
-Whether it opened (yes/no), the ship class and mount for any hatch that did not move, and
-`hatch-report.txt` plus the matching `LogOutput.log` lines.
+- **Which numbered checks failed** — just the numbers, that is enough.
+- `seapoweradvanced.log` (mod folder) for anything that failed, and the matching `LogOutput.log` lines.
+- `hatch-report.txt` for anything hatch-related that did not move.
+- For traffic: the ship class and mount for any hatch that did not move, and whether the units
+  appeared in the right place, off the coast, or not at all.
+
+`diagnose.cmd` collects system, game folder, mod files, build logs and game logs into one file. If in
+doubt, run it and send `SeaPowerAdvanced-diagnose.txt`.
