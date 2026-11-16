@@ -1,5 +1,6 @@
 using System;
 using System.Text;
+using SeaPowerAdvanced.Menu;
 
 namespace SeaPowerAdvanced.Interop;
 
@@ -35,6 +36,13 @@ internal static class CapabilityReport
             text.AppendLine("Sensor, doctrine and countermeasure levers");
             text.AppendLine("----------------------------------------");
             foreach (string line in SensorControl.Describe()) text.AppendLine(line);
+
+            text.AppendLine();
+            text.AppendLine("Context menu sections found in this build");
+            text.AppendLine("-----------------------------------------");
+            text.AppendLine("  " + MenuRouting.Describe());
+            text.AppendLine("  The advanced features are routed by keyword into these sections. If a");
+            text.AppendLine("  feature landed somewhere unexpected, these are the labels to match against.");
 
             text.AppendLine();
             text.AppendLine("What this means");

@@ -1,7 +1,23 @@
 # The twelve advanced features
 
-All twelve are in the game's own right-click menu, under **Orders**, in the same style as the game's
-own orders. There is no mod window and no hotkey. This document says what each one does, which game
+All twelve live in the game's own right-click menu, each in the section a player would look in
+first - not stacked into one submenu. There is no mod window and no hotkey.
+
+| Feature | Where it appears |
+|---|---|
+| Radars, air/surface search only, active sonar, towed array, EMCON profiles | **Sensors** |
+| Radar blink, auto-ARM shutoff, commercial disguise | **Sensors** (they are emission decisions) |
+| Salvo deconfliction | **Engage** (it is about who may fire, and when) |
+| Action stations, cold cruise, crew fatigue | **Rules of engagement** |
+| Sprint and drift, turn the screen onto the threat | **Formation** |
+| Helicopter ladder / square / sector | **Air operations** |
+| Local control, replenish alongside | **Damage control** (replenishment falls back to logistics) |
+| Breakaway with chaff and hard rudder | **Top level, one click** - it is the emergency button |
+
+Sections are found by keyword at runtime, because the game's exact menu labels are not in the API
+dump. If a section is missing in your build, the entry moves up to Orders rather than disappearing,
+and `capabilities.txt` lists the section labels that were actually found - so the routing can be
+corrected from a single log rather than a guess. This document says what each one does, which game
 member it drives, and - where it matters - what it honestly cannot do.
 
 ## How to test them

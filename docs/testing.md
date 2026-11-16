@@ -103,8 +103,10 @@ the BepInEx route.
 
 Full description of each: [features.md](features.md). Right-click one of your ships.
 
-- [ ] Orders shows **Weapon hatches** plus eight more submenus: Sensors and EMCON,
-      Countermeasures, Readiness, Manoeuvres, Air operations, Strike, Deception, Logistics
+- [ ] The features are spread across the menu's own sections, not stacked under Orders:
+      Sensors, Engage, Rules of engagement, Formation, Air operations, Damage control
+- [ ] **Breakaway** is at the top level of the right-click menu, one click away
+- [ ] `capabilities.txt` lists the section labels that were found - check them against the above
 - [ ] Each toggle shows its state in the label and flips when clicked
 - [ ] **Sensors and EMCON → Radars off** actually darkens the ship; `Radars on` brings them back
 - [ ] **Radar blink** cycles the surface-search radar; stopping puts it back as it was

@@ -103,6 +103,9 @@ internal static class HatchMenu
 
     private static readonly HashSet<string> SourcesSeen = new(StringComparer.Ordinal);
 
+    /// <summary>Logged once, so the first menu built shows where everything landed.</summary>
+    private static bool FleetPlacementLogged;
+
     private static void TryAdd(ObjectBase? unit, TrulyObservableCollection<ContextMenuItem>? result, string source)
     {
         if (result == null) return;
@@ -173,24 +176,22 @@ internal static class HatchMenu
         try
         {
             if (!ModSettings.FeaturesEnabled) return;
-            if (FleetMenu.Present(result)) return;
 
-            List<ContextMenuItem> menus = FleetMenu.Build(unit);
-            if (menus.Count == 0) return;
+            List<ContextMenuItem> roots = MenuRouting.Roots(result);
+            if (FleetMenu.Present(roots)) return;
 
-            ContextMenuItem? orders = FindOrders(result);
-            if (orders?.Items != null)
+            int sections = FleetMenu.Install(unit, roots);
+
+            if (sections > 0 && !FleetPlacementLogged)
             {
-                // Below the hatch menu, which stays first because it is the original feature.
-                foreach (ContextMenuItem menu in menus) orders.Items.Add(menu);
-                return;
+                FleetPlacementLogged = true;
+                ModLog.Info("Advanced features placed in " + sections
+                            + " menu section(s): " + MenuRouting.Describe());
             }
-
-            foreach (ContextMenuItem menu in menus) result.Add(menu);
         }
         catch (Exception error)
         {
-            ModLog.Error("Could not add the fleet menus", error);
+            ModLog.Error("Could not add the advanced feature entries", error);
         }
     }
 

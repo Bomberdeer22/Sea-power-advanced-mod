@@ -29,24 +29,24 @@ Orders
 
 ### 3. Twelve advanced features, in the right-click menu
 
-Right-click one of your ships. Below **Weapon hatches** the Orders menu now carries the advanced
-features, grouped the way the game groups its own orders - no separate window, no hotkey:
+Right-click one of your ships. Each feature appears in the section of the menu where a player would
+look for it, rather than in one long submenu:
 
 ```
-Orders
-  Weapon hatches              open individual silo cells (feature 1)
-  Sensors and EMCON        >  radars, air/surface search only, active sonar, towed array,
-                              EMCON profiles, radar blink
-  Countermeasures          >  breakaway with chaff and hard rudder, auto-ARM shutoff,
-                              local control
-  Readiness                >  action stations / cold cruise, crew fatigue status
-  Manoeuvres               >  sprint and drift (this ship, or the whole task force),
-                              turn the screen onto the threat
-  Air operations           >  helicopter ladder, expanding square, sector search
-  Strike                   >  deconflict the salvo, release everyone
-  Deception                >  commercial disguise
-  Logistics                >  replenish alongside a supply ship
+Orders                      Weapon hatches (feature 1)
+Sensors                     radars, air/surface search only, active sonar, towed array,
+                            EMCON profiles, radar blink, auto-ARM, commercial disguise
+Engage                      deconflict the salvo, release everyone
+Rules of engagement         action stations / cold cruise, crew fatigue status
+Formation                   sprint and drift (this ship or the whole force),
+                            turn the screen onto the threat
+Air operations              helicopter ladder / expanding square / sector search
+Damage control              local control, replenish alongside
+(top level)                 Breakaway - chaff and hard rudder in one click
 ```
+
+Sections are matched by name at runtime; if your build has no such section the entry moves up to
+Orders instead of vanishing, and `capabilities.txt` lists the section labels that were found.
 
 Every entry that is a toggle shows its current state in the label, and every one reports what
 happened through the game's own order-feedback text as well as the log.
