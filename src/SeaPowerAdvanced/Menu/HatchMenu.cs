@@ -139,6 +139,8 @@ internal static class HatchMenu
             if (string.Equals(existing?.Label as string, MenuLabel, StringComparison.Ordinal)) return;
         }
 
+        AddFleetMenus(unit, result);
+
         List<HatchGroup> groups = HatchBay.Read(unit);
         MenuLog.Once(unit, groups, HatchBay.Summary(unit, groups));
 
@@ -157,6 +159,39 @@ internal static class HatchMenu
         ModLog.Warn($"No Orders submenu in the {source} for {HatchControl.UnitName(unit)}; "
                     + "adding the hatch menu at the top level instead.");
         result.Insert(0, menu);
+    }
+
+    /// <summary>
+    /// Adds the twelve advanced features as game-style submenus, once per menu.
+    ///
+    /// Kept here rather than in its own Harmony patch so both features share one injection point:
+    /// two patches on the same method would each need their own de-duplication, and one of them
+    /// would eventually add its entries twice.
+    /// </summary>
+    private static void AddFleetMenus(ObjectBase unit, TrulyObservableCollection<ContextMenuItem> result)
+    {
+        try
+        {
+            if (!ModSettings.FeaturesEnabled) return;
+            if (FleetMenu.Present(result)) return;
+
+            List<ContextMenuItem> menus = FleetMenu.Build(unit);
+            if (menus.Count == 0) return;
+
+            ContextMenuItem? orders = FindOrders(result);
+            if (orders?.Items != null)
+            {
+                // Below the hatch menu, which stays first because it is the original feature.
+                foreach (ContextMenuItem menu in menus) orders.Items.Add(menu);
+                return;
+            }
+
+            foreach (ContextMenuItem menu in menus) result.Add(menu);
+        }
+        catch (Exception error)
+        {
+            ModLog.Error("Could not add the fleet menus", error);
+        }
     }
 
     /// <summary>

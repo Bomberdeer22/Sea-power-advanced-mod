@@ -43,6 +43,50 @@ internal sealed class UnitRecord
 
     /// <summary>Set when the player has taken manual control of the emitters in the meantime.</summary>
     internal bool BlinkCancelled;
+
+    // --- countermeasures -----------------------------------------------------------------------
+
+    /// <summary>Cut the radars automatically when an anti-radiation shot is inbound.</summary>
+    internal bool AutoArm;
+
+    /// <summary>Radars are currently cut by the auto-ARM logic rather than by the player.</summary>
+    internal bool AutoArmCut;
+
+    /// <summary>When the cut may end, so a volley does not leave the ship blind for ever.</summary>
+    internal float AutoArmRestoreAt;
+
+    // --- strike --------------------------------------------------------------------------------
+
+    /// <summary>This ship is waiting for its slot in a deconflicted salvo.</summary>
+    internal bool AwaitingSalvoSlot;
+
+    /// <summary>When this ship is released to fire.</summary>
+    internal float SalvoReleaseAt;
+
+    // --- readiness -----------------------------------------------------------------------------
+
+    /// <summary>Fraction of a reload to shave while at action stations (0 = none).</summary>
+    internal float GqReloadBonus;
+
+    /// <summary>Seconds of battle stations accumulated, for the fatigue model.</summary>
+    internal float BattleStationsSeconds;
+
+    // --- deception -----------------------------------------------------------------------------
+
+    /// <summary>Commercial disguise is on and these were the pre-disguise settings.</summary>
+    internal bool Disguised;
+
+    internal bool DisguiseRadarsWereOn;
+
+    internal float DisguiseSetAt;
+
+    /// <summary>The signature string the hull had before a disguise, so it can be put back.</summary>
+    internal string? OriginalSignature;
+
+    // --- degraded control ----------------------------------------------------------------------
+
+    /// <summary>Guns and CIWS are fighting under local control rather than from the ship's picture.</summary>
+    internal bool LocalControl;
 }
 
 internal static class UnitState

@@ -1,5 +1,6 @@
 using System;
 using HarmonyLib;
+using SeaPowerAdvanced.Features;
 using SeaPowerAdvanced.Interop;
 using SeaPowerAdvanced.Menu;
 using SeaPowerAdvanced.UI;
@@ -76,13 +77,16 @@ internal static class Boot
             harmony = new Harmony(ModInfo.Id);
             HatchMenu.Install(harmony);
             TrafficPanel.Install();
-            FleetPanel.Install();
+
+            // Timers only: blink, auto-ARM, salvo release, readiness clocks. No interface of its own;
+            // every feature is reached through the game's right-click menus.
+            FleetTicker.Install();
 
             ModLog.Info("Ready. Right-click a ship > Orders > Weapon hatches.");
             ModLog.Info("Mission editor: press " + ModSettings.TrafficToggleKey
                         + " for the Civilian traffic panel.");
-            ModLog.Info("In game: press " + ModSettings.FleetToggleKey
-                        + " for the fleet sensor panel (EMCON, sprint-and-drift, radar blink).");
+            ModLog.Info("Advanced features are in the right-click menu: Sensors and EMCON, "
+                        + "Countermeasures, Readiness, Manoeuvres, Air operations, Strike, Deception, Logistics.");
         }
         catch (Exception error)
         {

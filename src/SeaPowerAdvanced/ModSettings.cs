@@ -27,9 +27,9 @@ internal static class ModSettings
     private static ConfigEntry<int>? trafficMaxLanes;
     private static ConfigEntry<int>? trafficClassesPerRoute;
 
-    private static ConfigEntry<bool>? fleetShowPanel;
-    private static ConfigEntry<string>? fleetToggleKey;
-    private static ConfigEntry<float>? fleetBlinkSeconds;
+    private static ConfigEntry<bool>? featuresEnabled;
+    private static ConfigEntry<float>? blinkSeconds;
+    private static ConfigEntry<float>? salvoSpacingSeconds;
 
     internal static bool Enabled => enabled?.Value ?? true;
     internal static bool IncludeGuns => includeGuns?.Value ?? false;
@@ -38,11 +38,14 @@ internal static class ModSettings
     internal static bool ShowWhenNoMounts => showWhenNoMounts?.Value ?? true;
     internal static bool VerboseLog => verboseLog?.Value ?? true;
 
-    internal static bool FleetShowPanel => fleetShowPanel?.Value ?? true;
-    internal static string FleetToggleKey => fleetToggleKey?.Value ?? "F7";
+    /// <summary>Master switch for the twelve menu features (hatch control is unaffected).</summary>
+    internal static bool FeaturesEnabled => featuresEnabled?.Value ?? true;
 
     /// <summary>Seconds between radar blink flips. Short enough to see in a test mission.</summary>
-    internal static float FleetBlinkSeconds => fleetBlinkSeconds?.Value ?? 6f;
+    internal static float BlinkSeconds => blinkSeconds?.Value ?? 6f;
+
+    /// <summary>Seconds between ships being released in a deconflicted salvo.</summary>
+    internal static float SalvoSpacingSeconds => salvoSpacingSeconds?.Value ?? 8f;
 
     internal static bool TrafficShowPanel => trafficShowPanel?.Value ?? true;
     internal static string TrafficToggleKey => trafficToggleKey?.Value ?? "F8";
@@ -123,15 +126,16 @@ internal static class ModSettings
                 "How many separate traffic lanes one generate can create per type (1-6). Lanes are what "
                 + "make traffic come from more than one place.");
 
-            fleetShowPanel = file.Bind("Fleet", "ShowPanel", true,
-                "Show the fleet sensor panel. The hotkey below only works while this is on.");
+            featuresEnabled = file.Bind("Features", "Enabled", true,
+                "Add the twelve advanced features to the game's right-click menus: sensors and EMCON, "
+                + "countermeasures, readiness, manoeuvres, air operations, strike, deception, logistics.");
 
-            fleetToggleKey = file.Bind("Fleet", "ToggleKey", "F7",
-                "Keyboard key that shows and hides the fleet sensor panel (a UnityEngine.KeyCode name).");
-
-            fleetBlinkSeconds = file.Bind("Fleet", "BlinkSeconds", 6f,
+            blinkSeconds = file.Bind("Features", "BlinkSeconds", 6f,
                 "Seconds between radar blink flips (2-120). Blink cycles the surface-search radar so "
                 + "an anti-radiation seeker has less to home on.");
+
+            salvoSpacingSeconds = file.Bind("Features", "SalvoSpacingSeconds", 8f,
+                "Seconds between ships being released to fire in a deconflicted salvo (1-60).");
 
             trafficClassesPerRoute = file.Bind("CivilianTraffic", "ClassesPerRoute", 6,
                 "How many different civilian unit classes one lane may pick from (1-40). Higher means "

@@ -9,7 +9,8 @@ An advanced mod for Sea Power: Naval Combat in the Missile Age, built as an
 Anchor Chain (https://github.com/SeaPower-Modders/AnchorChain) code mod and
 loadable as a plain BepInEx plugin.
 
-Version 0.6.0  -  two features:
+Version 0.8.0  -  twelve advanced features, plus hatch control and civilian
+traffic.
 
 1. Manual hatch control
 
@@ -31,24 +32,29 @@ shutters without launching a weapon.
           Close all hatches
           Log hatch report
 
-3. Fleet sensor panel (in game)
+3. Twelve advanced features, in the right-click menu
 
-Press F7 in a running mission for one panel that reaches every ship you own:
+Right-click one of your ships. Below Weapon hatches the Orders menu now
+carries the advanced features, grouped the way the game groups its own orders
+- no separate window, no hotkey:
 
-    Fleet sensors  (F7)
-      Your ships: 6
-      EMCON profile   [Silent] [Passive] [Battle stations]
-      Sensors         [Radars on] [Radars off]
-                      [Active sonar on] [Active sonar off]
-                      [Deploy towed array] [Retract array]
-      ASW doctrine    [Sprint and drift on] [Off]
-      Radar blink     [Start] [Stop]
+    Orders
+      Weapon hatches              open individual silo cells (feature 1)
+      Sensors and EMCON        >  radars, air/surface search only, active sonar, towed array,
+                                  EMCON profiles, radar blink
+      Countermeasures          >  breakaway with chaff and hard rudder, auto-ARM shutoff,
+                                  local control
+      Readiness                >  action stations / cold cruise, crew fatigue status
+      Manoeuvres               >  sprint and drift (this ship, or the whole task force),
+                                  turn the screen onto the threat
+      Air operations           >  helicopter ladder, expanding square, sector search
+      Strike                   >  deconflict the salvo, release everyone
+      Deception                >  commercial disguise
+      Logistics                >  replenish alongside a supply ship
 
-Every button acts on levers the game already has (EnableAllRadars, setEMCON,
-SprintAndDriftDoctrine, TowedSonarsSetActive), so nothing is faked; what the
-mod adds is doing it for the whole task force at once, mid-mission. Each press
-reports how many ships responded. Radar blink cycles the surface-search radar
-and puts it back as it found it when you stop.
+Every entry that is a toggle shows its current state in the label, and every
+one reports what happened through the game's own order-feedback text as well
+as the log.
 
 2. Civilian traffic zones (mission editor)
 
@@ -118,7 +124,7 @@ is permitted.
 
 The DLL goes into BepInEx\plugins\SeaPowerAdvanced\, so BepInEx loads it
 directly  -  there is no mod-manager checkbox on this route. BepInEx's log
-then shows Loading [Sea Power Advanced 0.6.0], and the mod writes its own
+then shows Loading [Sea Power Advanced 0.8.0], and the mod writes its own
 seapoweradvanced.log next to the DLL.
 
 USE IT
@@ -410,7 +416,19 @@ LAYOUT
       Interop/SensorControl.cs       radar/sonar/EMCON/doctrine levers, named from the real assembly
       Interop/GameWorld.cs           the game's own list of live units (private, so read by reflection)
       Interop/CapabilityReport.cs    writes capabilities.txt: what this game build exposes
-      UI/FleetPanel.cs               the F7 panel: EMCON profiles, sprint-and-drift, radar blink
+      Menu/FleetMenu.cs              the eight feature submenus, in the game's menu style
+      Features/Blink.cs              radar blink cycling
+      Features/AutoArm.cs            anti-radiation defence: go dark on an inbound weapon
+      Features/SalvoPlan.cs          staggered release of the task force's launches
+      Features/Breakaway.cs          chaff, hard rudder and full ahead, at once
+      Features/LocalControl.cs       degraded local fire control
+      Features/Readiness.cs          action stations, cold cruise and crew fatigue
+      Features/ThreatAxis.cs         re-station the screen onto the threat bearing
+      Features/SprintDrift.cs        the game's own sprint-and-drift doctrine, per ship or fleet-wide
+      Features/HeloPatterns.cs       one-click helicopter search patterns
+      Features/MerchantDisguise.cs   reduced emissions and a civilian-looking signature
+      Features/Replenishment.cs      ammunition from a supply ship alongside
+      Features/FleetTicker.cs        the timers behind the timed features (no interface of its own)
       ModInfo.cs, ModLog.cs     identity and logging
 
 ROADMAP

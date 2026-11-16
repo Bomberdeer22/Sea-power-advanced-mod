@@ -9,8 +9,8 @@
     <AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
     <GenerateDependencyFile>false</GenerateDependencyFile>
     <DebugType>none</DebugType>
-    <Version>0.6.0</Version>
-    <AssemblyVersion>0.6.0.0</AssemblyVersion>
+    <Version>0.8.0</Version>
+    <AssemblyVersion>0.8.0.0</AssemblyVersion>
     <FindDependenciesOfExternallyResolvedReferences>false</FindDependenciesOfExternallyResolvedReferences>
     <!-- Keep warnings visible but non-fatal: a first build on a new game version should not stop. -->
     <TreatWarningsAsErrors>false</TreatWarningsAsErrors>

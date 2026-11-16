@@ -3,7 +3,7 @@
 Run this once per game version, and after any change to `HatchControl`, `HatchMenu`,
 `TrafficGenerator` or `RouteFactory`.
 
-Version under test: **0.6.0**. Mod id `io.github.bomberdeer22.seapoweradvanced`.
+Version under test: **0.8.0**. Mod id `io.github.bomberdeer22.seapoweradvanced`.
 
 **Read the log, do not guess.** Everything below is confirmed by two files:
 
@@ -30,11 +30,11 @@ If `seapoweradvanced.log` is missing, nothing else in this plan can pass — sto
 
 In `LogOutput.log`, BepInEx's own banner should appear:
 
-- [ ] `Loading [Sea Power Advanced 0.6.0]`
+- [ ] `Loading [Sea Power Advanced 0.8.0]`
 
 Then the mod's own startup lines:
 
-- [ ] `Sea Power Advanced: ================ Sea Power Advanced 0.6.0 ================`
+- [ ] `Sea Power Advanced: ================ Sea Power Advanced 0.8.0 ================`
 - [ ] `Sea Power Advanced: Entry point:  BepInEx plugin`
 - [ ] `Sea Power Advanced: Settings: enabled=True includeGuns=False ...`
 - [ ] `Sea Power Advanced: Patched MapUnitViewModel.GetContextMenuItems.`
@@ -98,6 +98,26 @@ the BepInEx route.
 - [ ] **Log hatch report** → `hatch-report.txt` appears in the mod folder, per-cell lines look sane
 - [ ] No `NullReferenceException` or `TypeLoadException` in `LogOutput.log`
 - [ ] Ten minutes of play: no crash, log does not grow without bound
+
+## 6b. The twelve advanced features (right-click menu)
+
+Full description of each: [features.md](features.md). Right-click one of your ships.
+
+- [ ] Orders shows **Weapon hatches** plus eight more submenus: Sensors and EMCON,
+      Countermeasures, Readiness, Manoeuvres, Air operations, Strike, Deception, Logistics
+- [ ] Each toggle shows its state in the label and flips when clicked
+- [ ] **Sensors and EMCON → Radars off** actually darkens the ship; `Radars on` brings them back
+- [ ] **Radar blink** cycles the surface-search radar; stopping puts it back as it was
+- [ ] **Countermeasures → Breakaway** launches chaff and turns the ship
+- [ ] **Countermeasures → Auto-ARM shutoff** goes dark when a missile is inbound, then recovers
+- [ ] **Readiness → Action stations** shows fatigue climbing; reloads shorten
+- [ ] **Manoeuvres → Sprint and drift** sets the doctrine (check the log for the cavitation speed)
+- [ ] **Manoeuvres → Turn the screen onto the threat** re-stations the ships on one bearing
+- [ ] **Air operations → ladder/square/sector** flies a helicopter pattern
+- [ ] **Strike → Deconflict the salvo** holds ships and releases them one at a time
+- [ ] **Deception → Commercial disguise** goes dark and slow, and says plainly what it cannot do
+- [ ] **Logistics → Replenish alongside** moves ammunition when a supply ship is within 2 nm
+- [ ] Nothing above throws an exception; `seapoweradvanced.log` names each action and its result
 
 ## 7. Civilian traffic (mission editor)
 
