@@ -1,5 +1,40 @@
 # Changelog
 
+## 0.8.2 — 0.8.1's compile errors
+
+0.8.1 got past the `Capability` and `using` errors and stopped on twelve more, all of the same two
+kinds: a game type named in code, and a member that no longer exists. Both are now fixed at the
+cause rather than one at a time.
+
+- **No game enum is named in code any more.** `WaypointHeightState` (threat axis, helo patterns),
+  `UnitRoles` and `MissionType` (flight deck) are unreachable from this project's namespaces —
+  naming them is CS0246 every time, exactly like `WeaponStatus`. Two new wrappers find the methods
+  by name and build their arguments from their own signatures:
+  `Interop/WaypointControl.cs` (a waypoint on any unit) and `Interop/FlightDeckControl.cs` (launch a
+  helicopter, after asking the game whether one is on deck). If a build's call has a shape the mod
+  cannot fill, the menu says so and the log prints the signature instead of guessing.
+- **`Capabilities.ParametersOf` is back.** A rewrite had removed it while `Readiness`,
+  `MerchantDisguise` kept calling it — CS0117 in three places. It is now a one-liner over
+  `unit._obp`, and the checker below looks for member references so a rewrite cannot silently take
+  it again.
+- **`get_ThreateningMissile()` → the property, read by reflection.** Calling an accessor by name is
+  CS0571. A value type there is treated as "no answer" rather than "inbound", because a ship whose
+  radars can never come back on is worse than one that misses a warning.
+- **`LaunchChaff(bool)` returns `void`,** so the breakaway sequence no longer assigns it to a bool;
+  it goes through `SensorControl`, which reports whether the call was made.
+- **Dead state removed.** Four `UnitRecord` fields nothing ever wrote, and three more that were
+  written but never read. The two that had a use now have one: `Blink.IsOn` also consults the record,
+  the disguise drop logs how long it was up, and `SalvoPlan.Release` frees anything the records say
+  is waiting, not only what survived in a static list.
+
+### The checker now catches all five
+
+`tools/check-source.py` gained: a game type named in a type position that no build has proved this
+project can see; a member called on a mod type that has no such member (`CS0117`); an accessor called
+by name (`CS0571`); and `UnitRecord` fields that are never assigned or never read (`CS0649`). Each is
+fault-injected and verified. `check-source.cmd` still runs it in a second and writes
+`check-source.txt`.
+
 ## 0.8.1 — the build compiles again
 
 0.8.0 did not compile, so nothing after it could run. This is a compile fix, not a behaviour change:

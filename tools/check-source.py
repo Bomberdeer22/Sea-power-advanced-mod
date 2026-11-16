@@ -1,12 +1,18 @@
 #!/usr/bin/env python3
 """Catch the compiler errors that have actually broken this project's builds.
 
-Two kinds, both of which have cost a round trip through a real machine:
+Five kinds, every one of which has cost a round trip through a real machine:
 
-1. A symbol is used but the namespace that declares it is not imported. The build stops with a
-   screen of CS0246 errors in a file that looks completely fine.
-2. A type is referenced that no longer exists - e.g. a class deleted by a rewrite of a neighbouring
-   file. Same error, different cause.
+1. A symbol is used but the namespace that declares it is not imported. CS0246, in a file that
+   looks completely fine.
+2. A mod type is referenced that no longer exists - e.g. a class deleted by a rewrite of a
+   neighbouring file. CS0246, different cause.
+3. A game type is *named* in code (typeof, a cast, default, new) that this project cannot see.
+   CS0246 again. UnitRoles, MissionType, WaypointHeightState and WeaponStatus were all this, and
+   each one cost a build; the answer now is to reach them by reflection instead.
+4. A member is called on a mod type and that member no longer exists -
+   "Capabilities does not contain a definition for ParametersOf". CS0117.
+5. An accessor is called by name, unit.get_ThreatningMissile(). CS0571, every time.
 
 The script never needs the game's DLLs, which is the point: it runs anywhere, so it can be checked
 before handing a build to somebody else.
@@ -77,12 +83,67 @@ MOD_TYPES = [
     "Boot", "ModInfo", "ModLog", "ModSettings", "ModFolders", "ModActivation",
     "Capabilities", "Capability", "CapabilityReport", "MemberProbe", "SensorControl",
     "GameWorld", "UnitState", "UnitRecord", "WeaponStatusControl",
+    "WaypointControl", "FlightDeckControl",
     "HatchMenu", "FleetMenu", "FleetMenuPatch", "MenuRouting", "MenuReport",
     "HatchBay", "HatchControl", "HatchGroup", "ShipReport", "TrafficPanel",
     "FleetTicker", "Blink", "AutoArm", "SalvoPlan", "Breakaway", "Readiness",
     "ThreatAxis", "HeloPatterns", "SearchPattern", "Replenishment", "MerchantDisguise",
     "LocalControl", "SprintDrift",
 ]
+
+# Game and library types this project is *proven* to be able to name, because a build that named
+# them succeeded. A game type outside this list is flagged: naming it is a guess, and every guess so
+# far has failed to compile. Reach it by reflection (see Interop/FlightDeckControl.cs) or add it here
+# only after a build proves it.
+PROVEN_TYPES = {
+    # SeaPower, proven by a build
+    "ObjectBase", "ObjectType", "GeoPosition", "WeaponSystem", "WeaponContainer",
+    "CivilianRoute", "GameMain", "ObjectBaseParameters",
+    # the game's UI assembly
+    "ContextMenuItem", "DelegateCommand", "MapUnitViewModel", "ObjectBaseViewModel",
+    "TrulyObservableCollection", "ReactiveProperty",
+    # harmony
+    "Harmony", "HarmonyMethod", "AccessTools",
+    # BepInEx
+    "ConfigFile", "ConfigEntry", "BaseUnityPlugin",
+}
+
+# Harmless, well-known BCL/Unity names. Nothing here is game-specific; they exist so the scan can
+# tell "new Dictionary<...>" from "new UnitRoles(...)".
+DOTNET_TYPES = {
+    "Action", "Activator", "ArgumentException", "ArgumentNullException", "Array", "ArrayList",
+    "Boolean", "Byte", "CancellationToken", "Char", "Comparison", "ConditionalWeakTable",
+    "Convert", "DateTime", "Decimal", "Delegate", "Dictionary", "Double", "Enum", "EventArgs",
+    "Exception", "FieldInfo", "File", "FileInfo", "Func", "GC", "Guid", "HashSet", "ICollection",
+    "IComparable", "IDictionary", "IEnumerable", "IEnumerator", "IList", "IReadOnlyList",
+    "IReadOnlyCollection", "Int16", "Int32", "Int64", "InvalidOperationException", "KeyValuePair",
+    "Lazy", "List", "Math", "MemberInfo", "MethodInfo", "Nullable", "Object", "ParameterInfo",
+    "Path", "PropertyInfo", "Queue", "Random", "Regex", "Single", "SortedDictionary",
+    "StackTrace", "Stack", "String", "StringBuilder", "StringComparison", "StringSplitOptions",
+    "TimeSpan", "Tuple", "Type", "UInt32", "ValueTuple", "Version", "Void",
+    "BindingFlags", "ConstructorInfo", "Assembly", "Module", "TargetInvocationException",
+    # Unity
+    "GameObject", "GUILayout", "GUIStyle", "Input", "KeyCode", "Mathf", "MonoBehaviour",
+    "Object", "Rect", "Texture2D", "Time", "Vector2", "Vector3",
+}
+
+# A name in a type position that is none of these is reported. Type positions are deliberately a
+# narrow set of constructs: a method call `Foo(...)` is not one, so this cannot fire on a variable.
+TYPE_POSITION = re.compile(r"\b(?:typeof|default)\s*\(\s*([A-Z][\w.]*)|\bnew\s+([A-Z][\w.]*)\s*[\\({<]")
+
+# A declared member of a mod type: a method, property or field.
+MEMBER = re.compile(
+    r"\b(?:internal|public|private|protected)\s+"
+    r"(?:(?:static|readonly|sealed|override|abstract|virtual|async|const|new|partial|unsafe)\s+)*"
+    r"[\w<>?,\[\]\.]+\s+(\w+)\s*(?:[\(=\{;]|=>)")
+
+ENUM_BODY = re.compile(r"\benum\s+(\w+)\s*(?::\s*[\w.]+\s*)?\{([^}]*)\}", re.S)
+
+# owner.member, where the owner looks like a type: used to notice a deleted member.
+MEMBER_USE = re.compile(r"(?<![\w.])([A-Z]\w*)\s*\.\s*(\w+)")
+
+# Explicit accessor calls - unit.get_Foo() is CS0571 every single time.
+ACCESSOR_CALL = re.compile(r"(?<![\w])(?:get|set)_[A-Z]\w*\s*\(")
 
 USING = re.compile(r"^\s*using\s+([\w.]+)\s*;", re.M)
 DECL = re.compile(r"\b(?:class|struct|enum|interface|record)\s+([A-Za-z_]\w*)")
@@ -111,6 +172,21 @@ def main() -> int:
     declared: set[str] = set()
     for path in files:
         declared.update(DECL.findall(strip_noise(path.read_text(encoding="utf-8"))))
+
+    # Members of each mod type, so "Capabilities does not contain a definition for ParametersOf"
+    # (CS0117) is caught here instead of by a two-minute compile.
+    mod_members: dict[str, set[str]] = {name: set() for name in MOD_TYPES}
+    for path in files:
+        code = strip_noise(path.read_text(encoding="utf-8"))
+        members = set(MEMBER.findall(code))
+        for body in ENUM_BODY.findall(code):
+            for entry in body[1].split(","):
+                word = entry.strip().split("=")[0].strip()
+                if word.isidentifier():
+                    members.add(word)
+        for name in set(DECL.findall(code)):
+            if name in mod_members:
+                mod_members[name] |= members
 
     problems: list[str] = []
 
@@ -167,6 +243,35 @@ def main() -> int:
                 continue
             problems.append(f"{short}: references mod type {name}, which is not declared anywhere")
 
+        # A game type named in code: typeof(UnitRoles), (MissionType)x, default(WaypointHeightState).
+        # Every one of those failed to compile, because the enum's namespace is not importable.
+        named = {a or b for a, b in TYPE_POSITION.findall(code)}
+        for name in sorted(named):
+            if "." in name:
+                continue          # fully qualified: the namespace is right there in the name
+            root = name.split(".")[0]
+            if root in declared or root in PROVEN_TYPES or root in DOTNET_TYPES:
+                continue
+            problems.append(
+                f"{short}: names the type {name}, which no build has proved this project can see "
+                f"- reach it through reflection instead (CS0246 if it is a guess)")
+
+        # Accessor called by name: unit.get_ThreateningMissile() is CS0571.
+        for match in ACCESSOR_CALL.finditer(code):
+            problems.append(f"{short}: calls the accessor {match.group(0).strip('(')}() directly "
+                            f"(CS0571) - read the property, or use MemberProbe")
+
+        # A member called on a mod type that has no such member: CS0117.
+        for owner, member in sorted(set(MEMBER_USE.findall(code))):
+            if owner not in mod_members:
+                continue
+            if member in mod_members[owner] or member in declared:
+                continue
+            if owner in DECL.findall(code):
+                continue
+            problems.append(
+                f"{short}: {owner}.{member} - {owner} has no member called {member} (CS0117)")
+
     # UnitRecord is the mod's shared state bag and every feature reads it, so a member renamed in
     # one file and used in another is a compile error waiting to happen. Checked explicitly because
     # it cannot be seen without a compiler.
@@ -180,6 +285,18 @@ def main() -> int:
                 if member not in record_members:
                     problems.append(
                         f"{path.relative_to(ROOT)}: reads UnitRecord.{member}, which is not a member")
+
+        # A field nothing ever writes is either a wiring mistake or dead weight; the compiler warns
+        # about it (CS0649) and four of them turned out to be leftovers from removed features.
+        everything = "\n".join(strip_noise(p.read_text(encoding="utf-8")) for p in files)
+        for member in sorted(record_members):
+            if not re.search(rf"\.\s*{member}\s*(?:[-+*/]?=(?!=))", everything):
+                problems.append(
+                    f"UnitState.cs: UnitRecord.{member} is never assigned - CS0649, and probably "
+                    f"a field left behind by a feature that no longer uses it")
+            if not re.search(rf"\.\s*{member}\b(?!\s*[-+*/]?=(?!=))", everything):
+                problems.append(
+                    f"UnitState.cs: UnitRecord.{member} is never read - it is written and forgotten")
 
     if not problems:
         print(f"clean: {len(files)} file(s), no missing namespaces, UnitRecord consistent")

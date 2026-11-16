@@ -9,7 +9,7 @@ An advanced mod for Sea Power: Naval Combat in the Missile Age, built as an
 Anchor Chain (https://github.com/SeaPower-Modders/AnchorChain) code mod and
 loadable as a plain BepInEx plugin.
 
-Version 0.8.1  -  twelve advanced features, plus hatch control and civilian
+Version 0.8.2  -  twelve advanced features, plus hatch control and civilian
 traffic.
 
 1. Manual hatch control
@@ -126,7 +126,7 @@ is permitted.
 
 The DLL goes into BepInEx\plugins\SeaPowerAdvanced\, so BepInEx loads it
 directly  -  there is no mod-manager checkbox on this route. BepInEx's log
-then shows Loading [Sea Power Advanced 0.8.1], and the mod writes its own
+then shows Loading [Sea Power Advanced 0.8.2], and the mod writes its own
 seapoweradvanced.log next to the DLL.
 
 USE IT
@@ -420,6 +420,8 @@ LAYOUT
       Interop/CapabilityReport.cs    writes capabilities.txt: what this game build exposes
       Interop/Capability.cs          one named lever the game exposes, with how it is called
       Interop/WeaponStatusControl.cs the weapons-status enum, taken from the game's method signature
+      Interop/WaypointControl.cs     setWaypointTask, with its arguments built from its own signature
+      Interop/FlightDeckControl.cs   the flight-deck launch call, likewise - no game enum is named
       Menu/FleetMenu.cs              the twelve features, distributed across the game's sections
       Menu/MenuRouting.cs            puts each entry in the section a player would look in first
       Menu/FleetMenuPatch.cs         its own Harmony patch, so a hatch-menu problem cannot hide it

@@ -91,6 +91,16 @@ internal static class SalvoPlan
     {
         int freed = 0;
 
+        // Anything the records say is waiting is released, not only what this class still has in its
+        // own list: a scene change can clear the list while the ships are still holding fire, and a
+        // ship left held with no way to release it is the worst outcome this feature can produce.
+        foreach (ObjectBase ship in new List<ObjectBase>(FleetTicker.Tracked()))
+        {
+            if (!UnitState.TryGet(ship, out UnitRecord waiting) || !waiting.AwaitingSalvoSlot) continue;
+            if (Held.Contains(ship)) continue;
+            Held.Add(ship);
+        }
+
         foreach (ObjectBase ship in new List<ObjectBase>(Held))
         {
             if (SetStatus(ship, true))
@@ -118,7 +128,9 @@ internal static class SalvoPlan
         {
             try
             {
-                if (ship == null || ship.IsDestroyed)
+                if (ship == null) continue;
+
+                if (ship.IsDestroyed)
                 {
                     Held.Remove(ship);
                     continue;

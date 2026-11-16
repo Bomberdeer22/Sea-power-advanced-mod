@@ -20,7 +20,7 @@ namespace SeaPowerAdvanced.Features;
 /// ObjectBase._spottedObjects     contacts this task force has
 /// ObjectBase.Formation / get_FormationStation()
 /// ObjectBase.Formation::Stations (the formation's station definitions)
-/// ObjectBase.setWaypointTask(GeoPosition, string, WaypointHeightState)
+/// ObjectBase.setWaypointTask(...)      via WaypointControl: the height enum cannot be named
 /// </code>
 ///
 /// The mod computes the bearing to the nearest real threat and pushes a waypoint task on each
@@ -105,19 +105,18 @@ internal static class ThreatAxis
         return new GeoPosition(lat, lon, 0);
     }
 
+    /// <summary>
+    /// Moves one ship onto the new station. The call goes through <see cref="WaypointControl"/>
+    /// because the third argument's type (<c>WaypointHeightState</c>) cannot be named in code.
+    /// </summary>
     private static bool Reseat(ObjectBase ship, GeoPosition station)
     {
-        try
-        {
-            ship.setWaypointTask(station, "screen " + DateTime.Now.ToString("HH:mm:ss"),
-                default(WaypointHeightState));
-            return true;
-        }
-        catch (Exception error)
-        {
-            ModLog.Error("setWaypointTask failed for " + Name(ship), error);
-            return false;
-        }
+        string label = "screen " + DateTime.Now.ToString("HH:mm:ss");
+
+        if (WaypointControl.Push(ship, station, label, out string why)) return true;
+
+        ModLog.Warn("Could not re-station " + Name(ship) + ": " + why);
+        return false;
     }
 
     /// <summary>The closest tracked threat among the whole task force's contact lists.</summary>

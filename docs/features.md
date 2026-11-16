@@ -49,7 +49,7 @@ picture, which is why it is off by default and opt-in per ship.
 
 | Drives | `DisableAllRadars()` / `EnableAllRadars(bool)` |
 |---|---|
-| Sensors used | `_incomingWeapons`, `_dangerousMissiles`, `get_ThreateningMissile()` |
+| Sensors used | `_incomingWeapons`, `_dangerousMissiles`, `ThreateningMissile` (read by reflection: you cannot call the `get_` accessor, that is CS0571) |
 | Honest limit | The game does not label a missile as anti-radiation in any readable member, so **any** inbound weapon goes dark. That is conservative on purpose. |
 
 ## 3. Commercial signature spoofing — `Deception`
@@ -94,7 +94,7 @@ Closes the ship up: reloads run about 15% faster while held, and the crew starts
 
 | Drives | `WeaponSystem._remainingReloadTime` is shortened on every mount that is reloading |
 |---|---|
-| Also | `SetWeaponStatus(WeaponStatus, bool)` for the weapons posture |
+| Also | `SetWeaponStatus(<its own enum>, bool)` for the weapons posture, reached through `WeaponStatusControl` |
 | Honest limit | General quarters is **not** a game concept - the mod keeps it, and expresses it through these two levers. |
 
 ## 8. Threat-axis screen reorientation — `Manoeuvres`
@@ -102,7 +102,7 @@ Closes the ship up: reloads run about 15% faster while held, and the crew starts
 Finds the nearest tracked threat, computes the bearing to it, and re-stations the task force onto
 that axis.
 
-| Drives | `setWaypointTask(GeoPosition, string, WaypointHeightState)` on each ship |
+| Drives | `setWaypointTask(GeoPosition, string, <height enum>)` on each ship, through `WaypointControl` |
 |---|---|
 | Reads | `_threats`, `_dangerousMissiles`, `_spottedObjects`, `getGeoPosition()` |
 | Detail | Bearing is corrected for latitude, so it is right in the North Atlantic rather than skewed |
@@ -121,9 +121,10 @@ streams the towed array. Reports the ship's real cavitation threshold from `Cavi
 Ladder, expanding square, or sector search. Launches an ASW helicopter if one is on deck and flies
 the pattern; if one is already airborne, it just flies it.
 
-| Drives | `FlightDeckHasUnit(ObjectType, UnitRoles)`, `FlightDeckLaunchUnit(...)`, `setWaypointTask(...)` |
+| Drives | `FlightDeckHasUnit(...)`, `FlightDeckLaunchUnit(...)`, `setWaypointTask(...)` - all through `FlightDeckControl` and `WaypointControl` |
 |---|---|
-| Enum values | `UnitRoles` and `MissionType` members are resolved by name at runtime, never guessed |
+| Enum values | `UnitRoles` and `MissionType` are never named in code. The methods are found by name and their arguments are built from their own signatures; the role is picked by matching names like `ASW`, and the launch arguments are written to the log |
+| Honest limit | If this build's flight-deck call has a shape the mod cannot fill, the menu says so and logs the signature instead of guessing at it |
 | Honest limit | Launch is asynchronous, so the pattern is queued and flown once the aircraft appears - the log says "launching" rather than pretending it already flew |
 
 ## 11. Functional underway replenishment — `Logistics`

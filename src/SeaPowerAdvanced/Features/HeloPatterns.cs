@@ -15,10 +15,14 @@ namespace SeaPowerAdvanced.Features;
 /// Members used, all confirmed in the shipped assembly:
 ///
 /// <code>
-/// ObjectBase.FlightDeckHasUnit(ObjectType, UnitRoles)      is a helo on deck?
-/// ObjectBase.FlightDeckLaunchUnit(ObjectType, string, UnitRoles, MissionType, bool, float, bool)
 /// ObjectBase._childAircraft                                what this ship has airborne
-/// ObjectBase.setWaypointTask(GeoPosition, string, WaypointHeightState)
+///
+/// and, reached by reflection rather than named here because their parameter types cannot be
+/// imported (see Interop/FlightDeckControl.cs and Interop/WaypointControl.cs):
+///
+/// ObjectBase.FlightDeckHasUnit(...)                        is a helo on deck?
+/// ObjectBase.FlightDeckLaunchUnit(...)                     launch it
+/// ObjectBase.setWaypointTask(...)                          fly the pattern
 /// </code>
 ///
 /// The mod launches nothing the player did not ask for: it flies the pattern for a helicopter that
@@ -101,22 +105,22 @@ internal static class HeloPatterns
         List<GeoPosition> points = Build(origin, pattern);
         int pushed = 0;
 
+        string why = "";
+
         foreach (GeoPosition point in points)
         {
-            try
-            {
-                helo.setWaypointTask(point, pattern.ToString(), default(WaypointHeightState));
-                pushed++;
-            }
-            catch (Exception error)
-            {
-                ModLog.Error("Could not push a search waypoint", error);
-                break;
-            }
+            if (!WaypointControl.Push(helo, point, pattern.ToString(), out why)) break;
+            pushed++;
+        }
+
+        if (pushed == 0)
+        {
+            report = "no search waypoints could be pushed: " + why;
+            return false;
         }
 
         report = pushed + " waypoint(s) pushed for a " + pattern + " search from " + Round(origin);
-        return pushed > 0;
+        return true;
     }
 
     private static List<GeoPosition> Build(GeoPosition origin, SearchPattern pattern)
@@ -184,69 +188,14 @@ internal static class HeloPatterns
     }
 
     /// <summary>
-    /// Launches a helicopter through the game's own flight deck API.
-    ///
-    /// The two enum arguments (<c>UnitRoles</c>, <c>MissionType</c>) are resolved by name at
-    /// runtime rather than written into the code. Their members were not part of the API dump, and
-    /// guessing an enum value is how a feature ends up launching the wrong thing.
+    /// Launches a helicopter through the game's own flight deck API, by way of
+    /// <see cref="FlightDeckControl"/>. The enum types that call needs (<c>UnitRoles</c>,
+    /// <c>MissionType</c>) cannot be named in this project - naming them is a CS0246 - so the
+    /// arguments are built from the method's own signature and the role is picked by name.
     /// </summary>
-    private static bool LaunchHelicopter(ObjectBase ship, out string why)
-    {
-        try
-        {
-            object? aswRole = EnumValue(typeof(UnitRoles), "asw", "antisub", "anti");
-            object? patrol = EnumValue(typeof(MissionType), "patrol", "asw", "search");
+    private static bool LaunchHelicopter(ObjectBase ship, out string why) =>
+        FlightDeckControl.TryLaunch(ship, out why);
 
-            if (aswRole == null)
-            {
-                why = "this build has no ASW role in its UnitRoles enum";
-                return false;
-            }
-
-            if (!ship.FlightDeckHasUnit(ObjectBase.ObjectType.Helicopter, (UnitRoles)aswRole))
-            {
-                why = "no ASW helicopter is on deck - this ship has nothing to fly";
-                return false;
-            }
-
-            bool launched = ship.FlightDeckLaunchUnit(
-                ObjectBase.ObjectType.Helicopter,
-                null!,                            // any airframe that fits
-                (UnitRoles)aswRole,
-                patrol == null ? default : (MissionType)patrol,
-                true,
-                0f,
-                false);
-
-            why = launched
-                ? "launching"
-                : "the game refused the launch (deck busy, or no airframe fits)";
-            return launched;
-        }
-        catch (Exception error)
-        {
-            why = "could not launch: " + error.GetType().Name;
-            return false;
-        }
-    }
-
-    /// <summary>The first enum value whose name contains one of the fragments, or null.</summary>
-    private static object? EnumValue(Type type, params string[] fragments)
-    {
-        try
-        {
-            foreach (string name in Enum.GetNames(type))
-            {
-                string lower = name.ToLowerInvariant();
-                foreach (string fragment in fragments)
-                {
-                    if (lower.Contains(fragment)) return Enum.Parse(type, name);
-                }
-            }
-        }
-        catch (Exception) { }
-        return null;
-    }
 
     private static string Round(GeoPosition position) =>
         position.Latitude.ToString("0.00") + ", " + position.Longitude.ToString("0.00");

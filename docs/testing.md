@@ -3,7 +3,7 @@
 Run this once per game version, and after any change to `HatchControl`, `HatchMenu`,
 `TrafficGenerator` or `RouteFactory`.
 
-Version under test: **0.8.1**. Mod id `io.github.bomberdeer22.seapoweradvanced`.
+Version under test: **0.8.2**. Mod id `io.github.bomberdeer22.seapoweradvanced`.
 
 **Read the log, do not guess.** Everything below is confirmed by two files:
 
@@ -34,11 +34,11 @@ If `seapoweradvanced.log` is missing, nothing else in this plan can pass — sto
 
 In `LogOutput.log`, BepInEx's own banner should appear:
 
-- [ ] `Loading [Sea Power Advanced 0.8.1]`
+- [ ] `Loading [Sea Power Advanced 0.8.2]`
 
 Then the mod's own startup lines:
 
-- [ ] `Sea Power Advanced: ================ Sea Power Advanced 0.8.1 ================`
+- [ ] `Sea Power Advanced: ================ Sea Power Advanced 0.8.2 ================`
 - [ ] `Sea Power Advanced: Entry point:  BepInEx plugin`
 - [ ] `Sea Power Advanced: Settings: enabled=True includeGuns=False ...`
 - [ ] `Sea Power Advanced: Patched MapUnitViewModel.GetContextMenuItems.`

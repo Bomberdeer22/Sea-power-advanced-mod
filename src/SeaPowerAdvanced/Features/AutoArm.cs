@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Reflection;
 using SeaPower;
 using SeaPowerAdvanced.Interop;
 using UnityEngine;
@@ -15,7 +16,7 @@ namespace SeaPowerAdvanced.Features;
 /// <code>
 /// ObjectBase._incomingWeapons        List&lt;WeaponBase&gt;  - weapons tracked against this unit
 /// ObjectBase._dangerousMissiles      List&lt;Missile&gt;
-/// ObjectBase.get_ThreateningMissile()
+/// ObjectBase.ThreateningMissile      read by reflection - the accessor cannot be called
 /// ObjectBase.TracksIncomingWeapons()
 /// ObjectBase.DisableAllRadars() / EnableAllRadars(bool)
 /// </code>
@@ -104,9 +105,22 @@ internal static class AutoArm
         }
         catch (Exception) { }
 
+        // The documented getter is get_ThreateningMissile(), and calling that explicitly is a
+        // compile error (CS0571: you cannot call an accessor by name), so the property is read
+        // through reflection instead. A value type can never be null there, so one is treated as
+        // "no answer" rather than as "a missile is inbound" - otherwise the ship would sit with its
+        // radars cut for ever, which is worse than missing one warning.
         try
         {
-            return unit.get_ThreateningMissile() != null;
+            MemberInfo? missile = MemberProbe.Value(typeof(ObjectBase), "ThreateningMissile");
+            if (missile == null) return false;
+
+            Type type = missile is PropertyInfo property ? property.PropertyType
+                        : ((FieldInfo)missile).FieldType;
+
+            if (type.IsValueType && Nullable.GetUnderlyingType(type) == null) return false;
+
+            return MemberProbe.Read(missile, unit) != null;
         }
         catch (Exception) { return false; }
     }

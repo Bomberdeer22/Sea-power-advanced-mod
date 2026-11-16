@@ -70,7 +70,7 @@ internal static class MerchantDisguise
                     string? text = current as string;
                     record.OriginalSignature = text;
 
-                    string merchant = MerchantSignature(text);
+                    string? merchant = MerchantSignature(text);
                     if (merchant != null && MemberProbe.Write(signature, parameters, merchant))
                         steps.Add("signature -> " + merchant);
                 }
@@ -111,6 +111,10 @@ internal static class MerchantDisguise
 
     private static bool Drop(ObjectBase unit, UnitRecord record, out string report)
     {
+        // How long it was up, which is the only thing that makes the timestamp worth keeping.
+        float held = UnityEngine.Time.unscaledTime - record.DisguiseSetAt;
+        ModLog.Info("Disguise lifted after " + UnityEngine.Mathf.RoundToInt(held) + "s");
+
         record.Disguised = false;
 
         if (record.OriginalSignature != null)

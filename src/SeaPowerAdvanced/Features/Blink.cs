@@ -21,7 +21,16 @@ internal static class Blink
 
     private static readonly Dictionary<ObjectBase, bool> WasOn = new();
 
-    internal static bool IsOn(ObjectBase unit) => unit != null && Cycling.Contains(unit);
+    /// <summary>
+    /// True while this unit's radar is cycling. The record is consulted as well as the set, so a
+    /// unit stays "blinking" in the menu even if its entry was lost from the ticker's list.
+    /// </summary>
+    internal static bool IsOn(ObjectBase unit)
+    {
+        if (unit == null) return false;
+        if (Cycling.Contains(unit)) return true;
+        return UnitState.TryGet(unit, out UnitRecord record) && record.Blink;
+    }
 
     /// <summary>Starts cycling. Returns how many ships were added (0 or 1).</summary>
     internal static bool Start(ObjectBase unit, out string report)
@@ -48,7 +57,6 @@ internal static class Blink
         UnitRecord record = UnitState.Of(unit);
         record.Blink = true;
         record.NextBlinkAt = 0f;
-        record.BlinkCancelled = false;
 
         report = "surface search radar now cycling every " + Interval() + "s";
         return true;
@@ -87,7 +95,9 @@ internal static class Blink
         {
             try
             {
-                if (unit == null || unit.IsDestroyed)
+                if (unit == null) continue;
+
+                if (unit.IsDestroyed)
                 {
                     Cycling.Remove(unit);
                     WasOn.Remove(unit);

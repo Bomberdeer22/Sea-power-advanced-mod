@@ -47,9 +47,16 @@ internal static class Capabilities
     internal static Capability Incoming { get; } =
         new("incoming weapons", "see weapons inbound to a unit");
 
+    internal static Capability Waypoints { get; } =
+        new("waypoints", "push a waypoint onto a unit (helo patterns, threat-axis turn)");
+
+    internal static Capability FlightDeck { get; } =
+        new("flight deck", "launch an aircraft from a ship's deck");
+
     private static readonly List<Capability> All = new()
     {
         RadarSwitch, TowedSonarSwitch, SonarSwitch, Emcon, Doctrine, Chaff, Reload, Incoming,
+        Waypoints, FlightDeck,
     };
 
     private static bool discovered;
@@ -65,6 +72,16 @@ internal static class Capabilities
     }
 
     internal static int TotalCount => All.Count;
+
+    /// <summary>
+    /// The unit's own parameter block: hull data, weapon systems and signatures.
+    ///
+    /// This helper went missing in a rewrite and three features kept calling it - which the compiler
+    /// reports as CS0117, "Capabilities does not contain a definition for ParametersOf", in files that
+    /// look perfectly fine. It is back, and <c>tools/check-source.py</c> now looks for member
+    /// references like this one so a rewrite cannot silently take it again.
+    /// </summary>
+    internal static ObjectBaseParameters? ParametersOf(ObjectBase unit) => unit?._obp;
 
     /// <summary>Looks everything up once, and logs each result.</summary>
     internal static void Discover()
@@ -106,6 +123,14 @@ internal static class Capabilities
         Bind(Incoming,
             MemberProbe.Value(unit, "_incomingWeapons", "_dangerousMissiles"),
             "ObjectBase._incomingWeapons / _dangerousMissiles");
+
+        Bind(Waypoints,
+            MemberProbe.Method(unit, 3, "setWaypointTask"),
+            "setWaypointTask(GeoPosition, string, an enum this project cannot name)");
+
+        Bind(FlightDeck,
+            MemberProbe.Method(unit, null, "FlightDeckLaunchUnit"),
+            "FlightDeckLaunchUnit(ObjectType, ..., UnitRoles, MissionType, ...)");
 
         foreach (Capability capability in All) Report(capability);
     }

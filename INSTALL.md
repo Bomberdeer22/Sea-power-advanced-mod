@@ -63,9 +63,9 @@ That is the whole step. It:
 2. finds your game folder by itself (Steam registry, then the usual library locations),
 3. **installs BepInEx and the Anchor Chain preloader into the game** if they are not there yet
    (about 650 KB),
-4. checks the source for the two mistakes that produce `CS0246` — a symbol whose namespace is not
-   imported, and a reference to a type that no longer exists (skipped if you have no Python: the
-   build does not need it),
+4. checks the source for the mistakes that have actually broken builds — a missing `using`, a type
+   or member that no longer exists, a game enum named in code, an accessor called by name (skipped
+   if you have no Python: the build does not need it),
 5. compiles the mod against **your** `Seapower-Scripts.dll`,
 6. copies it into `BepInEx\plugins\SeaPowerAdvanced\`.
 
@@ -169,14 +169,14 @@ Two things to look at.
 **1. BepInEx's plugin list**, near the top of `BepInEx\LogOutput.log`. It must say:
 
 ```
-[Info   :   BepInEx] Loading [Sea Power Advanced 0.8.1]
+[Info   :   BepInEx] Loading [Sea Power Advanced 0.8.2]
 ```
 
 **2. The mod's own log**, `BepInEx\plugins\SeaPowerAdvanced\seapoweradvanced.log`. This file only
 exists if the code actually ran, which makes "did it load?" unambiguous:
 
 ```
-================ Sea Power Advanced 0.8.1 ================
+================ Sea Power Advanced 0.8.2 ================
 Entry point:  BepInEx plugin
 Settings: enabled=True includeGuns=False allowEnemyUnits=False showWhenNoMounts=True
 Patched MapUnitViewModel.GetContextMenuItems.

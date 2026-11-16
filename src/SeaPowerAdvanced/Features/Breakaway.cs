@@ -14,7 +14,7 @@ namespace SeaPowerAdvanced.Features;
 /// <code>
 /// ObjectBase.LaunchChaff(bool)      LaunchNoisemaker(string)
 /// ObjectBase.setRudderAngle(float)  setTelegraph(int)
-/// ObjectBase._dangerousMissiles     get_ThreateningMissile()
+/// ObjectBase._dangerousMissiles     ThreateningMissile (read by reflection)
 /// </code>
 ///
 /// The mod does not invent the manoeuvre's effect: the chaff, the rudder and the telegraph all act
@@ -52,15 +52,11 @@ internal static class Breakaway
         catch (Exception) { steps.Add("rudder unavailable"); }
 
         // Chaff, then a noisemaker if the ship carries one.
+        // ObjectBase.LaunchChaff(bool) returns void - assigning it to a bool is CS0029 - so the
+        // call goes through SensorControl, which invokes it and reports whether it was made.
         bool chaff = false;
-        try { chaff = unit.LaunchChaff(true); }
+        try { chaff = SensorControl.LaunchChaff(unit); }
         catch (Exception) { }
-
-        if (!chaff)
-        {
-            try { chaff = SensorControl.LaunchChaff(unit); }
-            catch (Exception) { }
-        }
         steps.Add(chaff ? "chaff away" : "no chaff");
 
         try

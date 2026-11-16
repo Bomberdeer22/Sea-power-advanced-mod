@@ -11,6 +11,10 @@ namespace SeaPowerAdvanced.Interop;
 /// fatigue. Those are not blockers - they are state nobody keeps. This keeps it, keyed on the unit
 /// itself so it disappears with the unit and needs no cleanup, saving or versioning.
 ///
+/// Every field here is written by exactly the feature that owns it and read by the same feature or
+/// the ticker. Four fields that nothing ever wrote were removed when the compiler started warning
+/// about them (CS0649): state nobody changes is not state, it is a comment that lies.
+///
 /// The rule that keeps this honest: mod-owned state may only ever *drive* the game's own levers
 /// (reload timers, emitter switches, throttle). It never pretends to be something the simulation
 /// reads, because nothing else would read it.
@@ -23,15 +27,6 @@ internal sealed class UnitRecord
     /// <summary>0 = rested, 1 = exhausted. Only ever consumed by features that act on it.</summary>
     internal float Fatigue;
 
-    /// <summary>Ship is alternating sprint and drift for ASW.</summary>
-    internal bool SprintDrift;
-
-    /// <summary>Currently in the fast half of the cycle rather than the quiet half.</summary>
-    internal bool SprintPhase;
-
-    /// <summary>Game-clock time at which the next phase flip is due.</summary>
-    internal float NextPhaseAt;
-
     /// <summary>Radar blink is cycling this unit's emitters.</summary>
     internal bool Blink;
 
@@ -40,12 +35,6 @@ internal sealed class UnitRecord
 
     /// <summary>Game-clock time at which the next blink flip is due.</summary>
     internal float NextBlinkAt;
-
-    /// <summary>Radars were on when the blink started, so they can be put back as found.</summary>
-    internal bool BlinkRestoreOn;
-
-    /// <summary>Set when the player has taken manual control of the emitters in the meantime.</summary>
-    internal bool BlinkCancelled;
 
     // --- countermeasures -----------------------------------------------------------------------
 
