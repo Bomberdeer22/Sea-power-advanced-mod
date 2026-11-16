@@ -46,7 +46,9 @@ def load(path: str) -> Assembly:
 
 def cmd_brief(assembly: Assembly, args) -> None:
     report = build_report(assembly, verbose_types=args.verbose)
-    output = args.output or os.path.join(os.getcwd(), "analysis-report.txt")
+    # Written next to the tool rather than into the current directory, so the path in the docs is
+    # the path you get whichever folder the command was run from.
+    output = args.output or os.path.join(HERE, "analysis-report.txt")
     with open(output, "w", encoding="utf-8") as handle:
         handle.write(report)
     print(f"Wrote {output} ({len(report.splitlines())} lines, {len(report) // 1024} KB)")

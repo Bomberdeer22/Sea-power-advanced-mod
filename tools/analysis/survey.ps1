@@ -27,16 +27,25 @@ if (-not (Test-Path $venvPython)) {
     if (-not (Test-Path $venvPython)) { throw "Setup did not produce .venv\Scripts\python.exe" }
 }
 
-$analyze = Join-Path $here "analyze.py"
-$arguments = @($analyze)
+# Order matters: python <script> [--dll <path>] <command> [-o <file>]. The script path comes
+# first, and --dll belongs to the top-level parser, so it goes before the command name.
+$arguments = @(Join-Path $here "analyze.py")
 
 if ($Selftest) {
-    $arguments += @("selftest")
+    $arguments += "selftest"
 } else {
-    $arguments += @("brief")
-    if ($Dll) { $arguments = @("--dll", $Dll) + $arguments }
+    if ($Dll) { $arguments += @("--dll", $Dll) }
+    $arguments += "brief"
     if ($Out) { $arguments += @("-o", $Out) }
 }
 
-& $venvPython @arguments
+Write-Host "Running: $venvPython $($arguments -join ' ')"
+try {
+    & $venvPython @arguments
+} catch {
+    Write-Host ""
+    Write-Host "The survey failed: $($_.Exception.Message)" -ForegroundColor Red
+    Write-Host "Send this message together with the console output and it can be fixed." -ForegroundColor Red
+    exit 1
+}
 exit $LASTEXITCODE
