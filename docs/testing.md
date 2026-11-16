@@ -17,9 +17,10 @@ If `seapoweradvanced.log` is missing, nothing else in this plan can pass — sto
 
 ## 0. Before the first test
 
-- [ ] Anchor Chain and its preloader installed; the game does *not* say "The Anchor Chain preloader is
-      not running!"
-- [ ] `SeaPowerAdvanced.dll` + `_info.ini` in `BepInEx\plugins\SeaPowerAdvanced\`
+- [ ] BepInEx + the Anchor Chain preloader in the game folder (run `build.cmd` once and it puts them
+      there); the game does *not* say "The Anchor Chain preloader is not running!"
+- [ ] `SeaPowerAdvanced.dll` + `_info.ini` in `BepInEx\plugins\SeaPowerAdvanced\` (written by
+      `build.cmd`, step `[install]`)
 - [ ] **No** leftover copy in `Sea Power_Data\StreamingAssets\SeaPowerAdvanced\` — a double install
       loads every patch twice
 - [ ] Game fully restarted after the build (code loads once per launch)
@@ -44,6 +45,11 @@ Then the mod's own startup lines:
 
 If `Entry point:` says `AnchorChain mod`, the DLL is being loaded from `StreamingAssets` — that is the
 double-install case; remove that folder.
+
+Anchor Chain's Workshop copy is optional: without it the build produces the BepInEx-only plugin and
+the startup line reads `Anchor Chain not installed - building the BepInEx-only plugin. This is fine.`
+Builds with Anchor Chain installed also compile an `AnchorChain mod` entry point, which is unused on
+the BepInEx route.
 
 ## 2. Hatch menu
 

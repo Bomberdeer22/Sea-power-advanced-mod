@@ -55,11 +55,14 @@ copies of this file and of the install guide are included: [README.txt](README.t
 
 ## Requirements
 
-| Thing | Why |
-|---|---|
-| Sea Power 0.8.x | Built against the 0.8 generation of `Seapower-Scripts.dll`. |
-| [BepInEx](https://github.com/BepInEx/BepInEx) (via Anchor Chain) | Loads the DLL. |
-| **Anchor Chain + its preloader** | The mod loader. Without the preloader the game shows *"The Anchor Chain preloader is not running!"* and this mod's code never loads. |
+| Thing | Why | Who installs it |
+|---|---|---|
+| Sea Power 0.8.x | Built against the 0.8 generation of `Seapower-Scripts.dll`. | You |
+| **BepInEx + the Anchor Chain preloader** | Without them the game loads no code mods at all. | **`build.cmd`** — downloaded into the game folder for you |
+| Anchor Chain itself (Workshop) | Optional. A second loader for `StreamingAssets` mods. | Nobody, unless you want it |
+
+The only thing you provide is a Sea Power install. `build.cmd` fetches the compiler and the loader
+by itself, straight into the folders the game expects.
 
 ## Install
 
@@ -72,8 +75,9 @@ The short version, once BepInEx + Anchor Chain are in place:
 build.cmd
 ```
 
-**Double-click it.** It finds your game, fetches a portable .NET SDK if you have none, builds the
-mod against your own game DLLs and copies it into `BepInEx\plugins\SeaPowerAdvanced\`. It pauses
+**Double-click it.** It finds your game, fetches a portable .NET SDK if you have none, **installs
+BepInEx and the Anchor Chain preloader into the game folder if they are missing**, builds the mod
+against your own game DLLs and copies it into `BepInEx\plugins\SeaPowerAdvanced\`. It pauses
 at the end, and writes `build-log.txt` plus `build-output.txt` so a closing window never loses an
 error.
 

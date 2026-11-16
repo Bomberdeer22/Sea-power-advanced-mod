@@ -1,3 +1,4 @@
+#if ANCHORCHAIN
 using AnchorChain;
 
 namespace SeaPowerAdvanced;
@@ -17,3 +18,5 @@ public sealed class Plugin : IAnchorChainMod
 {
     public void TriggerEntryPoint() => Boot.Run("AnchorChain mod", honourModManager: true);
 }
+
+#endif

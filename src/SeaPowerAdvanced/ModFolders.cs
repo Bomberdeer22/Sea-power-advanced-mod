@@ -4,9 +4,9 @@ using System.IO;
 namespace SeaPowerAdvanced;
 
 /// <summary>
-/// Where the mod lives on disk. The DLL sits in
-/// <c>Sea Power_Data/StreamingAssets/SeaPowerAdvanced/</c>, so its own folder is both the
-/// mod package (for the mod-manager checkbox) and the place diagnostic files are written.
+/// Where the mod lives on disk. Whichever route loaded it - <c>BepInEx\plugins\SeaPowerAdvanced\</c>
+/// or <c>Sea Power_Data\StreamingAssets\SeaPowerAdvanced\</c> - that folder is both the mod package
+/// (for the mod-manager checkbox) and where diagnostic files are written.
 /// </summary>
 internal static class ModFolders
 {
@@ -16,7 +16,9 @@ internal static class ModFolders
         {
             try
             {
-                string? folder = Path.GetDirectoryName(typeof(Plugin).Assembly.Location);
+                // Any type in this assembly would do; Boot is used because it is compiled
+                // unconditionally, unlike Plugin (which only exists on the Anchor Chain route).
+                string? folder = Path.GetDirectoryName(typeof(Boot).Assembly.Location);
                 if (!string.IsNullOrEmpty(folder)) return folder!;
             }
             catch (Exception) { }

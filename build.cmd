@@ -10,10 +10,17 @@ rem     build.cmd             build and install into the game  (default)
 rem     build.cmd dist        build only, into dist\SeaPowerAdvanced
 rem     build.cmd install     build and install into the game
 rem
-rem  Needs nothing pre-installed. If there is no .NET SDK it downloads a
-rem  portable one into .dotnet\ (about 220 MB, once) with curl and tar, both of
-rem  which ship with Windows 10/11. Neither is a script, so the PowerShell
-rem  execution policy never comes into it.
+rem  Needs nothing pre-installed. It fetches, with curl and tar (both shipped
+rem  with Windows 10/11, neither a script, so the PowerShell execution policy
+rem  never comes into it):
+rem
+rem    .NET SDK                 -> .dotnet\    about 220 MB, once
+rem    BepInEx + the Anchor     -> the game folder   about 650 KB, once
+rem    Chain preloader
+rem
+rem  Anchor Chain's Workshop copy is NOT needed: the mod loads as a plain
+rem  BepInEx plugin. If AnchorChain.dll happens to be installed, the Anchor
+rem  Chain entry point is compiled in as well, for Workshop builds.
 rem ===========================================================================
 setlocal enabledelayedexpansion
 
@@ -75,6 +82,9 @@ if errorlevel 1 exit /b 1
 call :step_paths
 if errorlevel 1 exit /b 1
 
+call :step_prereq
+if errorlevel 1 exit /b 1
+
 call :step_build
 if errorlevel 1 exit /b 1
 
@@ -91,8 +101,8 @@ exit /b 0
 
 rem ===========================================================================
 :step_sdk
-echo [1/4] Looking for a .NET SDK...
->> "%LOG%" echo [1/4] sdk
+echo [1/5] Looking for a .NET SDK...
+>> "%LOG%" echo [1/5] sdk
 
 if exist "%DOTNET_EXE%" (
     echo       using the portable copy in .dotnet
@@ -185,8 +195,8 @@ exit /b 0
 
 rem ===========================================================================
 :step_paths
-echo [2/4] Finding Sea Power and Anchor Chain...
->> "%LOG%" echo [2/4] paths
+echo [2/5] Finding Sea Power...
+>> "%LOG%" echo [2/5] paths
 
 set "GAME="
 set "AC="
@@ -229,13 +239,13 @@ for %%L in (C D E F G H I J K L M N O P Q R S T U V W X Y Z) do (
 if not defined GAME goto paths_no_game
 if defined AC goto paths_check
 
-echo       Found the game but not AnchorChain.dll.
->> "%LOG%" echo       game=!GAME! ac=MISSING
-echo.
-echo       Anchor Chain is the mod loader and has to be installed first:
-echo         Steam - Sea Power - Workshop - subscribe to "Anchor Chain"
-echo       then start the game once, and run this again.
-exit /b 1
+rem This used to stop the build and send you to the Steam Workshop. It no longer does: Anchor
+rem Chain is an optional second loader, and the mod installs as a plain BepInEx plugin. The only
+rem part that matters is the preloader, and the next step installs that itself.
+echo       AnchorChain.dll not found - building the BepInEx-only version.
+echo       That is fine; it is how the mod is installed.
+>> "%LOG%" echo       game=!GAME! ac=MISSING - building BepInEx-only
+goto paths_check
 
 :paths_no_game
 >> "%LOG%" echo       game not found
@@ -255,10 +265,11 @@ exit /b 1
 >> "%LOG%" echo       game       !GAME!
 >> "%LOG%" echo       anchorchain !AC!
 echo       game        !GAME!
-echo       AnchorChain !AC!
+if defined AC echo       AnchorChain !AC!
+if not defined AC echo       AnchorChain not installed ^(optional^)
 
 if not exist "!GAME!\Sea Power_Data\Managed\Seapower-Scripts.dll" goto paths_bad_game
-if not exist "!AC!\AnchorChain.dll" goto paths_bad_ac
+if defined AC if not exist "!AC!\AnchorChain.dll" set "AC="
 
 call :write_props
 echo.
@@ -302,7 +313,7 @@ exit /b 0
 >> "%PROPS%" echo ^<Project^>
 >> "%PROPS%" echo   ^<PropertyGroup^>
 >> "%PROPS%" echo     ^<SeaPowerDir^>!GAME!^</SeaPowerDir^>
->> "%PROPS%" echo     ^<AnchorChainDir^>!AC!^</AnchorChainDir^>
+if defined AC >> "%PROPS%" echo     ^<AnchorChainDir^>!AC!^</AnchorChainDir^>
 >> "%PROPS%" echo   ^<^/PropertyGroup^>
 >> "%PROPS%" echo ^<^/Project^>
 >> "%LOG%" echo       wrote %PROPS%
@@ -310,9 +321,101 @@ exit /b 0
 
 
 rem ===========================================================================
+:step_prereq
+echo [3/5] Checking BepInEx in the game folder...
+>> "%LOG%" echo [3/5] prerequisites
+
+rem The mod cannot load at all without BepInEx inside the game folder, and Sea Power only gets
+rem BepInEx through Anchor Chain's preloader. Anchor Chain publishes both together as
+rem ACPreloader.zip - a complete BepInEx install plus the preloader DLL - so the manual copy
+rem that used to be INSTALL.md step 1 now happens here.
+rem
+rem "latest/download" always points at the newest release, so this does not rot. The pinned
+rem V1.2.0 archive is the fallback if that redirect is blocked.
+set "BEPCORE=!GAME!\BepInEx\core\BepInEx.dll"
+set "DOORSTOP=!GAME!\winhttp.dll"
+set "DOORSTOPCFG=!GAME!\doorstop_config.ini"
+
+if not exist "!BEPCORE!" goto prereq_install
+if not exist "!DOORSTOP!" goto prereq_install
+if not exist "!DOORSTOPCFG!" goto prereq_install
+echo       already installed - nothing to do.
+>> "%LOG%" echo       BepInEx + preloader present
+exit /b 0
+
+:prereq_install
+echo       not installed yet - fetching it into the game folder.
+>> "%LOG%" echo       BepInEx/preloader missing, installing
+
+where curl >nul 2>&1
+if errorlevel 1 goto prereq_no_curl
+where tar >nul 2>&1
+if errorlevel 1 goto prereq_no_tar
+
+set "ACZIP=%ROOT%\acpreloader.zip"
+set "GOT="
+call :fetch_preloader "https://github.com/SeaPower-Modders/AnchorChain/releases/latest/download/ACPreloader.zip"
+if not defined GOT call :fetch_preloader "https://github.com/SeaPower-Modders/AnchorChain/releases/download/V1.2.0/ACPreloader.zip"
+if not defined GOT goto prereq_download_failed
+
+echo       extracting into the game folder...
+>> "%LOG%" echo       extracting into !GAME!
+tar -xf "%ACZIP%" -C "!GAME!"
+if errorlevel 1 goto prereq_extract_failed
+del /q "%ACZIP%" >nul 2>&1
+
+if not exist "!BEPCORE!" goto prereq_extract_failed
+if not exist "!DOORSTOP!" goto prereq_extract_failed
+echo       BepInEx and the Anchor Chain preloader are now in place.
+>> "%LOG%" echo       installed BepInEx + preloader
+exit /b 0
+
+:fetch_preloader
+echo       fetching %~1
+>> "%LOG%" echo       url %~1
+curl -L --fail --retry 2 --ssl-no-revoke -o "%ACZIP%" "%~1"
+if errorlevel 1 exit /b 0
+if not exist "%ACZIP%" exit /b 0
+set "GOT=1"
+exit /b 0
+
+:prereq_download_failed
+echo       Could not download BepInEx.
+>> "%LOG%" echo       prereq download failed
+echo.
+echo       Check that this PC is online and run build.cmd again.
+echo       If it keeps failing, install Anchor Chain by hand: INSTALL.md step 1.
+exit /b 1
+
+:prereq_extract_failed
+echo       The download arrived but could not be unpacked into:
+echo         !GAME!
+>> "%LOG%" echo       prereq extract failed
+echo.
+echo       Two usual causes:
+echo         - Sea Power is running. Close it, then run this again.
+echo         - Windows blocked writing to Program Files.
+echo           Right-click build.cmd, choose "Run as administrator",
+echo           then run it again.
+exit /b 1
+
+:prereq_no_curl
+echo       curl.exe was not found. It ships with Windows 10 and 11.
+>> "%LOG%" echo       no curl
+echo       Install Anchor Chain by hand instead: INSTALL.md step 1.
+exit /b 1
+
+:prereq_no_tar
+echo       tar.exe was not found. It ships with Windows 10 and 11.
+>> "%LOG%" echo       no tar
+echo       Install Anchor Chain by hand instead: INSTALL.md step 1.
+exit /b 1
+
+
+rem ===========================================================================
 :step_build
-echo [3/4] Building the mod...
->> "%LOG%" echo [3/4] build
+echo [4/5] Building the mod...
+>> "%LOG%" echo [4/5] build
 
 rem Output goes to a file as well as the screen: MSBuild's error lines are the
 rem most useful thing to send if this fails.
@@ -337,8 +440,8 @@ exit /b 1
 
 rem ===========================================================================
 :step_package
-echo [4/4] Packaging...
->> "%LOG%" echo [4/4] package
+echo [5/5] Packaging...
+>> "%LOG%" echo [5/5] package
 
 set "DLL=%ROOT%\src\SeaPowerAdvanced\bin\Release\SeaPowerAdvanced.dll"
 if not exist "%DLL%" goto package_missing
@@ -393,7 +496,8 @@ exit /b 0
 echo       Could not create:
 echo         %TARGET%
 >> "%LOG%" echo       cannot create target folder
-echo       Is BepInEx installed? This file should exist:
+echo       BepInEx itself should have been installed by step [3/5]. If it
+echo       was skipped, this file is missing:
 echo         %GAME%\BepInEx\core\BepInEx.dll
 exit /b 1
 

@@ -6,9 +6,9 @@ INSTALLING SEA POWER ADVANCED
 ==============================================================================
 
 A complete walkthrough from a stock Sea Power install. Allow 20 minutes the
-first time; most of it is the one-time .NET SDK download in step 3.
+first time; most of it is the one-time .NET SDK download in step 2.
 
-You do this once. After that, updating the mod is step 3 again (-Install) and
+You do this once. After that, updating the mod is step 2 again (build.cmd) and
 a game restart.
 
 ------------------------------------------------------------------------------
@@ -20,91 +20,91 @@ BEFORE YOU START
   * Windows. (Linux/Steam Proton works too  -  see Linux notes (#linux--steam-
     proton) at the end.)
   * No installer and no admin rights are needed. The .NET SDK the build uses
-    is downloaded into this repo folder in step 3, not into Windows.
+    is downloaded into this repo folder in step 2, not into Windows.
 
-Two things get installed around the mod:
+Two things get installed around the mod, and build.cmd installs both by itself
+-  there is nothing to download by hand:
 
   BepInEx
       What it is: Unity's mod loader
       Why: Loads code mods at all.
 
-  Anchor Chain
-      What it is: Sea Power's mod loader, on top of BepInEx
-      Why: Finds and loads DLL mods from StreamingAssets and the Workshop.
+  Anchor Chain preloader
+      What it is: Bootstrap that puts BepInEx into Sea Power
+      Why: Without it the game never loads BepInEx.
 
-Both arrive together in step 1.
-
-------------------------------------------------------------------------------
-
-STEP 1  -  INSTALL THE ANCHOR CHAIN PRELOADER
----------------------------------------------
-
-This is the only part with a manual file copy. It installs BepInEx and the
-Anchor Chain preloader in one go.
-
-  1. Open the Anchor Chain releases page: <https://github.com/SeaPower-
-     Modders/AnchorChain/releases>
-  2. Under the newest release, download ACPreloader.zip.
-  3. Extract the zip into a folder in your Downloads.
-  4. In that folder you will see winhttp.dll, doorstop_config.ini and a
-     BepInEx folder. Select everything inside the folder (Ctrl+A), copy it
-     (Ctrl+C).
-  5. Open your game folder: in Steam, right-click Sea Power -> Manage ->
-     Browse local files. It is usually C:\Program Files
-     (x86)\Steam\steamapps\common\Sea Power.
-  6. Paste (Ctrl+V). Say yes if Windows asks about merging folders.
-  7. Check the game folder now contains winhttp.dll, doorstop_config.ini and
-     BepInEx, next to Sea Power.exe. If yes, this step is done.
-  8. Start Sea Power once and quit it. This lets BepInEx generate its folders
-     and log file.
-
-STEP 2  -  SUBSCRIBE TO ANCHOR CHAIN
-------------------------------------
-
-  1. Open the Workshop page:
-     <https://steamcommunity.com/sharedfiles/filedetails/?id=3380210757>
-  2. Click Subscribe. Steam downloads it.
-  3. Start Sea Power, open the Mod Manager, and check that Anchor Chain is
-     ticked.
-
-If the Mod Manager shows "The Anchor Chain preloader is not running!", step 1
-did not copy the files into the right folder  -  revisit it before going
-further.
-
-  Where it landed: Steam puts Workshop items in
-  <steam>\steamapps\workshop\content\1286220\3380210757\. That is where this
-  project looks for
-  AnchorChain.dll when building.
+They ship together as ACPreloader.zip on Anchor Chain's releases page, and
+step 2 fetches it straight into the game folder. Anchor Chain's own Workshop
+entry is optional  -  this mod loads as a plain BepInEx plugin and does not
+need it.
 
 ------------------------------------------------------------------------------
 
-STEP 3  -  BUILD THE MOD
+STEP 1  -  NOTHING TO DOWNLOAD
+------------------------------
+
+Earlier versions of this guide asked you to download ACPreloader.zip, extract
+it, copy winhttp.dll, doorstop_config.ini and the BepInEx folder into the game
+by hand, then subscribe to Anchor Chain on the Workshop.
+
+Skip all of that. build.cmd does it in step 2: when those files are not in the
+game folder it fetches ACPreloader.zip from Anchor Chain's latest release and
+unpacks it in the right place. It checks for the files first, so running it
+again does nothing.
+
+The Workshop subscription is not needed either. The mod is a BepInEx plugin:
+BepInEx finds it in BepInEx\plugins\SeaPowerAdvanced\ and loads it. Anchor
+Chain is a second, alternative loader  -  if AnchorChain.dll happens to be
+installed, it is supported and used, but nothing breaks without it.
+
+  If you would rather install the preloader yourself, INSTALL.md in older
+  releases described the
+  manual copy, and it still works. Just have winhttp.dll,
+  doorstop_config.ini and BepInEx\
+  next to Sea Power.exe before running build.cmd.
+
+------------------------------------------------------------------------------
+
+STEP 2  -  BUILD THE MOD
 ------------------------
 
 The mod is compiled against your game's own DLLs, so it always matches your
 Sea Power version. There is no prebuilt download; the build takes about two
 minutes and downloads a compiler the first time.
 
-3a. Double-click build.cmd
+2a. Double-click build.cmd
 
 That is the whole step. It:
 
   1. finds a .NET SDK  -  either one already installed, or it downloads a
      portable one into .dotnet\ (about 220 MB, once, no installer, no admin
      rights),
-  2. finds your game folder and Anchor Chain by itself (Steam registry, then
-     the usual library locations),
-  3. compiles the mod against your Seapower-Scripts.dll,
-  4. copies it into BepInEx\plugins\SeaPowerAdvanced\.
+  2. finds your game folder by itself (Steam registry, then the usual library
+     locations),
+  3. installs BepInEx and the Anchor Chain preloader into the game if they are
+     not there yet (about 650 KB),
+  4. compiles the mod against your Seapower-Scripts.dll,
+  5. copies it into BepInEx\plugins\SeaPowerAdvanced\.
 
 Expected output ends with:
 
-    [3/4] Building the mod...
+    [3/5] Checking BepInEx in the game folder...
+          already installed - nothing to do.
+    [4/5] Building the mod...
           build succeeded.
-    [4/4] Packaging...
+    [5/5] Packaging...
           package ready: ...\dist\SeaPowerAdvanced
     [install] Copying into the game...
            copied to C:\Program Files (x86)\Steam\steamapps\common\Sea Power\BepInEx\plugins\SeaPowerAdvanced
+
+On a PC where the first run has to install BepInEx, step 3 of the list reads
+instead:
+
+    [3/5] Checking BepInEx in the game folder...
+          not installed yet - fetching it into the game folder.
+          fetching https://github.com/SeaPower-Modders/AnchorChain/releases/latest/download/ACPreloader.zip
+          extracting into the game folder...
+          BepInEx and the Anchor Chain preloader are now in place.
 
 It pauses when it finishes, so the window stays open. Two files are written
 next to it:
@@ -160,7 +160,7 @@ works even when MachinePolicy or UserPolicy is set to AllSigned by IT, where
 
 ------------------------------------------------------------------------------
 
-STEP 4  -  START THE GAME
+STEP 3  -  START THE GAME
 -------------------------
 
 -Install puts the DLL in BepInEx\plugins\SeaPowerAdvanced\, so BepInEx loads
@@ -176,7 +176,7 @@ loader recognises and triggers it, and on some installs that trigger never
 happens  -  the game log shows the assembly being loaded but never says Loaded
 plugin Sea Power Advanced. The BepInEx route has no such step.
 
-STEP 5  -  CHECK IT LOADED
+STEP 4  -  CHECK IT LOADED
 --------------------------
 
 Two things to look at.
@@ -203,7 +203,7 @@ Chain is not loading the DLL  -  re-check step 1.
 
 ------------------------------------------------------------------------------
 
-STEP 6  -  USE IT
+STEP 5  -  USE IT
 -----------------
 
   1. Start a mission with a ship that has launchers  -  a Ticonderoga, Arleigh
@@ -276,8 +276,9 @@ TROUBLESHOOTING
         Sea Power_Data\Managed.
 
   AnchorChain.dll not found
-      Cause and fix: Anchor Chain is not subscribed (step 2), or
-        AnchorChainDir points at the wrong folder.
+      Cause and fix: Only a note now: the build continues with the BepInEx-
+        only plugin. Set AnchorChainDir if you want the Anchor Chain entry
+        point compiled in.
 
   error CS0117: ... does not contain a definition
       Cause and fix: The game's API moved in an update. Send me the full
@@ -336,13 +337,13 @@ WHAT WAS INSTALLED, AT A GLANCE
 -------------------------------
 
     Sea Power\                                  <- game folder
-    |-- winhttp.dll                             <- step 1 (BepInEx/Anchor Chain preloader)
-    |-- doorstop_config.ini                     <- step 1
+    |-- winhttp.dll                             <- step 2 (installed automatically)
+    |-- doorstop_config.ini                     <- step 2 (installed automatically)
     +-- BepInEx\
         |-- LogOutput.log                       <- where to look when something is wrong
         |-- config\io.github.bomberdeer22.seapoweradvanced.cfg   <- settings
         +-- plugins\
-            +-- SeaPowerAdvanced\               <- step 3 (the mod)
+            +-- SeaPowerAdvanced\               <- step 2 (the mod)
                 |-- SeaPowerAdvanced.dll        <- loaded by BepInEx at startup
                 |-- _info.ini                   <- name and description
                 +-- seapoweradvanced.log        <- the mod's own log

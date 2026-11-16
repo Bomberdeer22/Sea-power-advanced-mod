@@ -14,7 +14,7 @@ namespace SeaPowerAdvanced;
 /// <item><b>BepInEx plugin</b> — <see cref="BepInExEntry"/>, picked up from
 /// <c>BepInEx\plugins\SeaPowerAdvanced\</c>. This is the preferred route: BepInEx lists the plugin
 /// in its own startup log, so "did it load?" is answered by the first few lines of the log.</item>
-/// <item><b>AnchorChain mod</b> — <see cref="Plugin"/>, picked up from
+/// <item><b>AnchorChain mod</b> — <c>Plugin</c>, picked up from
 /// <c>SeaPower_Data\StreamingAssets\</c> for Workshop distribution.</item>
 /// </list>
 ///
