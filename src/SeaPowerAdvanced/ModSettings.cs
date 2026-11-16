@@ -31,6 +31,7 @@ internal static class ModSettings
     private static ConfigEntry<float>? blinkSeconds;
     private static ConfigEntry<float>? salvoSpacingSeconds;
     private static ConfigEntry<float>? jamRangeNm;
+    private static ConfigEntry<float>? jamAirRangeNm;
     private static ConfigEntry<bool>? showEcmCone;
 
     internal static bool Enabled => enabled?.Value ?? true;
@@ -51,6 +52,17 @@ internal static class ModSettings
 
     /// <summary>How far the focused (signature-lock) offensive jammer reaches, in nautical miles.</summary>
     internal static float JamRangeNm => jamRangeNm?.Value ?? 40f;
+
+    /// <summary>
+    /// How far the same jammer reaches against something in the air.
+    ///
+    /// This is not generosity, it is geometry. A jammer has to be inside the other radar's horizon,
+    /// and the radio horizon runs to about 1.23 x (root of height in feet) nautical miles for each
+    /// end. A masthead at 20 m is 4.5 nm; an aircraft at 15,000 ft is 65 nm on its own, so the pair
+    /// see each other at roughly 70 nm - and further still for a high patrol. The 40 nm figure is
+    /// for ships and sea-skimming missiles, where both ends are close to the water.
+    /// </summary>
+    internal static float JamAirRangeNm => jamAirRangeNm?.Value ?? 90f;
 
     /// <summary>Seconds between ships being released in a deconflicted salvo.</summary>
     internal static float SalvoSpacingSeconds => salvoSpacingSeconds?.Value ?? 8f;
@@ -147,8 +159,14 @@ internal static class ModSettings
                 + "Cyan for the offensive set, amber for the defensive one.");
 
             jamRangeNm = file.Bind("Features", "JamRangeNm", 40f,
-                "How far the focused offensive jammer reaches, in nautical miles (5-200). Beyond "
-                + "this the lock drops and the target's crew can bring its sensors back up.");
+                "How far the focused offensive jammer reaches against a ship, in nautical miles "
+                + "(5-200). Beyond this the lock drops and the target's crew can bring its sensors "
+                + "back up.");
+
+            jamAirRangeNm = file.Bind("Features", "JamAirRangeNm", 90f,
+                "How far the same jammer reaches against an aircraft or a helicopter, in nautical "
+                + "miles (5-300). Longer than the ship figure because both ends are high above the "
+                + "radio horizon - roughly 70 nm for a masthead and an aircraft at 15,000 ft.");
 
             salvoSpacingSeconds = file.Bind("Features", "SalvoSpacingSeconds", 8f,
                 "Seconds between ships being released to fire in a deconflicted salvo (1-60).");

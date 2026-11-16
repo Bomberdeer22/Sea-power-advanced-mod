@@ -317,12 +317,12 @@ internal static class EcmControl
             try
             {
                 setter.Invoke(unit, new[] { weapon });
-                note = "lock on the missile via " + setter.Name;
+                note = "aimed via " + setter.Name;
                 return true;
             }
             catch (Exception error)
             {
-                ModLog.Error("An ECM target setter refused the missile", error);
+                ModLog.Error("An ECM target setter refused the target", error);
             }
         }
 
@@ -333,12 +333,12 @@ internal static class EcmControl
 
             if (MemberProbe.Write(holder, unit, weapon))
             {
-                note = "lock on the missile via " + holder.Name;
+                note = "aimed via " + holder.Name;
                 return true;
             }
         }
 
-        note = "no member of this build accepts a weapon as a jam target";
+        note = "no member of this build accepts a " + weapon.GetType().Name + " as a jam target";
         return false;
     }
 

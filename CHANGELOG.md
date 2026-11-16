@@ -1,5 +1,41 @@
 # Changelog
 
+## 0.13.0 — the ECM lock reaches aircraft
+
+Invisible before, and it should not have been: a jammer could only ever be pointed at a ship.
+
+**Two reasons, both fixed.**
+
+1. **The reach was a ship's reach.** 40 nm is right for a hull or a sea-skimming missile, where both
+   ends are metres above the water. An aircraft is not: the radio horizon from 15,000 ft is about
+   65 nm by itself, so a masthead and an aircraft see each other at roughly seventy miles. There is
+   now `Features/JamAirRangeNm`, default 90 nm, and the lock drops at the right horizon for what it
+   is holding.
+2. **The contact picture was one ship's.** Contacts were read only from the jammer's own
+   `_threats` / `_spottedObjects` / `_dangerousMissiles`. An air plot is not always kept where the
+   surface one is, and an aircraft a picket detected thirty miles away was invisible to every
+   jammer in the fleet. The picture is now the **force's**, and the lists are **looked for** - any
+   enumerable member on a unit whose name says it holds contacts, threats, tracks or detections -
+   instead of three names being assumed.
+
+**What the menu says now.** `Lock E-2C Hawkeye - aircraft (68 nm)`, and the submenu header counts
+what is in the air: `4 contact(s) in range, 2 in the air`. The enemy aircraft's own menu entry reads
+`Lock with ECM (<ship>, 68 nm, aircraft)`. A single `UnitFit.Kind` now names ship / submarine /
+aircraft / helicopter everywhere it is shown.
+
+**And what it admits.** Jamming an aircraft is not jamming a ship, and the mod says so:
+
+- it has **one radar**, so radar off means blind - with the same limit as any other target, that its
+  crew can switch it back on between assertions;
+- its **receiver cannot be jammed off at all** - a passive set has nothing to switch down - so the
+  report states that rather than claiming a clean sweep.
+
+`offensive-ecm.txt` now records the target's kind and **which contact lists the picture was read
+from**, so the next build can be exact if this build keeps its air picture somewhere else again.
+
+Also: `EcmControl`'s aim note said "lock on the missile" whatever it was pointing at. It says
+"aimed via <member>" now, and names the type it refused.
+
 ## 0.12.1 — builds again, and works with the multiplayer mod
 
 ### The build failure

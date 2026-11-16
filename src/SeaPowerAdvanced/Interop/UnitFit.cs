@@ -87,6 +87,42 @@ internal static class UnitFit
         return IsSurfaceHull(unit);
     }
 
+    /// <summary>
+    /// Whether this unit is in the air: an aircraft, fixed wing or rotary.
+    ///
+    /// This matters twice. A jammer's reach against something airborne is limited by the radio
+    /// horizon and not by the surface one, so it is far longer; and an aircraft's sensor fit is a
+    /// single radar rather than a ship's several families, which changes what the report can honestly
+    /// claim to have switched off.
+    /// </summary>
+    internal static bool IsAir(ObjectBase? unit)
+    {
+        if (unit is null) return false;
+
+        try
+        {
+            return unit._type == ObjectBase.ObjectType.Aircraft
+                || unit._type == ObjectBase.ObjectType.Helicopter;
+        }
+        catch (Exception) { return false; }
+    }
+
+    /// <summary>One word for the menu: aircraft, helicopter, submarine, ship.</summary>
+    internal static string Kind(ObjectBase? unit)
+    {
+        if (unit is null) return "unit";
+
+        try
+        {
+            if (unit._type == ObjectBase.ObjectType.Aircraft) return "aircraft";
+            if (unit._type == ObjectBase.ObjectType.Helicopter) return "helicopter";
+        }
+        catch (Exception) { }
+
+        if (IsSubmarine(unit)) return "submarine";
+        return IsSurfaceHull(unit) ? "ship" : "unit";
+    }
+
     /// <summary>Whether this hull is a surface ship - the only hull type the menu's orders suit.</summary>
     internal static bool IsSurfaceHull(ObjectBase? unit)
     {
@@ -105,8 +141,9 @@ internal static class UnitFit
     {
         if (unit == null) return "<none>";
 
-        return SafeName(unit) + ": player=" + IsPlayer(unit)
+        return SafeName(unit) + ": " + Kind(unit) + " player=" + IsPlayer(unit)
                + " surface=" + IsSurfaceHull(unit)
+               + " air=" + IsAir(unit)
                + " sub=" + IsSubmarine(unit)
                + " ecm=" + HasEcm(unit)
                + " aviation=" + HasAviation(unit);

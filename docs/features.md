@@ -133,7 +133,32 @@ Two ways in, and both end in the same place:
   in the label, so you do not have to work out which hull carries the jammer. If nothing of yours is
   in range, the entry is not added at all.
 - **Right-click your own ship → Sensors → Offensive ECM lock** and pick a contact from the list (the
-  contacts that ship's own picture holds, nearest first, max 40 nm).
+  contacts the *task force* holds, nearest first, max 40 nm for ships and 90 nm for aircraft).
+
+### Aircraft and helicopters
+
+Planes can be locked too, and they are the case the range matters for. A jammer has to be inside the
+other radar's horizon, and the radio horizon is not the same for a masthead as for a wing:
+
+| Target | Reach | Why |
+|---|---|---|
+| Ship or sea-skimming missile | `JamRangeNm`, 40 nm | Both ends are a few metres above the water |
+| Aircraft or helicopter | `JamAirRangeNm`, 90 nm | A masthead sees 4.5 nm; an aircraft at 15,000 ft sees 65 nm **on its own**, so the pair see each other at about 70 nm and further for a high patrol |
+
+Jamming an aircraft is not the same as jamming a ship, and the mod says so rather than pretending
+otherwise:
+
+- it carries **one radar**, not a ship's families. Radar off means blind, and its crew can put it back
+  up between assertions like anyone else's.
+- its **receiver cannot be jammed off at all** - a passive set has nothing to switch down - so the
+  report says that instead of claiming a clean sweep.
+- the entry names the type: `Lock E-2C Hawkeye - aircraft (68 nm)`.
+
+The contact picture is now the **force's**, not one ship's: an aircraft a picket detected can be
+jammed by whichever ship has the set nearest it. The contact lists themselves are **looked for** -
+any member on a unit whose name says it holds contacts, threats, tracks or detections - because an
+air plot is not always kept where the surface one is. `offensive-ecm.txt` records which lists were
+read, so the next build can be exact.
 
 Either way the mod then:
 
@@ -154,14 +179,16 @@ Either way the mod then:
 | Drives | The target's own switches: `DisableAllRadars()`, `DisableAirSearchRadars`, `DisableSurfaceSearchRadars`, `TowedSonarsSetActive(false)`, `DisableActiveSonars`, plus any ESM / jammer switch it exposes |
 |---|---|
 | Reads | Its radiator state (`IsAirSearchRadarsOn`, `IsSurfaceSearchRadarsOn`), its sensor fit (`HasTowedSonar`, `HasActiveSonar`), its hull signature from its parameter block |
-| Range | `Features/JamRangeNm`, default 40 nm |
+| Range | `Features/JamRangeNm`, default 40 nm against ships; `Features/JamAirRangeNm`, default 90 nm against aircraft |
 | Cost | **None in emissions.** This mode runs on EMCON: it never switches the attacking ship's radar on, so the jammer gives away nothing while it works. (The defensive feature does need air search - it is locking onto a missile, not a contact.) |
 | Result you will see | *every sensor off*, or *NOT all sensors off - <sensor> would not switch off on this build*. The second is not a bug in the lock: it means the game gives no way to reach that one sensor family, so it is still working. The menu names it and `offensive-ecm.txt` lists it as `STILL`. The mod does not edit the target's picture to hide that. |
 | Honest limit | The effect lasts as long as the lock is held. It is not a permanent state change to the other ship's data, and it stops the moment the lock is released - which is why the mod re-asserts rather than setting it once. |
 
-`offensive-ecm.txt` in the mod folder records every lock, appended rather than overwritten: the
-signatures read off the target, what was silenced, what was not, and the jammer path used. It is the
-file to send if the target does not go quiet when it should.
+`offensive-ecm.txt` in the mod folder records every lock, appended rather than overwritten: which
+kind of target it was, which contact lists the picture was read from, the signatures read off the
+target, what was silenced, what was not, and the jammer path used. It is the file to send if the
+target does not go quiet when it should - and the file to send if an aircraft does not appear in the
+lock list at all.
 
 ## 2d. The ECM cones on the map — `Sensors and EMCON`
 
@@ -351,8 +378,11 @@ more slowly than tiring, so there is a real cost to leaving the fleet closed up 
 | Key | Default | Meaning |
 |---|---|---|
 | `Enabled` | `true` | Add the eight submenus at all |
-| `BlinkSeconds` | `6` | Seconds between radar blink flips |
+| `BlinkSeconds` | `6` | Seconds between radar blink flips (raised to 12 in a multiplayer session) |
 | `SalvoSpacingSeconds` | `8` | Seconds between ships released in a salvo |
+| `JamRangeNm` | `40` | Reach of the focused offensive jammer against a ship |
+| `JamAirRangeNm` | `90` | Reach against an aircraft or helicopter - both ends are high above the radio horizon |
+| `ShowEcmCone` | `true` | Draw the ECM cones on the map |
 
 ## What to send back if something misbehaves
 

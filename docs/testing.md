@@ -3,7 +3,7 @@
 Run this once per game version, and after any change to `HatchControl`, `HatchMenu`,
 `TrafficGenerator` or `RouteFactory`.
 
-Version under test: **0.12.1**. Mod id `io.github.bomberdeer22.seapoweradvanced`.
+Version under test: **0.13.0**. Mod id `io.github.bomberdeer22.seapoweradvanced`.
 
 **Read the log, do not guess.** Everything below is confirmed by two files:
 
@@ -34,11 +34,11 @@ If `seapoweradvanced.log` is missing, nothing else in this plan can pass — sto
 
 In `LogOutput.log`, BepInEx's own banner should appear:
 
-- [ ] `Loading [Sea Power Advanced 0.12.1]`
+- [ ] `Loading [Sea Power Advanced 0.13.0]`
 
 Then the mod's own startup lines:
 
-- [ ] `Sea Power Advanced: ================ Sea Power Advanced 0.12.1 ================`
+- [ ] `Sea Power Advanced: ================ Sea Power Advanced 0.13.0 ================`
 - [ ] `Sea Power Advanced: Entry point:  BepInEx plugin`
 - [ ] `Sea Power Advanced: Settings: enabled=True includeGuns=False ...`
 - [ ] `Sea Power Advanced: Patched MapUnitViewModel.GetContextMenuItems.`
@@ -161,6 +161,22 @@ Full description of each: [features.md](features.md). Right-click one of your sh
 - [ ] **Deception → Commercial disguise** goes dark and slow, and says plainly what it cannot do
 - [ ] **Logistics → Replenish alongside** moves ammunition when a supply ship is within 2 nm
 - [ ] Nothing above throws an exception; `seapoweradvanced.log` names each action and its result
+
+### Aircraft as ECM targets
+
+- [ ] Fly a hostile aircraft or helicopter inside ~80 nm of a ship with a jammer
+- [ ] **That ship → Sensors → Offensive ECM lock**: the submenu header reads
+      `N contact(s) in range, M in the air`, and the aircraft is listed as
+      `Lock <name> - aircraft (x nm)`
+- [ ] The same entry appears on the aircraft's own right-click menu, labelled
+      `Lock with ECM (<ship>, x nm, aircraft)`
+- [ ] Lock it: `offensive-ecm.txt` gains a block whose `target` line says `(aircraft)` and whose
+      `contact picture read from:` line names the lists that were searched
+- [ ] **Jam now**: the log reads either `every sensor off` or `NOT all sensors off - <family>` with
+      the aircraft named; the radar on the map goes quiet
+- [ ] Let it fly beyond `JamAirRangeNm` (90 nm by default): the log reads `lost the lock on ... out of
+      range` and the aircraft's radar comes back
+- [ ] An aircraft beyond 90 nm is **not** offered - that is the horizon, not a bug
 
 ## 7. Civilian traffic (mission editor)
 

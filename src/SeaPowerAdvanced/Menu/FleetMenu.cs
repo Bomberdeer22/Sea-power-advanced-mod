@@ -94,8 +94,10 @@ internal static class FleetMenu
             }
             catch (Exception) { }
 
+            string kind = UnitFit.Kind(contact);
+
             string label = range >= 0
-                ? "Lock with ECM (" + ContactName(jammer) + ", " + range + " nm)"
+                ? "Lock with ECM (" + ContactName(jammer) + ", " + range + " nm, " + kind + ")"
                 : "Lock with ECM";
 
             var item = new ContextMenuItem(
@@ -103,8 +105,12 @@ internal static class FleetMenu
                 items: null,
                 command: new DelegateCommand(_ => Report(contact, "lock with ECM",
                     OffensiveEcm.LockOnContact(contact, out string r), r)),
-                tooltip: "Point " + ContactName(jammer) + "'s jammer at this contact and read its "
-                         + "sensor fit. The beam appears on the map; jamming is a second order.");
+                tooltip: "Point " + ContactName(jammer) + "'s jammer at this " + kind + " and read "
+                         + "its sensor fit. The beam appears on the map; jamming is a second order."
+                         + (UnitFit.IsAir(contact)
+                            ? " An aircraft is reached at the air range - both ends are high above "
+                              + "the radio horizon."
+                            : ""));
 
             // Top level: a contact menu is short, and hiding this inside a section would make the
             // player hunt for the one entry the mod adds there.
@@ -298,7 +304,8 @@ internal static class FleetMenu
                         OffensiveEcm.SetMode(unit, OffensiveEcm.Mode.Standard, out string r), r))
                 : Action("Offensive ECM: standard - click for signature lock",
                     "Runs on EMCON: this ship radiates nothing. Signature lock reads one contact's "
-                    + "sensor fit and holds every sensor it has switched off.",
+                    + "sensor fit - a ship's families or an aircraft's radar - and holds every one "
+                    + "of them switched off.",
                     () => Report(unit, "offensive ECM",
                         OffensiveEcm.SetMode(unit, OffensiveEcm.Mode.SignatureLock, out string r), r)),
                 MenuRouting.Sensors);
@@ -484,8 +491,14 @@ internal static class FleetMenu
             if (offered >= 8) break;
             offered++;
 
-            items.Add(Action("Lock " + ContactName(contact) + " (" + ContactRange(unit, contact) + " nm)",
-                "Read this contact's sensor fit, then hold every sensor it has switched off.",
+            bool air = UnitFit.IsAir(contact);
+
+            items.Add(Action("Lock " + ContactName(contact) + " - " + UnitFit.Kind(contact)
+                             + " (" + ContactRange(unit, contact) + " nm)",
+                air
+                    ? "Read the aircraft's radar fit and hold its radar down. Reached further than "
+                      + "a ship because both ends are high above the radio horizon."
+                    : "Read this contact's sensor fit, then hold every sensor it has switched off.",
                 () => Report(unit, "offensive lock",
                     OffensiveEcm.Lock(unit, contact, out string r), r)));
         }
@@ -493,8 +506,9 @@ internal static class FleetMenu
         if (offered == 0)
         {
             items.Add(Disabled("No hostile contact within " + (int)ModSettings.JamRangeNm + " nm",
-                "The ship's own picture has to hold the contact before the jammer can be pointed at "
-                + "it - the mod does not invent targets."));
+                "The task force's picture has to hold the contact before the jammer can be pointed "
+                + "at it - the mod does not invent targets. Aircraft are reached out to "
+                + (int)ModSettings.JamAirRangeNm + " nm."));
         }
 
         items.Add(Action("Release the lock", "Stops holding the target's sensors down.",
@@ -503,7 +517,8 @@ internal static class FleetMenu
         return new ContextMenuItem(
             label: "Offensive ECM lock (" + OffensiveEcm.ContactSummary(unit) + ")",
             items: new TrulyObservableCollection<ContextMenuItem>(items),
-            tooltip: "Point this ship's jammer at one contact and keep it blind.");
+            tooltip: "Point this ship's jammer at one contact - ship, submarine or aircraft - and "
+                     + "keep it blind.");
     }
 
     private static string ContactName(ObjectBase contact)

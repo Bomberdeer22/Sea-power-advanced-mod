@@ -1,5 +1,7 @@
 using System;
+using System.Collections;
 using System.Collections.Generic;
+using System.Reflection;
 using System.Text;
 using SeaPower;
 using SeaPowerAdvanced.Interop;
@@ -70,8 +72,22 @@ internal static class OffensiveEcm
     /// </summary>
     private const float AssertSeconds = 0.1f;
 
-    /// <summary>How far the focused jammer reaches. Beyond this the lock drops.</summary>
+    /// <summary>How far the focused jammer reaches against a ship. Beyond this the lock drops.</summary>
     private static float RangeNm => Mathf.Clamp(ModSettings.JamRangeNm, 5f, 200f);
+
+    /// <summary>How far it reaches against something airborne - see ModSettings.JamAirRangeNm.</summary>
+    private static float AirRangeNm => Mathf.Clamp(ModSettings.JamAirRangeNm, 5f, 300f);
+
+    /// <summary>
+    /// How far this jammer can hold a particular contact.
+    ///
+    /// Two figures, because there are two geometries. A ship or a missile skimming the sea is close
+    /// to the horizon at both ends, which is why <c>JamRangeNm</c> is short. An aircraft is not: the
+    /// radio horizon from 15,000 ft is about 65 nm by itself, so a masthead and an aircraft see each
+    /// other at roughly seventy miles and the jammer can work at that range too.
+    /// </summary>
+    internal static float Reach(ObjectBase? contact) =>
+        UnitFit.IsAir(contact) ? AirRangeNm : RangeNm;
 
     // --- mode ------------------------------------------------------------------------------------
 
@@ -117,9 +133,16 @@ internal static class OffensiveEcm
     // --- contacts --------------------------------------------------------------------------------
 
     /// <summary>
-    /// Hostile contacts this ship's own picture holds, nearest first. Read from the ship's contact
-    /// lists - the same ones the threat-axis order uses - so the mod never invents a target the
-    /// force cannot actually see.
+    /// Hostile contacts the force's picture holds, nearest first. Read from the contact lists - the
+    /// same ones the threat-axis order uses - so the mod never invents a target the force cannot
+    /// actually see.
+    ///
+    /// The picture is the <b>task force's</b>, not this one ship's: an aircraft picked up by a
+    /// picket thirty miles away is a contact the force holds, and the jammer may be the only set
+    /// near enough to work it. Reading only the jammer's own list meant an aircraft circling over
+    /// the horizon was invisible to every jammer in the fleet.
+    ///
+    /// Aircraft and helicopters are included, and reached at their own, much longer range.
     /// </summary>
     internal static List<ObjectBase> Contacts(ObjectBase ship)
     {
@@ -142,7 +165,7 @@ internal static class OffensiveEcm
                 if (!seen.Add(contact)) continue;
 
                 double range = ThreatAxis.Distance(own, contact.getGeoPosition());
-                if (range > RangeNm) continue;
+                if (range > Reach(contact)) continue;
 
                 contacts.Add(contact);
             }
@@ -161,9 +184,110 @@ internal static class OffensiveEcm
 
     private static IEnumerable<ObjectBase> Candidates(ObjectBase ship)
     {
-        if (ship._threats != null) foreach (ObjectBase unit in ship._threats) yield return unit;
-        if (ship._spottedObjects != null) foreach (ObjectBase unit in ship._spottedObjects) yield return unit;
-        if (ship._dangerousMissiles != null) foreach (ObjectBase unit in ship._dangerousMissiles) yield return unit;
+        foreach (ObjectBase unit in ListsOf(ship)) yield return unit;
+
+        // Then the rest of the force's contacts. A picket's radar plot is the task force's plot:
+        // the jammer is not required to be the ship that detected the aircraft it is about to jam.
+        foreach (ObjectBase other in FleetTicker.Tracked())
+        {
+            if (other == null || ReferenceEquals(other, ship)) continue;
+
+            foreach (ObjectBase unit in ListsOf(other)) yield return unit;
+        }
+    }
+
+    /// <summary>
+    /// One unit's contact lists, as the game holds them.
+    ///
+    /// The three known names are not the whole picture. A ship's air plot is not necessarily
+    /// <c>_spottedObjects</c> - this build may keep aircraft in a list of its own - and an aircraft
+    /// the game can see but this mod cannot find is exactly the "it will not lock onto planes"
+    /// report. So the lists are <b>looked for</b>: any enumerable member whose name says it holds
+    /// contacts, threats, tracks or detections, on this unit and on the rest of the force. Nothing is
+    /// invented - only lists the game itself already filled are read.
+    ///
+    /// The names that were actually used are in <c>offensive-ecm.txt</c>, so the next build can be
+    /// exact about which one the air picture lives in.
+    /// </summary>
+    private static IEnumerable<ObjectBase> ListsOf(ObjectBase unit)
+    {
+        var found = new List<ObjectBase>();
+
+        foreach (MemberInfo member in ContactMembers(unit.GetType()))
+        {
+            object? value;
+            try { value = MemberProbe.Read(member, unit); }
+            catch (Exception) { continue; }
+
+            if (value is not IEnumerable sequence || value is string) continue;
+
+            try
+            {
+                foreach (object? item in sequence)
+                {
+                    if (item is ObjectBase contact) found.Add(contact);
+                }
+            }
+            catch (Exception) { }
+        }
+
+        foreach (ObjectBase contact in found) yield return contact;
+    }
+
+    /// <summary>Cache of the contact-bearing members per unit type - this is read when a menu is
+    /// built, and walking every member of ObjectBase is not free.</summary>
+    private static readonly Dictionary<Type, List<MemberInfo>> ContactMembersByType = new();
+
+    private static List<MemberInfo> ContactMembers(Type type)
+    {
+        if (ContactMembersByType.TryGetValue(type, out List<MemberInfo>? cached)) return cached;
+
+        var members = new List<MemberInfo>();
+
+        try
+        {
+            foreach (MemberInfo member in MemberProbe.All(type))
+            {
+                if (member is MethodInfo) continue;
+                if (member is PropertyInfo property && !property.CanRead) continue;
+
+                Type listType = member is PropertyInfo pi ? pi.PropertyType : ((FieldInfo)member).FieldType;
+                if (!typeof(IEnumerable).IsAssignableFrom(listType)) continue;
+                if (listType == typeof(string)) continue;
+
+                string name = member.Name.ToLowerInvariant();
+
+                bool contactish = name.Contains("spott") || name.Contains("threat")
+                                  || name.Contains("contact") || name.Contains("track")
+                                  || name.Contains("detect") || name.Contains("known")
+                                  || name.Contains("dangerous") || name.Contains("hostile")
+                                  || name.Contains("picture");
+
+                if (contactish) members.Add(member);
+            }
+        }
+        catch (Exception) { }
+
+        ContactMembersByType[type] = members;
+        return members;
+    }
+
+    /// <summary>The contact lists this build actually uses, for the report.</summary>
+    internal static string Sources(ObjectBase? ship)
+    {
+        if (ship is null) return "none";
+
+        // A local, so the compiler can see the reference is real: Unity's own == overload is not a
+        // null test as far as flow analysis is concerned.
+        Type type = ship.GetType();
+        var names = new List<string>();
+
+        foreach (MemberInfo member in ContactMembers(type))
+        {
+            if (!names.Contains(member.Name)) names.Add(member.Name);
+        }
+
+        return names.Count > 0 ? string.Join(", ", names) : "none found on this build";
     }
 
     private static double SafeRange(GeoPosition own, ObjectBase? unit)
@@ -202,10 +326,13 @@ internal static class OffensiveEcm
         }
 
         double range = SafeRange(Position(ship), target);
-        if (range > RangeNm)
+        double reach = Reach(target);
+
+        if (range > reach)
         {
-            report = Name(target) + " is " + (int)range + " nm away - beyond the " + (int)RangeNm
-                     + " nm the focused jammer reaches";
+            report = Name(target) + " is " + (int)range + " nm away - beyond the " + (int)reach
+                     + " nm the focused jammer reaches against "
+                     + (UnitFit.IsAir(target) ? "an aircraft" : "a ship");
             return false;
         }
 
@@ -232,14 +359,22 @@ internal static class OffensiveEcm
             Jamming = false,
         };
 
-        report = "locked on " + Name(target) + " (" + (int)range + " nm, hull " + signature + "). "
+        report = "locked on " + Name(target)
+                 + (UnitFit.IsAir(target) ? " (airborne)" : "")
+                 + " (" + (int)range + " nm, hull " + signature + "). "
                  + "Read " + SensorSet.Describe(signatures) + ". The beam is on the map; use "
                  + "'Jam now' to transmit.";
+
+        if (UnitFit.IsAir(target))
+        {
+            report += " An aircraft has one radar and its own jammer; with the radar off it is blind,"
+                      + " and its crew can put it back up between assertions.";
+        }
 
         if (Multiplayer.IsClient)
         {
             report += " In a session the jam goes to the host as the game's own jam order, so the"
-                      + " game's ECM decides the effect - the mod cannot hold a host ship's switches"
+                      + " game's ECM decides the effect - the mod cannot hold a host unit's switches"
                       + " down from here.";
         }
 
@@ -269,7 +404,7 @@ internal static class OffensiveEcm
 
         if (jammer == null)
         {
-            report = "no ship of ours with ECM is within " + (int)RangeNm + " nm of "
+            report = "no ship of ours with ECM is within " + (int)reach + " nm of "
                      + Name(contact) + " - nothing to jam it with";
             ModLog.Warn("Offensive ECM: " + report);
             return false;
@@ -287,6 +422,7 @@ internal static class OffensiveEcm
 
         ObjectBase? best = null;
         double bestRange = double.MaxValue;
+        double reach = Reach(contact);
 
         foreach (ObjectBase ship in FleetTicker.Tracked())
         {
@@ -295,7 +431,7 @@ internal static class OffensiveEcm
                 if (!UnitFit.HasEcm(ship)) continue;
 
                 double range = SafeRange(Position(ship), contact);
-                if (range > RangeNm || range >= bestRange) continue;
+                if (range > reach || range >= bestRange) continue;
 
                 bestRange = range;
                 best = ship;
@@ -477,7 +613,7 @@ internal static class OffensiveEcm
                 }
 
                 double range = SafeRange(Position(ship), target);
-                if (range > RangeNm)
+                if (range > Reach(target))
                 {
                     ModLog.Info("Offensive ECM: " + Name(ship) + " lost the lock on " + Name(target)
                                 + " at " + (int)range + " nm - out of range");
@@ -552,8 +688,19 @@ internal static class OffensiveEcm
         return "signature lock, no target yet";
     }
 
-    /// <summary>How many contacts are within reach, for the submenu label.</summary>
-    internal static string ContactSummary(ObjectBase ship) => Contacts(ship).Count + " contact(s) in range";
+    /// <summary>How many contacts are within reach, and how many of those are in the air.</summary>
+    internal static string ContactSummary(ObjectBase ship)
+    {
+        List<ObjectBase> contacts = Contacts(ship);
+
+        int air = 0;
+        foreach (ObjectBase contact in contacts)
+        {
+            if (UnitFit.IsAir(contact)) air++;
+        }
+
+        return contacts.Count + " contact(s) in range" + (air > 0 ? ", " + air + " in the air" : "");
+    }
 
     /// <summary>
     /// Names the sensor families this build would not let the mod switch, so the report says which
@@ -604,7 +751,9 @@ internal static class OffensiveEcm
             text.AppendLine("generated " + DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss")
                             + "   mod " + ModInfo.Version);
             text.AppendLine("jammer  " + Name(ship));
-            text.AppendLine("target  " + Name(target) + "   hull signature as read: " + signature);
+            text.AppendLine("target  " + Name(target) + "   (" + UnitFit.Kind(target) + ")   hull "
+                            + "signature as read: " + signature);
+            text.AppendLine("contact picture read from: " + Sources(ship));
             text.AppendLine("jammer path: " + jammer);
             text.AppendLine();
             text.AppendLine("Signatures read off the target before jamming");
@@ -617,6 +766,14 @@ internal static class OffensiveEcm
             if (applied.Count == 0) text.AppendLine("  (nothing to switch)");
             foreach (SensorSet.Reading reading in applied) text.AppendLine("  " + Line(reading));
             text.AppendLine();
+            if (UnitFit.IsAir(target))
+            {
+                text.AppendLine("An aircraft carries one radar and one receiver set, not a ship's");
+                text.AppendLine("families. Its radar off means blind; its receiver cannot be jammed");
+                text.AppendLine("off at all, because a passive set has nothing to switch down.");
+                text.AppendLine();
+            }
+
             text.AppendLine("A sensor marked STILL is one this build of the game will not let the mod");
             text.AppendLine("switch off; the menu says 'NOT all sensors off' and names it rather than");
             text.AppendLine("claiming otherwise.");

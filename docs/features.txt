@@ -233,8 +233,40 @@ Two ways in, and both end in the same place:
     the jammer. If nothing of yours is in range, the entry is not added at
     all.
   * Right-click your own ship -> Sensors -> Offensive ECM lock and pick a
-    contact from the list (the contacts that ship's own picture holds, nearest
-    first, max 40 nm).
+    contact from the list (the contacts the task force holds, nearest first,
+    max 40 nm for ships and 90 nm for aircraft).
+
+Aircraft and helicopters
+
+Planes can be locked too, and they are the case the range matters for. A
+jammer has to be inside the other radar's horizon, and the radio horizon is
+not the same for a masthead as for a wing:
+
+  Ship or sea-skimming missile
+      Reach: JamRangeNm, 40 nm
+      Why: Both ends are a few metres above the water
+
+  Aircraft or helicopter
+      Reach: JamAirRangeNm, 90 nm
+      Why: A masthead sees 4.5 nm; an aircraft at 15,000 ft sees 65 nm on
+        its own, so the pair see each other at about 70 nm and further for a
+        high patrol
+
+Jamming an aircraft is not the same as jamming a ship, and the mod says so
+rather than pretending otherwise:
+
+  * it carries one radar, not a ship's families. Radar off means blind, and
+    its crew can put it back up between assertions like anyone else's.
+  * its receiver cannot be jammed off at all - a passive set has nothing to
+    switch down - so the report says that instead of claiming a clean sweep.
+  * the entry names the type: Lock E-2C Hawkeye - aircraft (68 nm).
+
+The contact picture is now the force's, not one ship's: an aircraft a picket
+detected can be jammed by whichever ship has the set nearest it. The contact
+lists themselves are looked for - any member on a unit whose name says it
+holds contacts, threats, tracks or detections - because an air plot is not
+always kept where the surface one is. offensive-ecm.txt records which lists
+were read, so the next build can be exact.
 
 Either way the mod then:
 
@@ -268,7 +300,8 @@ Either way the mod then:
       The target's own switches: DisableAllRadars(), DisableAirSearchRadars,
         DisableSurfaceSearchRadars, TowedSonarsSetActive(false),
         DisableActiveSonars, plus any ESM / jammer switch it exposes:
-        Features/JamRangeNm, default 40 nm
+        Features/JamRangeNm, default 40 nm against ships;
+        Features/JamAirRangeNm, default 90 nm against aircraft
 
   Cost
       The target's own switches: DisableAllRadars(), DisableAirSearchRadars,
@@ -299,9 +332,11 @@ Either way the mod then:
         once.
 
 offensive-ecm.txt in the mod folder records every lock, appended rather than
-overwritten: the signatures read off the target, what was silenced, what was
+overwritten: which kind of target it was, which contact lists the picture was
+read from, the signatures read off the target, what was silenced, what was
 not, and the jammer path used. It is the file to send if the target does not
-go quiet when it should.
+go quiet when it should - and the file to send if an aircraft does not appear
+in the lock list at all.
 
 2D. THE ECM CONES ON THE MAP  -  SENSORS AND EMCON
 --------------------------------------------------
@@ -616,10 +651,31 @@ SETTINGS
 
 BepInEx/config/io.github.bomberdeer22.seapoweradvanced.cfg, section Features:
 
-  Key                  Default  Meaning
-  Enabled              true     Add the eight submenus at all
-  BlinkSeconds         6        Seconds between radar blink flips
-  SalvoSpacingSeconds  8        Seconds between ships released in a salvo
+  Enabled
+      Default: true
+      Meaning: Add the eight submenus at all
+
+  BlinkSeconds
+      Default: 6
+      Meaning: Seconds between radar blink flips (raised to 12 in a
+        multiplayer session)
+
+  SalvoSpacingSeconds
+      Default: 8
+      Meaning: Seconds between ships released in a salvo
+
+  JamRangeNm
+      Default: 40
+      Meaning: Reach of the focused offensive jammer against a ship
+
+  JamAirRangeNm
+      Default: 90
+      Meaning: Reach against an aircraft or helicopter - both ends are high
+        above the radio horizon
+
+  ShowEcmCone
+      Default: true
+      Meaning: Draw the ECM cones on the map
 
 WHAT TO SEND BACK IF SOMETHING MISBEHAVES
 -----------------------------------------
