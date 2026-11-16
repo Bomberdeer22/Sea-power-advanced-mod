@@ -27,6 +27,44 @@ from survey import build_report
 
 DEFAULT_DLL = r"C:\Program Files (x86)\Steam\steamapps\common\Sea Power\Sea Power_Data\Managed\Seapower-Scripts.dll"
 HERE = os.path.dirname(os.path.abspath(__file__))
+REPO = os.path.dirname(os.path.dirname(HERE))
+LOCAL_PROPS = os.path.join(REPO, "Directory.Build.local.props")
+
+
+def _property(text: str, name: str) -> str | None:
+    """Read one <Name>value</Name> out of Directory.Build.local.props."""
+    import re
+    match = re.search(rf"<{name}>\s*([^<]+?)\s*</{name}>", text, re.IGNORECASE)
+    return match.group(1) if match else None
+
+
+def dll_from_local_props() -> str | None:
+    """Find the game through build.cmd's own path file.
+
+    build.cmd already discovers the install (registry, then every drive letter) and writes
+    Directory.Build.local.props. Reading it means this tool works on a machine where Steam is not
+    in the default folder, without anyone retyping a path.
+    """
+    try:
+        with open(LOCAL_PROPS, encoding="utf-8-sig") as handle:
+            text = handle.read()
+    except OSError:
+        return None
+
+    for directory, tail in (
+        (_property(text, "ManagedDir"), "Seapower-Scripts.dll"),
+        (_property(text, "SeaPowerDir"), os.path.join("Sea Power_Data", "Managed", "Seapower-Scripts.dll")),
+    ):
+        if not directory:
+            continue
+        candidate = os.path.join(directory.strip(), tail)
+        if os.path.isfile(candidate):
+            return candidate
+    return None
+
+
+def default_dll() -> str:
+    return os.environ.get("SEAPOWER_DLL") or dll_from_local_props() or DEFAULT_DLL
 
 
 def resolve_type(assembly: Assembly, name: str):
@@ -42,7 +80,9 @@ def resolve_type(assembly: Assembly, name: str):
 
 def load(path: str) -> Assembly:
     if not os.path.isfile(path):
-        sys.exit(f"Assembly not found: {path}\nPass --dll <path to Seapower-Scripts.dll>.")
+        sys.exit(f"Assembly not found: {path}\n"
+                 f"Pass --dll <path to Seapower-Scripts.dll>, or run build.cmd once so it writes\n"
+                 f"{LOCAL_PROPS}")
     return Assembly(path)
 
 
@@ -152,8 +192,9 @@ def cmd_selftest(_assembly, _args) -> None:
 
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    parser.add_argument("--dll", default=os.environ.get("SEAPOWER_DLL", DEFAULT_DLL),
-                        help="path to Seapower-Scripts.dll (or set SEAPOWER_DLL)")
+    parser.add_argument("--dll", default=None,
+                        help="path to Seapower-Scripts.dll (default: SEAPOWER_DLL, then "
+                             "Directory.Build.local.props, then the standard Steam path)")
     sub = parser.add_subparsers(dest="command", required=True)
 
     brief = sub.add_parser("brief", help="write the full API survey")
@@ -199,7 +240,7 @@ def main() -> None:
         args.func(None, args)
         return
 
-    assembly = load(args.dll)
+    assembly = load(args.dll or default_dll())
     args.func(assembly, args)
 
 

@@ -228,7 +228,8 @@ $EDITOR Directory.Build.local.props
 | `mod/_info.ini` | Name and description shown in the mod manager. |
 | `build.ps1` / `build.sh` | Build, then lay out `dist/` (and optionally install). |
 | `tools/build-portable.*` | Fetch a portable SDK into `.dotnet/` and run the build script. |
-| `build.cmd` | Same thing as a batch file, for machines where PowerShell policy blocks `.ps1`. |
+| `build.cmd` | Build and install, as a batch file. No PowerShell, so policy cannot block it. |
+| `check-features.cmd` | Double-click: checks which planned features this build of the game can support. |
 | `docs/usage.md` | How to use the mod once it is installed. |
 | `diagnose.cmd` | One double-click: collects system, game folder, mod files and game logs into `SeaPowerAdvanced-diagnose.txt`. Send that file when something breaks. |
 | `README.txt`, `INSTALL.txt` | Plain-text copies of this file and the install guide, for Notepad. Regenerate with `python tools/md2txt.py README.md README.txt`. |
@@ -246,10 +247,17 @@ a feature is a five-line change or impossible. That reader lives in
 [tools/analysis](tools/analysis/README.md):
 
 ```bat
+check-features.cmd                      :: double-click: which planned features are buildable
 tools\analysis\survey.cmd              :: full API survey -> tools\analysis\analysis-report.txt
-tools\analysis\survey.cmd readiness    :: which planned features this build can support
+tools\analysis\survey.cmd readiness    :: the same check from a command prompt
 tools\analysis\survey.cmd selftest     :: verify the reader still works
 ```
+
+**`check-features.cmd`** is the one to double-click: it writes `feature-readiness.txt` next to
+itself, saying feature by feature whether the game exposes what each one needs (`READY`, `PARTIAL`
+or `BLOCKED`) and printing the member names it matched, so a wrong verdict can be seen rather than
+believed. It needs Python 3 once; if that is missing it says so and needs nothing else. It reads
+`Directory.Build.local.props` for the game path, so it works wherever Steam is installed.
 
 The next batch of features is triaged in [docs/feature-plan.md](docs/feature-plan.md): what depends
 on what, what order to build it in, and which parts the game may not model at all.

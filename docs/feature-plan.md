@@ -2,6 +2,12 @@
 
 The twelve requested features, triaged against what is actually knowable before code is written.
 
+**To check these against your own install:** double-click `check-features.cmd` in the project
+folder. It writes `feature-readiness.txt`, which answers each feature with `READY`, `PARTIAL` or
+`BLOCKED` against your `Seapower-Scripts.dll` and shows the member names it matched. That file is
+worth more than this document: the triage below is reasoning from the API, the report is evidence
+from the exact build you are running. Send it back and the buildable ones get built first.
+
 **Status of this document:** a plan, not a promise. Each feature lists the one capability that
 decides whether it can exist. Those capabilities are checked mechanically by
 `tools/analysis` — see [Checking, not guessing](#checking-not-guessing) — so the verdicts in

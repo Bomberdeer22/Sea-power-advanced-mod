@@ -17,28 +17,48 @@ set "PYTHON=%HERE%.venv\Scripts\python.exe"
 set "ANALYZE=%HERE%analyze.py"
 set "RUNLOG=%HERE%run-log.txt"
 
-if not exist "%PYTHON%" (
-    echo First run: creating a private Python environment, about 10 seconds...
-    echo.
-    set "BASEPY="
-    where py >nul 2>nul && set "BASEPY=py -3"
-    if not defined BASEPY where python >nul 2>nul && set "BASEPY=python"
-    if not defined BASEPY where python3 >nul 2>nul && set "BASEPY=python3"
-    if not defined BASEPY goto :no_python
+REM Everything below is deliberately outside any ( ) block. Inside one, %BASEPY% would be
+REM expanded when the block is parsed - before "set" had run - and the venv command would be
+REM dispatched with no program name at all. That is why the first run never worked.
+if exist "%PYTHON%" goto :have_env
 
-    %BASEPY% -m venv "%HERE%.venv"
-    if not exist "%PYTHON%" (
-        echo Could not create the Python environment using "%BASEPY%".
-        goto :done
-    )
-    "%PYTHON%" -m pip install --quiet -r "%HERE%requirements.txt"
-    if errorlevel 1 (
-        echo Could not download the analysis dependencies. Check that this PC is online.
-        goto :done
-    )
-    echo Environment ready.
-    echo.
-)
+echo First run: creating a private Python environment, about 10 seconds...
+echo.
+set "BASEPY="
+where py >nul 2>nul && set "BASEPY=py -3"
+if defined BASEPY goto :make_env
+where python >nul 2>nul && set "BASEPY=python"
+if defined BASEPY goto :make_env
+where python3 >nul 2>nul && set "BASEPY=python3"
+if not defined BASEPY goto :no_python
+
+:make_env
+echo Using %BASEPY%
+%BASEPY% -m venv "%HERE%.venv"
+if not exist "%PYTHON%" goto :env_failed
+
+"%PYTHON%" -m pip install --quiet -r "%HERE%requirements.txt"
+if errorlevel 1 goto :deps_failed
+echo Environment ready.
+echo.
+goto :have_env
+
+:env_failed
+echo ------------------------------------------------------------------
+echo  Python was found (%BASEPY%) but could not build the environment.
+echo  Run this in a command prompt to see why:
+echo     %BASEPY% -m venv "%HERE%.venv"
+echo ------------------------------------------------------------------
+goto :done
+
+:deps_failed
+echo ------------------------------------------------------------------
+echo  The Python environment was created, but the dependencies could not
+echo  be downloaded. Check that this PC is online, then run this again.
+echo ------------------------------------------------------------------
+goto :done
+
+:have_env
 
 if /i "%~1"=="readiness" goto :readiness
 if /i "%~1"=="selftest"  goto :selftest
@@ -86,7 +106,9 @@ echo.
 echo  Either:
 echo    1. Install it from https://www.python.org/downloads/ and tick
 echo       "Add python.exe to PATH" during setup, then run this again, OR
-echo    2. Skip this and send the DLL over instead (see the chat).
+echo    2. Skip this entirely. Find this file and send it over instead:
+echo         ^<game^>\Sea Power_Data\Managed\Seapower-Scripts.dll
+echo       The same reports can be produced from that file alone.
 echo ------------------------------------------------------------------
 
 :done
@@ -96,8 +118,8 @@ echo   %HERE%analysis-report.txt    (full API survey)
 echo   %HERE%feature-readiness.txt  (which features are buildable)
 echo   %HERE%run-log.txt            (everything this run printed)
 
-REM Pause so a double-click window does not vanish before it can be read.
-set "INTERACTIVE="
-echo "%cmdcmdline%" | find /i "%~nx0" >nul 2>nul && set "INTERACTIVE=1"
-if defined INTERACTIVE pause
+REM Always pause. This used to pause only when double-clicked, which meant any other way of
+REM starting it could still lose the output.
+echo.
+pause
 endlocal

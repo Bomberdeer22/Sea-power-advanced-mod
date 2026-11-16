@@ -195,7 +195,21 @@ FEATURES = [
 
 
 def _compile(pattern: str):
-    return re.compile(pattern, re.IGNORECASE) if pattern else None
+    if not pattern:
+        return None
+
+    # Matching is by name, case-insensitively. Without a leading boundary a short acronym is
+    # found inside unrelated words: "CEC" inside "sour-ce-C-onstructFlags", "Solution" inside
+    # "Re-solution-Folder". On a real game assembly that manufactures evidence for features the
+    # code does not have, so a word must start where the pattern starts.
+    #
+    # Only the leading edge is guarded. A trailing guard would turn "IsReady" into a miss for
+    # "IsReadyNow", and missing real evidence is the more expensive mistake here.
+    if re.match(r"[A-Za-z]", pattern):
+        # The group is load bearing: without it the lookbehind would bind to the first
+        # alternative only, and "Datalink|Link1[16]|CEC" would leave CEC unguarded.
+        pattern = r"(?<![A-Za-z0-9])(?:" + pattern + ")"
+    return re.compile(pattern, re.IGNORECASE)
 
 
 class Probe:
@@ -286,6 +300,9 @@ def format_report(assembly: Assembly, results: list[dict]) -> str:
     add("BLOCKED  a required capability is missing")
     add("")
     add("'expectation' is my guess before the check, so a surprise is visible as a surprise.")
+    add("Evidence is matched on member NAMES, so the examples are printed: read them before")
+    add("trusting a verdict. A name that looks plausible but belongs to unrelated code is a")
+    add("property of this kind of search, not a promise about the feature.")
     add("")
 
     counts = {"READY": 0, "PARTIAL": 0, "BLOCKED": 0, "UNKNOWN": 0}
