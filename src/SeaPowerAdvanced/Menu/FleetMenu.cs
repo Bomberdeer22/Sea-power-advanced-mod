@@ -32,63 +32,31 @@ internal static class FleetMenu
     /// <summary>Entries that must reach the player in one click, so they sit at the top level.</summary>
     private const string BreakawayLabel = "Breakaway: chaff and hard rudder";
 
-    /// <summary>Labels this mod owns, used to avoid adding the same entry twice.</summary>
-    private static readonly string[] OwnMarkers =
-    {
-        BreakawayLabel, "Radars on", "Radars off", "Air search only", "Surface search only",
-        "Active sonar on", "Active sonar off", "Deploy towed array", "Retract towed array",
-        "EMCON profile", "Radar blink", "Auto-ARM", "Commercial disguise",
-        "Deconflict the salvo", "Release everyone now", "Action stations", "Stand down to cold cruise",
-        "Sprint and drift", "Turn the screen onto the threat",
-        "Fly a ladder search", "Fly an expanding square", "Fly a sector search",
-        "Local control", "Replenish alongside",
-    };
-
-    /// <summary>True when this menu already carries our entries.</summary>
-    internal static bool Present(IEnumerable<ContextMenuItem> roots)
-    {
-        foreach (ContextMenuItem root in roots)
-        {
-            if (root == null) continue;
-
-            if (Carries(root)) return true;
-
-            if (root.Items == null) continue;
-            foreach (ContextMenuItem child in root.Items)
-                if (child != null && Carries(child)) return true;
-        }
-        return false;
-    }
-
-    private static bool Carries(ContextMenuItem item)
-    {
-        string? label = item.Label as string;
-        if (label == null) return false;
-
-        foreach (string marker in OwnMarkers)
-        {
-            if (label.StartsWith(marker, StringComparison.Ordinal)) return true;
-        }
-        return false;
-    }
+    /// <summary>True when this menu has already been augmented.</summary>
+    internal static bool Present(object collection) => MenuRouting.AlreadyHandled(collection);
 
     /// <summary>
     /// Adds every feature that applies to this unit, each into its own section. Returns how many
     /// sections were written to, for the first-time log line.
     /// </summary>
-    internal static int Install(ObjectBase unit, List<ContextMenuItem> roots)
+    internal static int Install(ObjectBase unit, List<ContextMenuItem> roots, object live)
     {
         var written = new HashSet<string>(StringComparer.Ordinal);
+        MenuRouting.Placements.Clear();
 
         foreach ((ContextMenuItem item, string[][] route) in Entries(unit))
         {
             try
             {
-                written.Add(MenuRouting.Place(roots, item, route));
+                string where = MenuRouting.Place(roots, live, item, route);
+                written.Add(where);
+                MenuRouting.Placements.Add((item.Label as string ?? "<unnamed>") + "  ->  " + where);
             }
             catch (Exception error)
             {
                 ModLog.Error("Could not place menu entry " + (item.Label as string), error);
+                MenuRouting.Placements.Add((item.Label as string ?? "<unnamed>") + "  ->  FAILED: "
+                                           + error.GetType().Name);
             }
         }
 

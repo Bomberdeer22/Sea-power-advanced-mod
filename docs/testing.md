@@ -106,7 +106,9 @@ Full description of each: [features.md](features.md). Right-click one of your sh
 - [ ] The features are spread across the menu's own sections, not stacked under Orders:
       Sensors, Engage, Rules of engagement, Formation, Air operations, Damage control
 - [ ] **Breakaway** is at the top level of the right-click menu, one click away
-- [ ] `capabilities.txt` lists the section labels that were found - check them against the above
+- [ ] `menu-report.txt` (mod folder) lists the section labels found and **where each entry went** -
+      check it against the list above; it is the file to send if an entry is in the wrong place
+- [ ] `capabilities.txt` lists the gameplay levers found in this build
 - [ ] Each toggle shows its state in the label and flips when clicked
 - [ ] **Sensors and EMCON → Radars off** actually darkens the ship; `Radars on` brings them back
 - [ ] **Radar blink** cycles the surface-search radar; stopping puts it back as it was

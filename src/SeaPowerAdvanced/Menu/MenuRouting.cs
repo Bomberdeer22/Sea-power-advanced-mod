@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Runtime.CompilerServices;
 using System.Text;
 using SeaPower;
 
@@ -13,13 +14,14 @@ namespace SeaPowerAdvanced.Menu;
 /// The game's root menu labels are not in the API dump, and hard-coding "Sensors" would be the same
 /// mistake the offline scanner made with member names - a guess that silently finds nothing. So the
 /// roots are discovered at runtime and matched on keyword fragments. Whatever is found is logged
-/// once and written into capabilities.txt, so the real labels are known from the next run.
+/// once and written into capabilities.txt and menu-report.txt.
 ///
 /// Routing rules, in order:
 ///
-/// 1. the first section whose label contains one of the feature's keywords;
-/// 2. the Orders section, if the game has one;
-/// 3. the top level of the menu.
+/// 1. the first section whose label matches one of the feature's keywords;
+/// 2. the next section in the feature's fallback chain;
+/// 3. the Orders section;
+/// 4. the top level of the menu.
 ///
 /// A feature never disappears because its section is missing; it just lands one level up, and the
 /// log says so.
@@ -29,8 +31,7 @@ internal static class MenuRouting
     internal static readonly string[] Sensors =
         { "sensor", "emcon", "radar", "electronic", "esm", "ecm", "signature", "detection" };
 
-    // Deliberately narrow. An earlier version included "engage" and "fire", which made
-    // "Rules of engagement" match the weapons keywords and pull the strike entries into it.
+    // Deliberately narrow. An earlier version included "fire", which pulled unrelated entries in.
     internal static readonly string[] Weapons =
         { "weapon", "engage", "attack", "strike", "missile", "gun", "armament", "combat",
           "ordnance", "fire control" };
@@ -43,26 +44,45 @@ internal static class MenuRouting
         { "formation", "task force", "taskforce", "group", "tactic", "manoeuvre", "maneuver", "doctrine" };
 
     internal static readonly string[] Air =
-        { "air", "flight", "aircraft", "helo", "helicopter", "aviation", "deck" };
+        { "air operation", "air operations", "flight", "aircraft", "helo", "helicopter", "aviation" };
 
     internal static readonly string[] Damage =
-        { "damage", "repair", "casualty", "control", "system" };
+        { "damage", "repair", "casualty" };
 
     internal static readonly string[] Logistics =
-        { "supply", "logistic", "replenish", "fuel", "cargo", "rear" };
+        { "supply", "logistic", "replenish", "fuel", "cargo" };
 
     internal static readonly string[] Orders = { "order", "command" };
+
+    /// <summary>
+    /// Menus this mod has already added entries to.
+    ///
+    /// This is a table of collection objects, not a scan of labels. An earlier version tried to
+    /// recognise its own entries by name - and the game has its own "Local control" entry, so the
+    /// check fired on the first menu and every feature was skipped. The rule now: if this exact
+    /// collection has been handled, skip it; otherwise handle it, whatever the labels say.
+    /// </summary>
+    private static readonly ConditionalWeakTable<object, object> Handled = new();
 
     private static bool loggedRoots;
     private static List<string> rootLabels = new();
 
+    /// <summary>Where each feature was placed in the last menu, for menu-report.txt.</summary>
+    internal static readonly List<string> Placements = new();
+
     /// <summary>Every root label seen in the last menu the mod touched.</summary>
     internal static IReadOnlyList<string> RootLabels => rootLabels;
 
-    /// <summary>
-    /// Finds the roots of the menu the game just built, and logs their labels once. Cheap: it only
-    /// walks the top level, and the list is already built by the time the postfix runs.
-    /// </summary>
+    /// <summary>True when this collection has already been augmented by us.</summary>
+    internal static bool AlreadyHandled(object collection) => Handled.TryGetValue(collection, out _);
+
+    internal static void MarkHandled(object collection)
+    {
+        try { Handled.Add(collection, collection); }
+        catch (Exception) { }
+    }
+
+    /// <summary>Walks the top level of the menu the game just built, and logs the labels once.</summary>
     internal static List<ContextMenuItem> Roots(IEnumerable<ContextMenuItem> items)
     {
         var roots = new List<ContextMenuItem>();
@@ -89,19 +109,17 @@ internal static class MenuRouting
     }
 
     /// <summary>
-    /// Inserts an entry into the best section for it. Returns where it went, for the log.
+    /// Inserts an entry into the best section for it.
     ///
-    /// Several sections may be tried in order, which matters for entries with two sensible homes:
-    /// replenishment belongs under logistics, and failing that under damage control - not all the
-    /// way down in Orders.
+    /// <paramref name="live"/> is the game's own collection: anything that has to go at the top
+    /// level must be added to that, not to the list snapshot taken by <see cref="Roots"/>.
     /// </summary>
-    internal static string Place(List<ContextMenuItem> roots, ContextMenuItem item, params string[][] routes)
+    internal static string Place(List<ContextMenuItem> roots, object live, ContextMenuItem item,
+                                 params string[][] routes)
     {
-        // No keywords means "this one belongs at the top", which is how the emergency action gets
-        // to stay one click away instead of being routed into Orders by the fallback below.
         if (routes.Length == 0 || routes.All(route => route.Length == 0))
         {
-            roots.Add(item);
+            AddTopLevel(live, item);
             return "top level";
         }
 
@@ -123,8 +141,21 @@ internal static class MenuRouting
             return orders.Label as string ?? "Orders";
         }
 
-        roots.Add(item);
+        AddTopLevel(live, item);
         return "top level";
+    }
+
+    private static void AddTopLevel(object live, ContextMenuItem item)
+    {
+        switch (live)
+        {
+            case TrulyObservableCollection<ContextMenuItem> collection:
+                collection.Add(item);
+                return;
+            case List<ContextMenuItem> list:
+                list.Add(item);
+                return;
+        }
     }
 
     /// <summary>
@@ -132,7 +163,7 @@ internal static class MenuRouting
     ///
     /// Roots are checked before their children, and exact label matches before substrings. One level
     /// of nesting is also searched, because this game puts things like "Engage" inside "Orders" -
-    /// which is the *right* home for a strike order even though it is not a root.
+    /// which is the right home for a strike order even though it is not a root.
     /// </summary>
     private static ContextMenuItem? FindSection(List<ContextMenuItem> roots, string[] keywords)
     {
@@ -140,8 +171,7 @@ internal static class MenuRouting
 
         // Order matters and it is not arbitrary: an exact label match anywhere beats a loose
         // substring match anywhere. Without that, "Engage" nested inside Orders lost to
-        // "Rules of engagement", because "engagement" happens to contain "engage" - and the strike
-        // order landed under rules of engagement instead of under the weapons orders.
+        // "Rules of engagement", because "engagement" happens to contain "engage".
         return Match(roots, keywords, exactOnly: true)
                ?? Match(children, keywords, exactOnly: true)
                ?? Match(roots, keywords, exactOnly: false)
@@ -171,14 +201,13 @@ internal static class MenuRouting
             string lower = label.ToLowerInvariant();
             foreach (string keyword in keywords)
             {
-                // Exact first, so "Air" in a label beats "air" hidden inside another word.
                 if (exactOnly ? lower == keyword : lower.Contains(keyword)) return candidate;
             }
         }
         return null;
     }
 
-    /// <summary>Section labels for capabilities.txt, so the real names are known next time.</summary>
+    /// <summary>Section labels for capabilities.txt and menu-report.txt.</summary>
     internal static string Describe()
     {
         if (rootLabels.Count == 0) return "(no menu has been built yet this session)";

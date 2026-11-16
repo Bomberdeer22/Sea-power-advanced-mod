@@ -103,9 +103,6 @@ internal static class HatchMenu
 
     private static readonly HashSet<string> SourcesSeen = new(StringComparer.Ordinal);
 
-    /// <summary>Logged once, so the first menu built shows where everything landed.</summary>
-    private static bool FleetPlacementLogged;
-
     private static void TryAdd(ObjectBase? unit, TrulyObservableCollection<ContextMenuItem>? result, string source)
     {
         if (result == null) return;
@@ -142,8 +139,6 @@ internal static class HatchMenu
             if (string.Equals(existing?.Label as string, MenuLabel, StringComparison.Ordinal)) return;
         }
 
-        AddFleetMenus(unit, result);
-
         List<HatchGroup> groups = HatchBay.Read(unit);
         MenuLog.Once(unit, groups, HatchBay.Summary(unit, groups));
 
@@ -162,37 +157,6 @@ internal static class HatchMenu
         ModLog.Warn($"No Orders submenu in the {source} for {HatchControl.UnitName(unit)}; "
                     + "adding the hatch menu at the top level instead.");
         result.Insert(0, menu);
-    }
-
-    /// <summary>
-    /// Adds the twelve advanced features as game-style submenus, once per menu.
-    ///
-    /// Kept here rather than in its own Harmony patch so both features share one injection point:
-    /// two patches on the same method would each need their own de-duplication, and one of them
-    /// would eventually add its entries twice.
-    /// </summary>
-    private static void AddFleetMenus(ObjectBase unit, TrulyObservableCollection<ContextMenuItem> result)
-    {
-        try
-        {
-            if (!ModSettings.FeaturesEnabled) return;
-
-            List<ContextMenuItem> roots = MenuRouting.Roots(result);
-            if (FleetMenu.Present(roots)) return;
-
-            int sections = FleetMenu.Install(unit, roots);
-
-            if (sections > 0 && !FleetPlacementLogged)
-            {
-                FleetPlacementLogged = true;
-                ModLog.Info("Advanced features placed in " + sections
-                            + " menu section(s): " + MenuRouting.Describe());
-            }
-        }
-        catch (Exception error)
-        {
-            ModLog.Error("Could not add the advanced feature entries", error);
-        }
     }
 
     /// <summary>

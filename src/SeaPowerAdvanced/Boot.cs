@@ -76,6 +76,9 @@ internal static class Boot
 
             harmony = new Harmony(ModInfo.Id);
             HatchMenu.Install(harmony);
+
+            // Its own patch, so a hatch-menu skip cannot take the twelve features with it.
+            FleetMenuPatch.Install(harmony);
             TrafficPanel.Install();
 
             // Timers only: blink, auto-ARM, salvo release, readiness clocks. No interface of its own;
@@ -85,8 +88,9 @@ internal static class Boot
             ModLog.Info("Ready. Right-click a ship > Orders > Weapon hatches.");
             ModLog.Info("Mission editor: press " + ModSettings.TrafficToggleKey
                         + " for the Civilian traffic panel.");
-            ModLog.Info("Advanced features are in the right-click menu: Sensors and EMCON, "
-                        + "Countermeasures, Readiness, Manoeuvres, Air operations, Strike, Deception, Logistics.");
+            ModLog.Info("Advanced features: " + (ModSettings.FeaturesEnabled ? "on" : "OFF")
+                        + " (Features/Enabled). They are added to the right-click menu the first time "
+                        + "a menu is opened; menu-report.txt records where each one went.");
         }
         catch (Exception error)
         {

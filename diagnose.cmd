@@ -27,6 +27,7 @@ call :game_checks
 call :mod_files
 call :game_logs
 call :build_logs
+call :mod_reports
 call :analysis
 call :footer
 
@@ -242,6 +243,29 @@ echo  - build logs
 exit /b
 
 
+REM ===========================================================================
+:mod_reports
+>> "%LOG%" echo.
+>> "%LOG%" echo [ MOD REPORTS ]
+set "MODDIR=%HERE%"
+if defined GAME if exist "!GAME!\BepInEx\plugins\SeaPowerAdvanced" set "MODDIR=!GAME!\BepInEx\plugins\SeaPowerAdvanced"
+>> "%LOG%" echo folder: !MODDIR!
+for %%F in (capabilities.txt menu-report.txt seapoweradvanced.log hatch-report.txt) do call :show_report "%%F"
+echo  - mod reports
+exit /b
+
+:show_report
+if not exist "!MODDIR!\%~1" (
+    >> "%LOG%" echo %~1 : not found
+    exit /b 0
+)
+>> "%LOG%" echo --- %~1 ---
+type "!MODDIR!\%~1" >> "%LOG%" 2>nul
+>> "%LOG%" echo.
+exit /b 0
+
+
+REM ===========================================================================
 :analysis
 >> "%LOG%" echo.
 >> "%LOG%" echo [ ANALYSIS TOOLS ]

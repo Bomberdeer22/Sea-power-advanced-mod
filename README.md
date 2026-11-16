@@ -46,7 +46,9 @@ Damage control              local control, replenish alongside
 ```
 
 Sections are matched by name at runtime; if your build has no such section the entry moves up to
-Orders instead of vanishing, and `capabilities.txt` lists the section labels that were found.
+Orders instead of vanishing. **`menu-report.txt`** in the mod folder lists the section labels that
+were actually found and where every entry landed - it is the first file to read if something appears
+in an unexpected place.
 
 Every entry that is a toggle shows its current state in the label, and every one reports what
 happened through the game's own order-feedback text as well as the log.
