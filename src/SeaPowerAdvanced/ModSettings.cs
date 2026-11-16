@@ -27,12 +27,22 @@ internal static class ModSettings
     private static ConfigEntry<int>? trafficMaxLanes;
     private static ConfigEntry<int>? trafficClassesPerRoute;
 
+    private static ConfigEntry<bool>? fleetShowPanel;
+    private static ConfigEntry<string>? fleetToggleKey;
+    private static ConfigEntry<float>? fleetBlinkSeconds;
+
     internal static bool Enabled => enabled?.Value ?? true;
     internal static bool IncludeGuns => includeGuns?.Value ?? false;
     internal static bool AllowEnemyUnits => allowEnemyUnits?.Value ?? false;
     internal static bool ShowDiagnostics => showDiagnostics?.Value ?? true;
     internal static bool ShowWhenNoMounts => showWhenNoMounts?.Value ?? true;
     internal static bool VerboseLog => verboseLog?.Value ?? true;
+
+    internal static bool FleetShowPanel => fleetShowPanel?.Value ?? true;
+    internal static string FleetToggleKey => fleetToggleKey?.Value ?? "F7";
+
+    /// <summary>Seconds between radar blink flips. Short enough to see in a test mission.</summary>
+    internal static float FleetBlinkSeconds => fleetBlinkSeconds?.Value ?? 6f;
 
     internal static bool TrafficShowPanel => trafficShowPanel?.Value ?? true;
     internal static string TrafficToggleKey => trafficToggleKey?.Value ?? "F8";
@@ -112,6 +122,16 @@ internal static class ModSettings
             trafficMaxLanes = file.Bind("CivilianTraffic", "MaxLanes", 4,
                 "How many separate traffic lanes one generate can create per type (1-6). Lanes are what "
                 + "make traffic come from more than one place.");
+
+            fleetShowPanel = file.Bind("Fleet", "ShowPanel", true,
+                "Show the fleet sensor panel. The hotkey below only works while this is on.");
+
+            fleetToggleKey = file.Bind("Fleet", "ToggleKey", "F7",
+                "Keyboard key that shows and hides the fleet sensor panel (a UnityEngine.KeyCode name).");
+
+            fleetBlinkSeconds = file.Bind("Fleet", "BlinkSeconds", 6f,
+                "Seconds between radar blink flips (2-120). Blink cycles the surface-search radar so "
+                + "an anti-radiation seeker has less to home on.");
 
             trafficClassesPerRoute = file.Bind("CivilianTraffic", "ClassesPerRoute", 6,
                 "How many different civilian unit classes one lane may pick from (1-40). Higher means "

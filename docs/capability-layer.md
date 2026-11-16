@@ -80,6 +80,24 @@ That distinction is the whole reason the two files (`capabilities.txt` from the 
 | Battle stations fatigue | PARTIAL | Unblocked as state; effect likewise. |
 | UNREP, signature spoofing | READY (UNREP on junk) | Still the hardest: both need the game's own maths to consult our values. |
 
+## What the real dump changed
+
+The member dump answered the two open questions and overturned one plan:
+
+| Question | Answer from the dump |
+|---|---|
+| Is there a radar switch? | **Yes, a whole family.** `EnableAllRadars(bool)`, `DisableAllRadars()`, `EnableAirSearchRadars(bool,bool)`, `DisableSurfaceSearchRadars(bool)`, `EnableActiveSonars(bool,bool,bool)`, `TowedSonarsSetActive(bool)`, `setEMCON(bool,bool)`, plus live state in `IsAirSearchRadarsOn` / `IsSurfaceSearchRadarsOn` and `HasRadar` / `HasTowedSonar`. |
+| Does sprint-and-drift need inventing? | **No.** `SprintAndDriftDoctrine` is already a per-unit flag, and `CavitationOnsetKts()` is the game's own quiet-speed threshold. |
+| Is anti-radiation defence possible? | **Yes.** `_incomingWeapons`, `_dangerousMissiles`, `TracksIncomingWeapons()`, `get_ThreateningMissile()`. |
+| Chaff from code? | **Yes.** `LaunchChaff(bool)`, `LaunchNoisemaker(string)`. |
+| Reload timer writable? | **Yes.** `WeaponSystem._remainingReloadTime` is a public field, with `StartReload` / `ForceReload`. |
+| General quarters? | **Still absent** as a concept — but `SetWeaponStatus(WeaponStatus, bool)` is the nearest real thing, and `UnitState.GeneralQuarters` covers the rest. |
+
+The one thing this changes is scope, and it is worth being blunt about: **implementing sprint-and-drift
+from scratch would duplicate behaviour the developers already wrote.** The mod's job is the part the
+game does not do - setting the doctrine, the EMCON state and the radar sets for a whole task force at
+once, from one panel, mid-mission.
+
 ## Verifying it
 
 `capabilities.txt` is written next to the DLL on every start. Open it after the next launch and it

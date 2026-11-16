@@ -67,7 +67,7 @@ echo Collecting the exact member signatures behind the verdicts...
 >> "%LOG%" echo [member dump]
 set "DUMP=%HERE%member-dump.txt"
 > "%DUMP%" echo Sea Power Advanced - member dump
-set "TYPES=SeaPower.ObjectBase SeaPower.Ship SeaPower.WeaponSystem SeapowerUI.ViewModels.ObjectBaseViewModel SensorData AircraftStates.MissileEvasion SeaPower.GameMain"
+set "TYPES=SeaPower.ObjectBase SeaPower.WeaponSystem SeaPower.WeaponContainer SeaPower.ObjectBaseParameters SeaPower.SensorSystem SeaPower.Crew SensorData AircraftStates.MissileEvasion SeaPower.GameMain"
 for %%T in (%TYPES%) do call :dump_type "%%T"
 echo       wrote %DUMP%
 

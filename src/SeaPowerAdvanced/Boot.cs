@@ -76,10 +76,13 @@ internal static class Boot
             harmony = new Harmony(ModInfo.Id);
             HatchMenu.Install(harmony);
             TrafficPanel.Install();
+            FleetPanel.Install();
 
             ModLog.Info("Ready. Right-click a ship > Orders > Weapon hatches.");
             ModLog.Info("Mission editor: press " + ModSettings.TrafficToggleKey
                         + " for the Civilian traffic panel.");
+            ModLog.Info("In game: press " + ModSettings.FleetToggleKey
+                        + " for the fleet sensor panel (EMCON, sprint-and-drift, radar blink).");
         }
         catch (Exception error)
         {

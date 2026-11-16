@@ -27,6 +27,26 @@ Orders
       Log hatch report
 ```
 
+### 3. Fleet sensor panel (in game)
+
+Press **F7** in a running mission for one panel that reaches every ship you own:
+
+```
+Fleet sensors  (F7)
+  Your ships: 6
+  EMCON profile   [Silent] [Passive] [Battle stations]
+  Sensors         [Radars on] [Radars off]
+                  [Active sonar on] [Active sonar off]
+                  [Deploy towed array] [Retract array]
+  ASW doctrine    [Sprint and drift on] [Off]
+  Radar blink     [Start] [Stop]
+```
+
+Every button acts on levers the game already has (`EnableAllRadars`, `setEMCON`,
+`SprintAndDriftDoctrine`, `TowedSonarsSetActive`), so nothing is faked; what the mod adds is doing it
+for the whole task force at once, mid-mission. Each press reports how many ships responded. Radar
+blink cycles the surface-search radar and **puts it back as it found it** when you stop.
+
 ### 2. Civilian traffic zones (mission editor)
 
 Press **F8** in the mission editor for a small panel: draw a polygon on the map, type **min/max
@@ -295,7 +315,10 @@ src/SeaPowerAdvanced/
   Interop/Capabilities.cs        finds the game's emitter/throttle/decoy levers by reflection
   Interop/MemberProbe.cs         name + signature lookup, so a rename degrades instead of breaking
   Interop/UnitState.cs           per-unit state for what the game never modelled (fatigue, GQ)
+  Interop/SensorControl.cs       radar/sonar/EMCON/doctrine levers, named from the real assembly
+  Interop/GameWorld.cs           the game's own list of live units (private, so read by reflection)
   Interop/CapabilityReport.cs    writes capabilities.txt: what this game build exposes
+  UI/FleetPanel.cs               the F7 panel: EMCON profiles, sprint-and-drift, radar blink
   ModInfo.cs, ModLog.cs     identity and logging
 ```
 

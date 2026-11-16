@@ -32,6 +32,11 @@ internal static class CapabilityReport
             foreach (string line in Capabilities.Describe()) text.AppendLine(line);
 
             text.AppendLine();
+            text.AppendLine("Sensor, doctrine and countermeasure levers");
+            text.AppendLine("----------------------------------------");
+            foreach (string line in SensorControl.Describe()) text.AppendLine(line);
+
+            text.AppendLine();
             text.AppendLine("What this means");
             text.AppendLine("---------------");
             text.AppendLine("A missing radar switch does not make radar-related features impossible:");

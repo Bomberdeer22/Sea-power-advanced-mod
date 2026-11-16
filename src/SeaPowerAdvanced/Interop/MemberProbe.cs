@@ -52,6 +52,78 @@ internal static class MemberProbe
         return null;
     }
 
+    /// <summary>
+    /// A method with exactly this many parameters, whatever their types. The game's sensor methods
+    /// are families of overloads - EnableAirSearchRadars(bool, bool), DisableAirSearchRadars(bool) -
+    /// and matching on arity alone is what lets one name cover both.
+    /// </summary>
+    internal static MethodInfo? Method(Type type, int arity, params string[] candidates)
+    {
+        foreach (MemberInfo member in All(type))
+        {
+            if (member is not MethodInfo method) continue;
+            if (!Matches(method.Name, candidates)) continue;
+            if (method.GetParameters().Length == arity) return method;
+        }
+        return null;
+    }
+
+    /// <summary>
+    /// Calls a method whose remaining parameters are optional or boolean flags. Anything not
+    /// supplied is filled with the same boolean, because every such family in this game means
+    /// "enable/disable, and also do X".
+    /// </summary>
+    internal static bool InvokeFilled(MemberInfo? member, object target, bool fill)
+    {
+        if (member is not MethodInfo method) return false;
+        try
+        {
+            ParameterInfo[] parameters = method.GetParameters();
+            var arguments = new object?[parameters.Length];
+            for (int i = 0; i < parameters.Length; i++)
+            {
+                if (parameters[i].ParameterType == typeof(bool)) arguments[i] = fill;
+                else if (parameters[i].HasDefaultValue) arguments[i] = parameters[i].DefaultValue;
+                else arguments[i] = null;
+            }
+            method.Invoke(target, arguments);
+            return true;
+        }
+        catch (Exception) { return false; }
+    }
+
+    /// <summary>
+    /// Reads the boolean inside a UniRx <c>ReactiveProperty&lt;bool&gt;</c>. The game keeps its
+    /// live sensor and doctrine state there, so this is how "are the radars on?" is answered.
+    /// </summary>
+    internal static bool? ReadReactiveBool(MemberInfo? member, object target)
+    {
+        object? property = member switch
+        {
+            PropertyInfo p => Read(p, target),
+            FieldInfo f => Read(f, target),
+            _ => null,
+        };
+        if (property == null) return null;
+
+        object? value = Read(Value(property.GetType(), "Value"), property);
+        return value is bool flag ? flag : null;
+    }
+
+    /// <summary>Sets the boolean inside a UniRx <c>ReactiveProperty&lt;bool&gt;</c>.</summary>
+    internal static bool WriteReactiveBool(MemberInfo? member, object target, bool value)
+    {
+        object? property = member switch
+        {
+            PropertyInfo p => Read(p, target),
+            FieldInfo f => Read(f, target),
+            _ => null,
+        };
+        if (property == null) return false;
+
+        return Write(Value(property.GetType(), "Value"), property, value);
+    }
+
     /// <summary>A field or property whose name matches one of the candidates.</summary>
     internal static MemberInfo? Value(Type type, params string[] candidates)
     {
