@@ -15,11 +15,20 @@ namespace SeaPowerAdvanced.Features;
 ///
 /// Scope is one ship at a time, chosen from that ship's own menu - not a hidden global mode.
 /// </summary>
+/// <summary>Which radar set to cycle. The player picks it when starting a blink.</summary>
+internal enum BlinkRadar
+{
+    AirSearch,
+    SurfaceSearch,
+    Both,
+}
+
 internal static class Blink
 {
     private static readonly HashSet<ObjectBase> Cycling = new();
 
-    private static readonly Dictionary<ObjectBase, bool> WasOn = new();
+    /// <summary>How each set was found when the blink started, so stopping puts it back.</summary>
+    private static readonly Dictionary<ObjectBase, (bool Air, bool Surface)> WasOn = new();
 
     /// <summary>
     /// True while this unit's radar is cycling. The record is consulted as well as the set, so a
@@ -32,8 +41,15 @@ internal static class Blink
         return UnitState.TryGet(unit, out UnitRecord record) && record.Blink;
     }
 
-    /// <summary>Starts cycling. Returns how many ships were added (0 or 1).</summary>
-    internal static bool Start(ObjectBase unit, out string report)
+    /// <summary>
+    /// Starts cycling the set the player chose.
+    ///
+    /// Radar blink means switching a radar on for a few seconds to sweep, then off again, so a
+    /// passive seeker gets an intermittent target instead of a steady beacon. Which radar to do it
+    /// with is the player's decision, and it matters: air search is the set an anti-radiation shot
+    /// homes on, surface search is the one that finds ships. Hence the choice rather than a guess.
+    /// </summary>
+    internal static bool Start(ObjectBase unit, BlinkRadar radar, out string report)
     {
         if (unit == null)
         {
@@ -43,22 +59,26 @@ internal static class Blink
 
         if (Cycling.Contains(unit))
         {
-            report = "already blinking";
+            report = "already blinking - stop it first";
             return false;
         }
 
-        bool? current = null;
-        try { current = SensorControl.GetSurfaceSearchOn(unit); }
-        catch (Exception) { }
+        bool air = radar is BlinkRadar.AirSearch or BlinkRadar.Both;
+        bool surface = radar is BlinkRadar.SurfaceSearch or BlinkRadar.Both;
 
-        WasOn[unit] = current ?? true;
+        bool airWasOn = Read(() => SensorControl.GetAirSearchOn(unit));
+        bool surfaceWasOn = Read(() => SensorControl.GetSurfaceSearchOn(unit));
+
+        WasOn[unit] = (airWasOn, surfaceWasOn);
         Cycling.Add(unit);
 
         UnitRecord record = UnitState.Of(unit);
         record.Blink = true;
         record.NextBlinkAt = 0f;
+        record.BlinkAir = air;
+        record.BlinkSurface = surface;
 
-        report = "surface search radar now cycling every " + Interval() + "s";
+        report = Describe(radar) + " now cycling every " + Interval() + "s";
         return true;
     }
 
@@ -72,15 +92,22 @@ internal static class Blink
         }
 
         Cycling.Remove(unit);
-        UnitState.Of(unit).Blink = false;
 
-        bool restore = WasOn.TryGetValue(unit, out bool remembered) && remembered;
+        UnitRecord record = UnitState.Of(unit);
+        record.Blink = false;
+
+        WasOn.TryGetValue(unit, out (bool Air, bool Surface) remembered);
+        bool airWasOn = remembered.Air;
+        bool surfaceWasOn = remembered.Surface;
         WasOn.Remove(unit);
 
-        bool ok = SensorControl.SetSurfaceSearch(unit, restore);
+        bool airOk = !record.BlinkAir || SensorControl.SetAirSearch(unit, airWasOn);
+        bool surfaceOk = !record.BlinkSurface || SensorControl.SetSurfaceSearch(unit, surfaceWasOn);
+
+        bool ok = airOk && surfaceOk;
         report = ok
-            ? "stopped; radar " + (restore ? "switched back on" : "left off")
-            : "stopped; the radar did not respond";
+            ? "stopped; the radar(s) put back exactly as they were found"
+            : "stopped, but a radar did not respond - check it in the Sensors menu";
         return ok;
     }
 
@@ -110,10 +137,16 @@ internal static class Blink
                 record.NextBlinkAt = now + interval;
                 record.BlinkPhase = !record.BlinkPhase;
 
-                SensorControl.SetSurfaceSearch(unit, record.BlinkPhase);
+                if (record.BlinkAir) SensorControl.SetAirSearch(unit, record.BlinkPhase);
+                if (record.BlinkSurface) SensorControl.SetSurfaceSearch(unit, record.BlinkPhase);
 
                 if (ModSettings.VerboseLog && record.BlinkPhase)
-                    ModLog.Info("Blink: " + HatchName(unit) + " surface search on");
+                {
+                    ModLog.Info("Blink: " + HatchName(unit) + " "
+                                + (record.BlinkAir && record.BlinkSurface ? "both radars on"
+                                   : record.BlinkAir ? "air search on"
+                                   : "surface search on"));
+                }
             }
             catch (Exception error)
             {
@@ -124,6 +157,32 @@ internal static class Blink
     }
 
     private static float Interval() => Mathf.Clamp(ModSettings.BlinkSeconds, 2f, 120f);
+
+    private static bool Read(Func<bool?> getter)
+    {
+        try { return getter() ?? true; }
+        catch (Exception) { return true; }
+    }
+
+    /// <summary>What the player will see in the label: which set is cycling.</summary>
+    internal static string Describe(BlinkRadar radar) => radar switch
+    {
+        BlinkRadar.AirSearch => "air search radar",
+        BlinkRadar.SurfaceSearch => "surface search radar",
+        _ => "both radars",
+    };
+
+    /// <summary>What this unit is cycling right now, for the menu label.</summary>
+    internal static string State(ObjectBase unit)
+    {
+        if (!IsOn(unit)) return "off";
+
+        if (!UnitState.TryGet(unit, out UnitRecord record)) return "on";
+
+        if (record.BlinkAir && record.BlinkSurface) return "both radars";
+        if (record.BlinkAir) return "air search";
+        return "surface search";
+    }
 
     private static string HatchName(ObjectBase unit)
     {

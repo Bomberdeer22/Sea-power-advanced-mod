@@ -33,6 +33,12 @@ internal sealed class UnitRecord
     /// <summary>Which half of the blink cycle the ship is in right now.</summary>
     internal bool BlinkPhase;
 
+    /// <summary>Blink is cycling the air-search radar (the player chose which set to snapshot).</summary>
+    internal bool BlinkAir;
+
+    /// <summary>Blink is cycling the surface-search radar.</summary>
+    internal bool BlinkSurface;
+
     /// <summary>Game-clock time at which the next blink flip is due.</summary>
     internal float NextBlinkAt;
 

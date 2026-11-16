@@ -243,6 +243,36 @@ internal static class SensorControl
         return Query(HasTowed, unit);
     }
 
+    /// <summary>Whether this hull has an air-search radar, or null when the game does not say.</summary>
+    internal static bool? AirSearchFit(ObjectBase? unit)
+    {
+        if (unit == null) return null;
+
+        try
+        {
+            MemberInfo? probe = Find("hasAirSearch",
+                () => MemberProbe.Method(Unit, 0, "HasAirSearchRadar", "HasAirSearchRadars"));
+
+            return probe == null ? null : Query(probe, unit);
+        }
+        catch (Exception) { return null; }
+    }
+
+    /// <summary>Whether this hull has a surface-search radar, or null when the game does not say.</summary>
+    internal static bool? SurfaceSearchFit(ObjectBase? unit)
+    {
+        if (unit == null) return null;
+
+        try
+        {
+            MemberInfo? probe = Find("hasSurfaceSearch",
+                () => MemberProbe.Method(Unit, 0, "HasSurfaceSearchRadar", "HasSurfaceSearchRadars"));
+
+            return probe == null ? null : Query(probe, unit);
+        }
+        catch (Exception) { return null; }
+    }
+
     /// <summary>Whether this hull has an active sonar fit, or null when the game does not say.</summary>
     internal static bool? ActiveSonarFit(ObjectBase? unit)
     {

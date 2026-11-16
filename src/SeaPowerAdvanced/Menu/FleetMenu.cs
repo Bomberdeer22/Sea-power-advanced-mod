@@ -222,13 +222,18 @@ internal static class FleetMenu
             }),
             tooltip: "What this ship gives away."), MenuRouting.Sensors);
 
-        Add(Blink.IsOn(unit)
-            ? Action("Radar blink: on - click to stop",
-                "Stops cycling and puts the radar back as it was found.",
-                () => Report(unit, "blink", Blink.Stop(unit, out string r), r))
-            : Action("Radar blink: off - click to start",
-                "Cycles the surface-search radar so a passive seeker has a harder target.",
-                () => Report(unit, "blink", Blink.Start(unit, out string r), r)), MenuRouting.Sensors);
+        // Radar blink: the player chooses which set to cycle, because the two do different jobs and
+        // only one of them is what an anti-radiation shot homes on.
+        if (Blink.IsOn(unit))
+        {
+            Add(Action("Radar blink: " + Blink.State(unit) + " - click to stop",
+                "Stops cycling and puts the radar(s) back exactly as they were found.",
+                () => Report(unit, "blink", Blink.Stop(unit, out string r), r)), MenuRouting.Sensors);
+        }
+        else
+        {
+            Add(BlinkRadarItem(unit), MenuRouting.Sensors);
+        }
 
         Add(AutoArm.IsOn(unit)
             ? Action("Auto-ARM shutoff: on - click to turn off",
@@ -385,6 +390,53 @@ internal static class FleetMenu
             Array.Empty<string>());
 
         return entries;
+    }
+
+    /// <summary>
+    /// The radar-blink submenu: which set to switch on for a few seconds and off again. Air search
+    /// only appears if the hull has it, and likewise surface search - the same rule as everywhere
+    /// else, so a submarine is not offered a radar it does not carry.
+    /// </summary>
+    private static ContextMenuItem BlinkRadarItem(ObjectBase unit)
+    {
+        var items = new List<ContextMenuItem>();
+
+        bool? airFit = SensorControl.AirSearchFit(unit);
+        bool? surfaceFit = SensorControl.SurfaceSearchFit(unit);
+
+        if (airFit != false)
+        {
+            items.Add(Action("Air search radar",
+                "Sweep the air-search radar on and off. This is the set an anti-radiation missile "
+                + "homes on.",
+                () => Report(unit, "blink (air)", Blink.Start(unit, BlinkRadar.AirSearch, out string r), r)));
+        }
+
+        if (surfaceFit != false)
+        {
+            items.Add(Action("Surface search radar",
+                "Sweep the surface-search radar on and off: still sees ships, much harder to home on.",
+                () => Report(unit, "blink (surface)",
+                    Blink.Start(unit, BlinkRadar.SurfaceSearch, out string r), r)));
+        }
+
+        if (airFit != false && surfaceFit != false)
+        {
+            items.Add(Action("Both radars",
+                "Cycle both sets together. Two intermittent emissions, one timer.",
+                () => Report(unit, "blink (both)", Blink.Start(unit, BlinkRadar.Both, out string r), r)));
+        }
+
+        if (items.Count == 0)
+        {
+            items.Add(Disabled("This hull has no radar to cycle",
+                "Blink needs an air-search or surface-search radar."));
+        }
+
+        return new ContextMenuItem(
+            label: "Radar blink: off",
+            items: new TrulyObservableCollection<ContextMenuItem>(items),
+            tooltip: "Switch a radar on for a few seconds, then off again.");
     }
 
     /// <summary>

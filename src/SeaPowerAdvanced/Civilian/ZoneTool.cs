@@ -88,10 +88,7 @@ internal static class ZoneTool
             if (locations == null || locations.Count == 0) return;
 
             Polygon.Clear();
-            foreach (GeoPosition position in locations)
-            {
-                if (position != null) Polygon.Add(position);
-            }
+            foreach (GeoPosition position in locations) Polygon.Add(position);
         }
         catch (Exception error)
         {

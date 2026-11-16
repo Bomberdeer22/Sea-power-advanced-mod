@@ -9,7 +9,7 @@ An advanced mod for Sea Power: Naval Combat in the Missile Age, built as an
 Anchor Chain (https://github.com/SeaPower-Modders/AnchorChain) code mod and
 loadable as a plain BepInEx plugin.
 
-Version 0.11.0  -  fourteen advanced features, plus hatch control and civilian
+Version 0.12.0  -  fourteen advanced features, plus hatch control and civilian
 traffic.
 
 1. Manual hatch control
@@ -70,6 +70,10 @@ report.txt says exactly which ECM members your install exposes and what the
 mod does with them.
 
 2. Civilian traffic zones (mission editor)
+
+If Spawn traffic does nothing, press Check setup in the panel: it writes
+traffic-report.txt, which marks every prerequisite the feature needs as ok or
+-- and names the one that is missing.
 
 Press F8 in the mission editor for a small panel: draw a polygon on the map,
 type min/max ships and min/max planes, press Spawn traffic. The mod creates
@@ -137,7 +141,7 @@ is permitted.
 
 The DLL goes into BepInEx\plugins\SeaPowerAdvanced\, so BepInEx loads it
 directly  -  there is no mod-manager checkbox on this route. BepInEx's log
-then shows Loading [Sea Power Advanced 0.11.0], and the mod writes its own
+then shows Loading [Sea Power Advanced 0.12.0], and the mod writes its own
 seapoweradvanced.log next to the DLL.
 
 USE IT

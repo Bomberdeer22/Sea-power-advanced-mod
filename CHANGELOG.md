@@ -1,5 +1,32 @@
 # Changelog
 
+## 0.12.0 — blink asks which radar, and the traffic panel explains itself
+
+### Radar blink: you choose the set
+
+The entry is now a submenu - **air search radar**, **surface search radar** or **both** - because the
+two do different jobs and only the air-search set is what an anti-radiation shot homes on. A hull
+with no radar is not offered the entry at all, and stopping restores each set to the state it was
+found in rather than assuming it was on.
+
+### Civilian traffic: the actual fault, and a report that names it
+
+- **The route list was assumed, not found.** The generator required
+  `MissionManager._civilianRoutes`, which is very likely null in the mission editor - the manager is
+  what *runs* a mission, and the editor is holding the one being *edited*. `Civilian/RouteContainers`
+  now searches the mission manager, then the editor's view model, then the mission it is editing, and
+  adds to whichever list it finds. The panel's message now says which container it used.
+- **The panel no longer fails in silence.** It used to `return` with an empty catch when the editor
+  view model was null or threw, so the feature could be broken with nothing in the log at all. Every
+  hidden reason is now logged once, and written to the report.
+- **`traffic-report.txt`** lists all seven prerequisites with an ok/-- mark - editor open, state
+  manager, drawing layer, unit database, civilian classes, neutral taskforce, route list - plus the
+  zone's point count and the outcome of the last attempt. Written on every spawn and by the panel's
+  new **Check setup** button.
+- **F8 is read from the GUI event as well as from `Input`**, so the panel is reachable on builds that
+  run the new Input System only, where `Input.GetKeyDown` throws.
+- A redundant null test on a value-type polygon point is gone (CS0472).
+
 ## 0.11.0 — the ECM cones, and a manual transmit order
 
 - **The beams are on the map.** Every set that is aimed at something draws a long, narrow cone:

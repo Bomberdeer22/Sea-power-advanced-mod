@@ -75,24 +75,57 @@ public sealed class TrafficPanel : MonoBehaviour
         try
         {
             // The game may be configured for the new Input System only, where the legacy Input
-            // class throws. One failure is enough to stop asking.
+            // class throws. One failure is enough to stop asking - the GUI event route below still
+            // works, so the key is not lost.
             if (Input.GetKeyDown(toggleKey)) visible = !visible;
         }
         catch (Exception error)
         {
             hotkeyBroken = true;
-            ModLog.Warn("Hotkey unavailable (" + error.GetType().Name + "); use the config file to set "
-                        + "Traffic/ShowPanel. The panel itself still works.");
+            ModLog.Warn("Legacy Input unavailable (" + error.GetType().Name
+                        + "); the panel key is read from the GUI event instead.");
         }
+    }
+
+    /// <summary>
+    /// The key, read from the interface event rather than from <see cref="Input"/>.
+    ///
+    /// This is the route that works when the game runs the new Input System only, where the legacy
+    /// Input class throws. It is also why the panel can be opened at all on such a build: without it
+    /// the only way in would be the config file.
+    /// </summary>
+    private void PollHotkeyFromEvent()
+    {
+        try
+        {
+            Event? current = Event.current;
+            if (current == null) return;
+            if (current.type != EventType.KeyDown) return;
+            if (current.keyCode != toggleKey) return;
+
+            visible = !visible;
+            current.Use();
+        }
+        catch (Exception) { }
     }
 
     private void OnGUI()
     {
+        // The key is read here as well as in Update: this is the route that survives a build with
+        // the new Input System only, where Input.GetKeyDown throws.
+        PollHotkeyFromEvent();
+
         if (!visible) return;
 
+        // Why the panel is not on screen is the single most useful thing to write down, so it is
+        // never silently swallowed: one line per reason, once.
         try
         {
-            if (MissionEditorViewModel.Instance == null) return;
+            if (MissionEditorViewModel.Instance == null)
+            {
+                NoteHidden("the mission editor view model is null - open a mission in the editor");
+                return;
+            }
 
             if (!editorSeen)
             {
@@ -106,14 +139,30 @@ public sealed class TrafficPanel : MonoBehaviour
                 CivilianCatalogue.Refresh();
             }
         }
-        catch (Exception)
+        catch (Exception error)
         {
+            NoteHidden("reading the mission editor threw " + error.GetType().Name + ": " + error.Message);
             return;
         }
 
         EnsureStyles();
 
         window = GUILayout.Window(WindowId, window, DrawWindow, "Civilian traffic");
+    }
+
+    private string? hiddenReason;
+
+    /// <summary>
+    /// Records, once, why the panel is not being drawn. The old code returned in silence, which is
+    /// why "it just does not work" had nothing behind it in the log.
+    /// </summary>
+    private void NoteHidden(string reason)
+    {
+        if (hiddenReason == reason) return;
+
+        hiddenReason = reason;
+        ModLog.Warn("Civilian traffic panel hidden: " + reason);
+        TrafficDiagnostics.Write("panel hidden: " + reason);
     }
 
     private void DrawWindow(int id)
@@ -164,6 +213,12 @@ public sealed class TrafficPanel : MonoBehaviour
             {
                 CivilianCatalogue.Refresh(true);
                 SetStatus("Catalogue: " + CivilianCatalogue.Describe() + ".");
+            }
+
+            if (GUILayout.Button("Check setup", GUILayout.Width(95f)))
+            {
+                TrafficDiagnostics.Write(status);
+                SetStatus("Wrote traffic-report.txt into the mod folder.");
             }
 
             GUILayout.EndHorizontal();
@@ -266,6 +321,7 @@ public sealed class TrafficPanel : MonoBehaviour
             report = "Generation failed: " + error.Message;
         }
 
+        TrafficDiagnostics.Note(report);
         SetStatus(report);
     }
 

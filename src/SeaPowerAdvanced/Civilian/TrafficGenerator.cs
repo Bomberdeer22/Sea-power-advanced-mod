@@ -53,10 +53,36 @@ internal static class TrafficGenerator
             return created;
         }
 
-        List<CivilianRoute>? routes = manager._civilianRoutes;
+        // Where the routes live is looked for rather than assumed: in the mission editor the
+        // mission manager's own list is often null, because the manager is what runs a mission and
+        // the editor is holding the one being edited. See RouteContainers.
+        System.Collections.IList? container = RouteContainers.Find(out string where);
+
+        if (container == null)
+        {
+            report = "No civilian route list to add to - " + where
+                     + ". Open a mission in the editor and try again; traffic-report.txt says "
+                     + "exactly what was looked for.";
+            ModLog.Warn("Civilian traffic: " + report);
+            return created;
+        }
+
+        if (!RouteContainers.CanAdd(container, out string why))
+        {
+            report = "Found the civilian route list (" + where + ") but it cannot be added to: " + why;
+            ModLog.Warn("Civilian traffic: " + report);
+            return created;
+        }
+
+        ModLog.Info("Civilian traffic: adding routes to " + where);
+
+        List<CivilianRoute>? routes = container as List<CivilianRoute>;
+
         if (routes == null)
         {
-            report = "The mission manager has no civilian route list.";
+            report = "The civilian route list (" + where + ") is not a list of routes the mod can "
+                     + "write to.";
+            ModLog.Warn("Civilian traffic: " + report);
             return created;
         }
 
@@ -89,14 +115,15 @@ internal static class TrafficGenerator
         // _maxUnits is a concurrency limit, not a total: the route keeps topping up as units finish
         // their course, so the zone keeps flowing instead of emptying out.
         report = "Added " + shipRoutes + " ship lane(s) (up to " + shipCount + " vessel(s) at a time) and "
-                 + planeRoutes + " aircraft lane(s) (up to " + planeCount + " aircraft at a time). "
-                 + "Save the mission to keep them.";
+                 + planeRoutes + " aircraft lane(s) (up to " + planeCount + " aircraft at a time) to "
+                 + where + ". Save the mission to keep them.";
 
         if (shipCount > 0 && CivilianCatalogue.Ships.Count == 0) report += " No civilian vessel classes found.";
         if (planeCount > 0 && CivilianCatalogue.Planes.Count == 0) report += " No civilian aircraft classes found.";
         if (problems.Count > 0) report += " Problems: " + string.Join("; ", problems);
 
         ModLog.Info("Civilian traffic: " + report);
+        TrafficDiagnostics.Write(report);
 
         return created;
     }
@@ -106,8 +133,8 @@ internal static class TrafficGenerator
     {
         int removed = 0;
 
-        MissionManager? manager = Singleton<MissionManager>.Instance;
-        List<CivilianRoute>? routes = manager?._civilianRoutes;
+        System.Collections.IList? container = RouteContainers.Find(out _);
+        List<CivilianRoute>? routes = container as List<CivilianRoute>;
 
         if (routes != null)
         {

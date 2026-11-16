@@ -37,8 +37,19 @@ mod found in your build of the game, and `ecm-report.txt` lists every ECM member
 
 ## 1. Radar blink cycling — `Sensors and EMCON`
 
-Cycles the surface-search radar on and off on a timer. A real ship does this so a passive
+Switches a radar on for a few seconds, then off again, on a timer. A real ship does this so a passive
 anti-radiation seeker has to track an intermittent, moving source instead of a steady beacon.
+
+**You choose which set.** The entry is a submenu:
+
+| Choice | What cycles | Why you would pick it |
+|---|---|---|
+| Air search radar | The air-search set only | This is the set an anti-radiation missile homes on |
+| Surface search radar | The surface-search set only | Still finds ships, far harder to home on |
+| Both radars | Both, on one timer | Two intermittent emissions, one control |
+
+A hull with no radar is not offered the entry. Stopping puts every set back exactly as it was found -
+if the radar was off before, it stays off.
 
 | Drives | `EnableSurfaceSearchRadars(bool,bool)` / `DisableSurfaceSearchRadars(bool)`, state read from `IsSurfaceSearchRadarsOn` |
 |---|---|
@@ -175,6 +186,32 @@ look like a search fan would be telling you something that is not true.
 
 If the cones do not appear, `ecm-cone.txt` in the mod folder says which of the two projection routes
 was tried and what the camera was - that file is the thing to send.
+
+## 2e. Getting civilian traffic to work — `mission editor`
+
+If the panel's **Spawn traffic** does nothing, **`traffic-report.txt`** in the mod folder now says
+which link is missing. The feature needs five things, and the file tests each one:
+
+| Line | What it means if it says `--` |
+|---|---|
+| mission editor open | No mission is open in the editor; the panel cannot do anything |
+| editor state manager | The editor reports no interaction state manager, so the zone tool cannot draw |
+| editor drawing layer | The map reports no drawing layer, so the polygon has nowhere to go |
+| unit database | The game's unit database was not readable, so there are no civilian classes |
+| civilian classes | Nothing in this install is flagged civilian, so a lane has nothing to spawn |
+| neutral taskforce | Civilian traffic needs a side to belong to; load a mission first |
+| civilian route list | The mod could not find where this build keeps its routes - **send this line** |
+
+The route list is now **looked for rather than assumed**. It used to require
+`MissionManager._civilianRoutes`, which in the mission editor is very likely null, because the manager
+is what runs a mission and the editor is holding the one being edited. The mod now searches the
+mission manager, then the editor's view model, then the mission it is editing, and writes down every
+place it looked.
+
+Also fixed: the panel used to return silently when it could not draw, so "it does not work" left
+nothing in the log. It now logs the reason once and writes it into `traffic-report.txt`. The F8 key is
+read from the GUI event as well as from Unity's `Input` class, so it works on builds that use the new
+Input System only.
 
 ## 3. Commercial signature spoofing — `Deception`
 

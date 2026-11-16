@@ -3,7 +3,7 @@
 Run this once per game version, and after any change to `HatchControl`, `HatchMenu`,
 `TrafficGenerator` or `RouteFactory`.
 
-Version under test: **0.11.0**. Mod id `io.github.bomberdeer22.seapoweradvanced`.
+Version under test: **0.12.0**. Mod id `io.github.bomberdeer22.seapoweradvanced`.
 
 **Read the log, do not guess.** Everything below is confirmed by two files:
 
@@ -34,11 +34,11 @@ If `seapoweradvanced.log` is missing, nothing else in this plan can pass — sto
 
 In `LogOutput.log`, BepInEx's own banner should appear:
 
-- [ ] `Loading [Sea Power Advanced 0.11.0]`
+- [ ] `Loading [Sea Power Advanced 0.12.0]`
 
 Then the mod's own startup lines:
 
-- [ ] `Sea Power Advanced: ================ Sea Power Advanced 0.11.0 ================`
+- [ ] `Sea Power Advanced: ================ Sea Power Advanced 0.12.0 ================`
 - [ ] `Sea Power Advanced: Entry point:  BepInEx plugin`
 - [ ] `Sea Power Advanced: Settings: enabled=True includeGuns=False ...`
 - [ ] `Sea Power Advanced: Patched MapUnitViewModel.GetContextMenuItems.`
@@ -116,7 +116,8 @@ Full description of each: [features.md](features.md). Right-click one of your sh
       every ECM member and type the scan found
 - [ ] Each toggle shows its state in the label and flips when clicked
 - [ ] **Sensors and EMCON → Radars off** actually darkens the ship; `Radars on` brings them back
-- [ ] **Radar blink** cycles the surface-search radar; stopping puts it back as it was
+- [ ] **Radar blink** is a submenu: air search / surface search / both. Pick one, watch that set
+      cycle, stop, and check it goes back to the state it was found in
 - [ ] **Countermeasures → Breakaway** launches chaff and turns the ship
 - [ ] **Countermeasures → Auto-ARM shutoff** goes dark when a missile is inbound, then recovers
 - [ ] **Sensors → Defensive ECM: ... - click to arm** arms one ship; the label then reads
@@ -163,7 +164,9 @@ Full description of each: [features.md](features.md). Right-click one of your sh
 
 ## 7. Civilian traffic (mission editor)
 
-This is the feature that has never run, so expect to find something here.
+This is the feature that has never run, so expect to find something here. **Press F8, then
+`Check setup`**: `traffic-report.txt` in the mod folder now lists every prerequisite with an ok/-- mark,
+so a failure points at one link instead of the whole feature.
 
 - [ ] Open the **mission editor** on a new mission
 - [ ] Log reads `Mission editor detected; the civilian traffic panel is available.`

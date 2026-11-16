@@ -84,7 +84,7 @@ MOD_TYPES = [
     "Capabilities", "Capability", "CapabilityReport", "MemberProbe", "SensorControl",
     "GameWorld", "UnitState", "UnitRecord", "WeaponStatusControl",
     "WaypointControl", "FlightDeckControl", "Inbound", "EcmControl", "DefensiveEcm", "OffensiveEcm", "SensorSet", "UnitFit", "MapProjection", "Selection",
-    "EcmConeOverlay", "EcmBeam",
+    "EcmConeOverlay", "EcmBeam", "TrafficDiagnostics", "RouteContainers", "TrafficRequest",
     "HatchMenu", "FleetMenu", "FleetMenuPatch", "MenuRouting", "MenuReport",
     "HatchBay", "HatchControl", "HatchGroup", "ShipReport", "TrafficPanel",
     "FleetTicker", "Blink", "AutoArm", "SalvoPlan", "Breakaway", "Readiness",
