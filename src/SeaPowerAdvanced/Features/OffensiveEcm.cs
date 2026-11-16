@@ -236,6 +236,13 @@ internal static class OffensiveEcm
                  + "Read " + SensorSet.Describe(signatures) + ". The beam is on the map; use "
                  + "'Jam now' to transmit.";
 
+        if (Multiplayer.IsClient)
+        {
+            report += " In a session the jam goes to the host as the game's own jam order, so the"
+                      + " game's ECM decides the effect - the mod cannot hold a host ship's switches"
+                      + " down from here.";
+        }
+
         ModLog.Info("Offensive ECM: " + Name(ship) + " " + report);
 
         WriteReport(ship, target, signature, signatures,
@@ -319,12 +326,30 @@ internal static class OffensiveEcm
             return true;
         }
 
-        List<SensorSet.Reading> readings = SensorSet.Silence(hold.Target);
-        EcmControl.Engage(ship, hold.Target, false, out string jam);
-
         hold.Jamming = true;
         hold.NextAssertAt = Time.unscaledTime + AssertSeconds;
         hold.Reported = false;
+
+        // In a session the target is simulated by the other machine, so switching its sensors off
+        // here would reach a replica and nothing else. The game's own jam order is the route the
+        // multiplayer mod forwards to whoever is simulating it - and there the game's ECM model
+        // decides the effect, not this mod's assertion loop.
+        if (Multiplayer.IsClient)
+        {
+            bool sent = Multiplayer.Jam(ship, hold.Target, out string order);
+
+            report = "jamming " + Name(hold.Target) + ": " + order
+                     + ". The target is simulated by the host, so the mod cannot hold its switches "
+                     + "down from here - the game's own ECM decides the effect.";
+            if (!sent) hold.Jamming = false;
+
+            ModLog.Info("Offensive ECM: " + Name(ship) + " " + report);
+            Multiplayer.Note(report);
+            return sent;
+        }
+
+        List<SensorSet.Reading> readings = SensorSet.Silence(hold.Target);
+        EcmControl.Engage(ship, hold.Target, false, out string jam);
 
         bool blind = SensorSet.FullyBlind(readings);
         report = "jamming " + Name(hold.Target) + " on EMCON: "
@@ -349,7 +374,10 @@ internal static class OffensiveEcm
         hold.Jamming = false;
         EcmControl.StandDown(ship, out _);
 
-        report = "stopped jamming " + Name(hold.Target) + "; the lock is still held";
+        report = Multiplayer.IsClient
+            ? "stopped here; the lock is still held. The jam itself is the host's task - the "
+              + "multiplayer mod has no stop-jamming order, so it runs until that task ends."
+            : "stopped jamming " + Name(hold.Target) + "; the lock is still held";
         ModLog.Info("Offensive ECM: " + Name(ship) + " " + report);
         return true;
     }
@@ -386,8 +414,10 @@ internal static class OffensiveEcm
         // runs on EMCON - silent, radiating nothing - which is the point of using ECM over radar.
         EcmControl.StandDown(ship, out _);
 
-        report = "released " + target + " after " + hold.Assertions
-                 + " assertion(s); its own crew can bring its sensors back up";
+        report = Multiplayer.IsClient
+            ? "released " + target + " here; the host's jam task is its own, so it ends there"
+            : "released " + target + " after " + hold.Assertions
+              + " assertion(s); its own crew can bring its sensors back up";
         ModLog.Info("Offensive ECM: " + Name(ship) + " " + report);
         return true;
     }
@@ -431,7 +461,9 @@ internal static class OffensiveEcm
 
             try
             {
-                if (ship == null) { Held.Remove(ship); continue; }
+                // Unity's == reports true for a destroyed object even though the reference is
+                // real, so the entry has to be removed by the key that is actually in the map.
+                if (ship == null) { Held.Remove(entry.Key); continue; }
                 if (ModeOf(ship) != Mode.SignatureLock) { Release(ship, out _); continue; }
 
                 ObjectBase? target = hold.Target;
@@ -457,6 +489,18 @@ internal static class OffensiveEcm
                 // target's own crew is free to use its sensors. That is the point of the two-step
                 // order.
                 if (!hold.Jamming) continue;
+
+                // A client holds no switches on the host's ships: the jam travels as an order, and
+                // re-asserting locally would only write to a replica that is overwritten each frame.
+                if (Multiplayer.IsClient)
+                {
+                    if (hold.Reported) continue;
+
+                    hold.Reported = true;
+                    ModLog.Info("Offensive ECM: " + Name(ship) + " holding " + Name(target) + " ("
+                                + (int)range + " nm) - jam order sent to the host");
+                    continue;
+                }
 
                 if (now < hold.NextAssertAt) continue;
                 hold.NextAssertAt = now + AssertSeconds;

@@ -4,7 +4,7 @@ An advanced mod for **Sea Power: Naval Combat in the Missile Age**, built as an
 [Anchor Chain](https://github.com/SeaPower-Modders/AnchorChain) code mod and loadable as a plain
 BepInEx plugin.
 
-**Version 0.12.0** — fourteen advanced features, plus hatch control and civilian traffic.
+**Version 0.12.1** — fourteen advanced features, plus hatch control and civilian traffic.
 
 ### 1. Manual hatch control
 
@@ -61,6 +61,14 @@ fire-control quality bearing to know where to point. It stands down six seconds 
 clear and puts the radar back as it found it. What it cannot promise is that the missile misses:
 that is the game's own jamming model, not the mod's. `ecm-report.txt` says exactly which ECM members
 your install exposes and what the mod does with them.
+
+### Multiplayer
+
+Works with the community multiplayer mod (`SeapowerMultiplayer`), host or client, and is unchanged
+without it. The one thing worth knowing: the multiplayer mod throttles radar switches to one per ship
+per radar group every ten seconds, so **radar blink slows to a 12 second half-cycle in a session**, and
+on a client the host still has the final say on whether a radar radiates. `multiplayer.txt` in the mod
+folder records which side of the session this machine is on and every rule that followed from it.
 
 ### 2. Civilian traffic zones (mission editor)
 
@@ -127,7 +135,7 @@ or a PowerShell window that closes itself).
 Prefer PowerShell? `tools\build-portable.ps1 -Install` does the same job when it is permitted.
 
 The DLL goes into `BepInEx\plugins\SeaPowerAdvanced\`, so **BepInEx loads it directly** — there is
-no mod-manager checkbox on this route. BepInEx's log then shows `Loading [Sea Power Advanced 0.12.0]`,
+no mod-manager checkbox on this route. BepInEx's log then shows `Loading [Sea Power Advanced 0.12.1]`,
 and the mod writes its own `seapoweradvanced.log` next to the DLL.
 
 ## Use it

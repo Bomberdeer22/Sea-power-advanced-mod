@@ -127,6 +127,12 @@ next to it:
       What it is: Step 4's findings. A problem here is a warning: the build
         still runs, and the compiler stays the judge.
 
+Once the game has run, the mod folder also holds multiplayer.txt (which side
+of a multiplayer session this machine was on, and what the mod changed because
+of it), alongside capabilities.txt, ecm-report.txt and traffic-report.txt. In
+a multiplayer session, multiplayer.txt is the one to send if a feature behaves
+differently from single player.
+
 Step 4 can be run on its own at any time by double-clicking check-source.cmd
 -  it takes about a second, writes check-source.txt, and pauses. Use it after
 editing any .cs file instead of waiting two minutes to be told a using is
@@ -198,13 +204,13 @@ Two things to look at.
 
 1. BepInEx's plugin list, near the top of BepInEx\LogOutput.log. It must say:
 
-    [Info   :   BepInEx] Loading [Sea Power Advanced 0.12.0]
+    [Info   :   BepInEx] Loading [Sea Power Advanced 0.12.1]
 
 2. The mod's own log, BepInEx\plugins\SeaPowerAdvanced\seapoweradvanced.log.
 This file only exists if the code actually ran, which makes "did it load?"
 unambiguous:
 
-    ================ Sea Power Advanced 0.12.0 ================
+    ================ Sea Power Advanced 0.12.1 ================
     Entry point:  BepInEx plugin
     Settings: enabled=True includeGuns=False allowEnemyUnits=False showWhenNoMounts=True
     Patched MapUnitViewModel.GetContextMenuItems.

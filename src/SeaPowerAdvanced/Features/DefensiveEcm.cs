@@ -47,6 +47,18 @@ internal static class DefensiveEcm
             return false;
         }
 
+        // Missile defence in a session belongs to the machine that resolves the engagement: weapons
+        // are simulated by the host and replicated, so a jam written on a client is overwritten by
+        // the host's picture and jams nothing. Saying so is better than arming a feature that will
+        // never fire.
+        string? refused = Multiplayer.RefusedTo("Defensive ECM");
+        if (refused != null)
+        {
+            report = refused;
+            ModLog.Warn("Defensive ECM: " + refused);
+            return false;
+        }
+
         UnitRecord record = UnitState.Of(unit);
         record.DefensiveEcm = !record.DefensiveEcm;
 
@@ -67,6 +79,15 @@ internal static class DefensiveEcm
     internal static int ArmFleet(bool on, out string report)
     {
         int changed = 0;
+
+        // Same reason as Toggle: the host decides missile defence in a session.
+        string? refused = Multiplayer.RefusedTo("Defensive ECM");
+        if (refused != null)
+        {
+            report = refused;
+            ModLog.Warn("Defensive ECM: " + refused);
+            return 0;
+        }
 
         foreach (ObjectBase ship in FleetTicker.Tracked())
         {
@@ -99,6 +120,7 @@ internal static class DefensiveEcm
     internal static void Tick()
     {
         if (!ModSettings.FeaturesEnabled) return;
+        if (Multiplayer.IsClient) return;
 
         List<ObjectBase> fleet = FleetTicker.Tracked();
         if (fleet.Count == 0) return;

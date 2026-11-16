@@ -288,7 +288,7 @@ internal static class MapProjection
     {
         try
         {
-            object? scene = UnityEngine.Object.FindObjectOfType(type);
+            object? scene = UnityEngine.Object.FindFirstObjectByType(type);
             if (scene != null) return scene;
 
             UnityEngine.Object[] all = Resources.FindObjectsOfTypeAll(type);

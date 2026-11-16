@@ -20,6 +20,10 @@ public sealed class FleetTicker : MonoBehaviour
 
     private float nextReadinessTick;
 
+    /// <summary>The multiplayer role last written down, so multiplayer.txt is refreshed when a
+    /// session starts, ends, or the player joins as host instead of client.</summary>
+    private static string lastMultiplayerRole = "";
+
     internal static void Install()
     {
         if (instance != null) return;
@@ -61,6 +65,13 @@ public sealed class FleetTicker : MonoBehaviour
 
         try { Readiness.Tick(); }
         catch (Exception error) { ModLog.Error("Readiness update failed", error); }
+
+        // A session can come up or go away at any point, and every rule in Multiplayer depends on it.
+        if (Multiplayer.Describe() == lastMultiplayerRole) return;
+
+        lastMultiplayerRole = Multiplayer.Describe();
+        ModLog.Info("Multiplayer: " + lastMultiplayerRole);
+        Multiplayer.WriteReport();
     }
 
     /// <summary>Every unit the mod is currently acting on, for the timers above.</summary>

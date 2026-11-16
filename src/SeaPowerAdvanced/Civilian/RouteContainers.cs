@@ -3,6 +3,7 @@ using System.Collections;
 using System.Collections.Generic;
 using System.Reflection;
 using SeaPower;
+using SeaPowerAdvanced.Interop;
 using SeapowerUI.ViewModels;
 
 namespace SeaPowerAdvanced.Civilian;

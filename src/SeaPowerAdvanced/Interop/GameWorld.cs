@@ -95,7 +95,10 @@ internal static class GameWorld
         try
         {
             Type type = typeof(SeaPower.GameMain);
-            UnityEngine.Object? found = UnityEngine.Object.FindObjectOfType(type);
+
+            // FindFirstObjectByType, not FindObjectOfType: the latter is obsolete as of this
+            // Unity version (CS0618) and the replacement is the one the warning names.
+            UnityEngine.Object? found = UnityEngine.Object.FindFirstObjectByType(type);
 
             if (found == null)
             {

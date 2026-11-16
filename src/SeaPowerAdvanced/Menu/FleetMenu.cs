@@ -235,13 +235,25 @@ internal static class FleetMenu
             Add(BlinkRadarItem(unit), MenuRouting.Sensors);
         }
 
-        Add(AutoArm.IsOn(unit)
-            ? Action("Auto-ARM shutoff: on - click to turn off",
-                "Stops cutting the radars automatically.",
-                () => Report(unit, "auto-ARM", AutoArm.Toggle(unit, out string r), r))
-            : Action("Auto-ARM shutoff: off - click to turn on",
-                "Cuts the radars for eight seconds whenever a weapon is inbound.",
-                () => Report(unit, "auto-ARM", AutoArm.Toggle(unit, out string r), r)), MenuRouting.Sensors);
+        if (Multiplayer.IsClient)
+        {
+            // In a session this machine does not decide when a radar radiates, so the entry says so
+            // instead of offering a switch the host would refuse.
+            Add(Disabled("Auto-ARM shutoff: not available in multiplayer",
+                "Cutting the radars is a radar switch, and the host decides those in a session."),
+                MenuRouting.Sensors);
+        }
+        else
+        {
+            Add(AutoArm.IsOn(unit)
+                ? Action("Auto-ARM shutoff: on - click to turn off",
+                    "Stops cutting the radars automatically.",
+                    () => Report(unit, "auto-ARM", AutoArm.Toggle(unit, out string r), r))
+                : Action("Auto-ARM shutoff: off - click to turn on",
+                    "Cuts the radars for eight seconds whenever a weapon is inbound.",
+                    () => Report(unit, "auto-ARM", AutoArm.Toggle(unit, out string r), r)),
+                MenuRouting.Sensors);
+        }
 
         // --- ECM: only on hulls that actually carry it --------------------------------------
         // A submarine has no jammer, so it gets no ECM entries at all - not a disabled one, nothing.
@@ -250,21 +262,35 @@ internal static class FleetMenu
 
         if (carriesEcm)
         {
-            Add(DefensiveEcm.IsArmed(unit)
-                ? Action("Defensive ECM: " + DefensiveEcm.Describe(unit) + " - click to disarm",
-                    "Stops jamming incoming missiles automatically.",
-                    () => Report(unit, "defensive ECM", DefensiveEcm.Toggle(unit, out string r), r))
-                : Action("Defensive ECM: off - click to arm automatic jamming",
-                    "Points this ship's jammer at any missile inbound to it or to the task force, "
-                    + "and holds the lock. Defensive jamming needs air search; offensive does not.",
-                    () => Report(unit, "defensive ECM", DefensiveEcm.Toggle(unit, out string r), r)),
-                MenuRouting.Sensors);
+            if (Multiplayer.IsClient)
+            {
+                // Missile defence is resolved by the host: weapons are simulated there and
+                // replicated, so a jam written on a client is overwritten and jams nothing. One
+                // plain entry, with the reason, beats an armed feature that never fires.
+                Add(Disabled("Defensive ECM: the host runs missile defence in multiplayer",
+                    "Weapons are simulated by the host, so automatic jamming has to be armed there."),
+                    MenuRouting.Sensors);
+            }
+            else
+            {
+                Add(DefensiveEcm.IsArmed(unit)
+                    ? Action("Defensive ECM: " + DefensiveEcm.Describe(unit) + " - click to disarm",
+                        "Stops jamming incoming missiles automatically.",
+                        () => Report(unit, "defensive ECM", DefensiveEcm.Toggle(unit, out string r), r))
+                    : Action("Defensive ECM: off - click to arm automatic jamming",
+                        "Points this ship's jammer at any missile inbound to it or to the task force, "
+                        + "and holds the lock. Defensive jamming needs air search; offensive does not.",
+                        () => Report(unit, "defensive ECM", DefensiveEcm.Toggle(unit, out string r), r)),
+                    MenuRouting.Sensors);
 
-            Add(Action("Defensive ECM for the whole task force",
-                "Arms automatic defensive jamming on every ship under command that carries ECM.",
-                () => Fleet("defensive ECM (fleet)", DefensiveEcm.ArmFleet(true, out string r), r)),
-                MenuRouting.Sensors);
+                Add(Action("Defensive ECM for the whole task force",
+                    "Arms automatic defensive jamming on every ship under command that carries ECM.",
+                    () => Fleet("defensive ECM (fleet)", DefensiveEcm.ArmFleet(true, out string r), r)),
+                    MenuRouting.Sensors);
+            }
 
+            // Offensive ECM stays on offer in a session: the jam travels to the host as the game's
+            // own jam order, so the host runs it with the game's own ECM.
             Add(OffensiveEcm.ModeOf(unit) == OffensiveEcm.Mode.SignatureLock
                 ? Action("Offensive ECM: signature lock - click for standard",
                     "Hands the jammer back to the game's own behaviour and releases any lock.",

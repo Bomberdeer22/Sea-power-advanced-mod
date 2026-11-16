@@ -213,6 +213,40 @@ nothing in the log. It now logs the reason once and writes it into `traffic-repo
 read from the GUI event as well as from Unity's `Input` class, so it works on builds that use the new
 Input System only.
 
+## 2f. Using it with the multiplayer mod
+
+The multiplayer mod (`SeapowerMultiplayer`, `com.seapowermultiplayer.plugin`) is supported: the mod
+detects it, works out whether this machine is the host or the client, and changes what it promises
+accordingly. It is reached by reflection, so nothing changes for players who do not have it, and
+nothing breaks if it is not installed.
+
+**`multiplayer.txt`** in the mod folder says what was found and which rules followed from it. It is
+rewritten when a session comes up or ends.
+
+Three of the multiplayer mod's rules matter here:
+
+| Rule | What it does to this mod |
+|---|---|
+| It throttles radar switches to one per ship per radar group per 10 seconds, and a throttled switch does not move locally either | **Radar blink** raises its half-cycle to 12 seconds in a session, whatever `BlinkSeconds` says. A six second blink would lose every second flip and leave the radar stuck |
+| The client does not decide its own emissions - the host's radar picture is re-imposed every frame | **Radar blink** checks each flip four seconds later. If the switch did not take, the blink **stops itself and says so** rather than pretending. **Auto-ARM** and **defensive ECM** are not offered on a client at all, and the menu says why |
+| Jamming is an order the host runs, not a member write | **Offensive ECM** on a client sends the game's own jam order, which the multiplayer mod forwards. The signature lock's switch-off assertion is not attempted from a client: the target is simulated on the host, so there is nothing there to switch off |
+
+What still works everywhere:
+
+- **Everything on the host**, and in single player without a change: this machine simulates the world.
+- **The ECM cones** - they draw from whatever jamming the game reports on this machine, including
+  jamming the session replicated in from the other side.
+- **The menus, hatches, salvo planner, readiness, formations, helo patterns** - these go through the
+  game's own orders, which the multiplayer mod already forwards.
+
+Two limits worth stating plainly, because a player will otherwise read them as bugs:
+
+1. **A jam started from a client cannot be stopped from that client.** The multiplayer mod forwards a
+   jam order but has no "stop jamming" order, so the host's jam task runs until it ends by itself.
+   The menu says so when you stop it.
+2. **Damage, hits and sensor outcomes are the host's.** Nothing here claims a different result from the
+   one the authoritative machine reached.
+
 ## 3. Commercial signature spoofing — `Deception`
 
 The ship stops radiating, drops to a merchant's telegraph setting, and presents a civilian-looking
@@ -325,3 +359,6 @@ more slowly than tiring, so there is a real cost to leaving the fleet closed up 
 `seapoweradvanced.log` (mod folder), `capabilities.txt` and `ecm-report.txt` (same folder). The log
 names every feature and its result per ship, so a single failed action is easy to find; the two
 report files say what the game actually exposes.
+
+In a multiplayer session, add **`multiplayer.txt`**: it names the multiplayer mod's version, which
+side of the session this machine is on, and every rule that followed from it.

@@ -77,6 +77,12 @@ internal static class Boot
             // build names its jammers differently, ecm-report.txt says what they are called.
             EcmControl.Discover();
             EcmControl.WriteReport();
+
+            // The multiplayer mod, if it is there: which side of the session this machine is on
+            // decides what the automatic features are allowed to promise. Written to
+            // multiplayer.txt before any menu can be opened.
+            ModLog.Info("Multiplayer: " + Multiplayer.Describe());
+            Multiplayer.WriteReport();
             ModLog.Info("Game interface: " + CapabilityReport.Summary());
 
             harmony = new Harmony(ModInfo.Id);

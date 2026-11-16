@@ -31,6 +31,20 @@ internal static class Blink
     private static readonly Dictionary<ObjectBase, (bool Air, bool Surface)> WasOn = new();
 
     /// <summary>
+    /// Flips waiting to be checked, and what state the radar was asked for.
+    ///
+    /// A switch does not take effect the instant it is thrown - the game warms a radar up over
+    /// several ticks - so a read straight afterwards would be a false alarm. In a multiplayer session
+    /// a flip can also be refused outright, and a refusal looks exactly like a radar that did not
+    /// follow its switch. Checking a few seconds later tells the two apart, and either way pretending
+    /// to blink would be worse than stopping.
+    /// </summary>
+    private static readonly Dictionary<ObjectBase, (float At, bool Expect)> Verify = new();
+
+    /// <summary>How long a flip is given to take effect before it is judged.</summary>
+    private const float VerifySeconds = 4f;
+
+    /// <summary>
     /// True while this unit's radar is cycling. The record is consulted as well as the set, so a
     /// unit stays "blinking" in the menu even if its entry was lost from the ticker's list.
     /// </summary>
@@ -78,7 +92,7 @@ internal static class Blink
         record.BlinkAir = air;
         record.BlinkSurface = surface;
 
-        report = Describe(radar) + " now cycling every " + Interval() + "s";
+        report = Describe(radar) + " now cycling every " + Interval() + "s" + SessionNote();
         return true;
     }
 
@@ -100,6 +114,7 @@ internal static class Blink
         bool airWasOn = remembered.Air;
         bool surfaceWasOn = remembered.Surface;
         WasOn.Remove(unit);
+        Verify.Remove(unit);
 
         bool airOk = !record.BlinkAir || SensorControl.SetAirSearch(unit, airWasOn);
         bool surfaceOk = !record.BlinkSurface || SensorControl.SetSurfaceSearch(unit, surfaceWasOn);
@@ -128,10 +143,18 @@ internal static class Blink
                 {
                     Cycling.Remove(unit);
                     WasOn.Remove(unit);
+                    Verify.Remove(unit);
                     continue;
                 }
 
                 UnitRecord record = UnitState.Of(unit);
+
+                if (Flipped(unit, record, now))
+                {
+                    StopRefused(unit, record);
+                    continue;
+                }
+
                 if (now < record.NextBlinkAt) continue;
 
                 record.NextBlinkAt = now + interval;
@@ -139,6 +162,8 @@ internal static class Blink
 
                 if (record.BlinkAir) SensorControl.SetAirSearch(unit, record.BlinkPhase);
                 if (record.BlinkSurface) SensorControl.SetSurfaceSearch(unit, record.BlinkPhase);
+
+                if (Multiplayer.InSession) Verify[unit] = (now + VerifySeconds, record.BlinkPhase);
 
                 if (ModSettings.VerboseLog && record.BlinkPhase)
                 {
@@ -156,7 +181,70 @@ internal static class Blink
         }
     }
 
-    private static float Interval() => Mathf.Clamp(ModSettings.BlinkSeconds, 2f, 120f);
+    /// <summary>
+    /// The half-cycle: how long the radar stays in each state.
+    ///
+    /// Two seconds is the mod's own floor, but a session sets a higher one. The multiplayer mod drops
+    /// a repeat radar toggle on the same unit and radar group inside ten seconds, and a dropped
+    /// toggle does not move the switch at all - so a six second blink would leave the radar stuck
+    /// wherever the throttle caught it. The setting is therefore a floor, not a ceiling.
+    /// </summary>
+    private static float Interval() =>
+        Mathf.Clamp(ModSettings.BlinkSeconds, Multiplayer.RadarToggleFloorSeconds, 120f);
+
+    /// <summary>True when a flip that should have taken effect has not.</summary>
+    private static bool Flipped(ObjectBase unit, UnitRecord record, float now)
+    {
+        if (Verify.Count == 0) return false;
+        if (!Verify.TryGetValue(unit, out (float At, bool Expect) check)) return false;
+        if (now < check.At) return false;
+
+        Verify.Remove(unit);
+
+        // A session that ended while the check was outstanding: there is no host left to blame, and
+        // second-guessing the game in single player is not this feature's job.
+        if (!Multiplayer.InSession) return false;
+
+        if (record.BlinkAir && SensorControl.GetAirSearchOn(unit) is bool air && air != check.Expect)
+            return true;
+
+        if (record.BlinkSurface && SensorControl.GetSurfaceSearchOn(unit) is bool surface
+            && surface != check.Expect)
+            return true;
+
+        return false;
+    }
+
+    /// <summary>
+    /// Stops blinking a unit whose switch did not take, and says why. In a session the usual reason
+    /// is the host - it refused the order, or it reverted the switch a frame later - and a player
+    /// watching a radar that never goes dark needs to be told, not left guessing.
+    /// </summary>
+    private static void StopRefused(ObjectBase unit, UnitRecord record)
+    {
+        Cycling.Remove(unit);
+        WasOn.Remove(unit);
+        record.Blink = false;
+
+        string why = Multiplayer.InSession
+            ? "the switch was refused or reverted - in a session the host decides whether a radar "
+              + "radiates, and it has had the last word here"
+            : "the radar did not follow the switch";
+
+        ModLog.Warn("Radar blink stopped for " + HatchName(unit) + ": " + why);
+        Multiplayer.Note("radar blink on " + HatchName(unit) + " stopped: " + why);
+    }
+
+    /// <summary>The sentence appended to the start report when a session has raised the floor.</summary>
+    private static string SessionNote()
+    {
+        if (!Multiplayer.InSession || ModSettings.BlinkSeconds >= Multiplayer.RadarToggleFloorSeconds)
+            return "";
+
+        return " (raised from " + ModSettings.BlinkSeconds + "s: the multiplayer mod refuses a "
+               + "second radar toggle on the same ship inside "
+               + (int)Multiplayer.ToggleFloorSeconds + "s)";
+    }
 
     private static bool Read(Func<bool?> getter)
     {

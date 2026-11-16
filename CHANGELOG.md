@@ -1,5 +1,39 @@
 # Changelog
 
+## 0.12.1 — builds again, and works with the multiplayer mod
+
+### The build failure
+
+`Civilian/RouteContainers.cs` used `MemberProbe` without importing `SeaPowerAdvanced.Interop`, which is
+four `CS0103`s. Fixed, and the reason it was not caught is worth the note: the source checker verifies
+member consistency between files but not whether a file imports the namespace its neighbour lives in —
+`check-source.py` resolves library symbols, not this mod's own.
+
+Also cleared, since they were in the same output: two obsolete `Object.FindObjectOfType` calls
+(`CS0618`, now `FindFirstObjectByType`) and one `CS8604` on a dictionary key that Unity's own
+`==` overload makes look null.
+
+### Multiplayer
+
+The mod now detects **SeapowerMultiplayer** by reflection — no reference, no build dependency, no
+behaviour change for anyone without it — and adapts where its rules actually bite:
+
+- **Radar blink** raises its half-cycle to 12 s in a session. The multiplayer mod drops a repeat radar
+  toggle on the same ship and radar group inside 10 s, and a dropped toggle does not move the switch
+  locally either, so a 6 s blink would have left the radar stuck.
+- **Blink verifies its flips** in a session, four seconds after each one. If the switch did not take,
+  the blink stops and says so instead of pretending.
+- **Auto-ARM shutoff and defensive ECM** are not offered on a client: weapons are simulated by the
+  host, so a local jam is overwritten and jams nothing. The menu entry says that, in one line.
+- **Offensive ECM** on a client sends the game's own jam order, which is the route the multiplayer mod
+  forwards to the host. The signature lock's switch-off assertion is not attempted there, because the
+  target is simulated on the other machine.
+- **`multiplayer.txt`** records the multiplayer mod's version, which side of the session this machine
+  is on, and every rule that followed. Rewritten when a session starts or ends.
+
+Stated, not hidden: a jam started from a client cannot be stopped from it — the multiplayer mod has no
+stop-jamming order — and the effects of both jamming and missile defence are the host's to decide.
+
 ## 0.12.0 — blink asks which radar, and the traffic panel explains itself
 
 ### Radar blink: you choose the set

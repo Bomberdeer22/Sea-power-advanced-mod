@@ -3,7 +3,7 @@
 Run this once per game version, and after any change to `HatchControl`, `HatchMenu`,
 `TrafficGenerator` or `RouteFactory`.
 
-Version under test: **0.12.0**. Mod id `io.github.bomberdeer22.seapoweradvanced`.
+Version under test: **0.12.1**. Mod id `io.github.bomberdeer22.seapoweradvanced`.
 
 **Read the log, do not guess.** Everything below is confirmed by two files:
 
@@ -34,11 +34,11 @@ If `seapoweradvanced.log` is missing, nothing else in this plan can pass — sto
 
 In `LogOutput.log`, BepInEx's own banner should appear:
 
-- [ ] `Loading [Sea Power Advanced 0.12.0]`
+- [ ] `Loading [Sea Power Advanced 0.12.1]`
 
 Then the mod's own startup lines:
 
-- [ ] `Sea Power Advanced: ================ Sea Power Advanced 0.12.0 ================`
+- [ ] `Sea Power Advanced: ================ Sea Power Advanced 0.12.1 ================`
 - [ ] `Sea Power Advanced: Entry point:  BepInEx plugin`
 - [ ] `Sea Power Advanced: Settings: enabled=True includeGuns=False ...`
 - [ ] `Sea Power Advanced: Patched MapUnitViewModel.GetContextMenuItems.`
@@ -197,6 +197,30 @@ Then repeat with planes set to `1`/`2` and ships `0`/`0`.
       `General/Enabled is false; nothing will be patched.` and no `Weapon hatches` entry appears
 - [ ] Set it back to `true`, restart: it comes back
 
+## 9. With the multiplayer mod (optional)
+
+Only if **SeapowerMultiplayer** is installed. The mod finds it by itself; `multiplayer.txt` in the
+mod folder is the file that answers everything below.
+
+- [ ] Single player: `multiplayer.txt` reads `present: no` (or `present: yes`, `session: not up`),
+      and every feature behaves exactly as it did without it
+- [ ] `seapoweradvanced.log` gains one line: `Multiplayer: no multiplayer mod` or
+      `Multiplayer: multimod <version>, installed, no session up`
+- [ ] Start hosting, open a mission: `multiplayer.txt` now says `session: up` and
+      `this machine: authority`; blink, defensive ECM and offensive ECM all work as in single player
+- [ ] Join as the **client**: `this machine: client`
+- [ ] **Sensors → Radar blink**: the start message says the half-cycle was raised to 12 seconds
+- [ ] Blink a ship and watch the radar: it goes on and off at ~12 second intervals, no
+      `rate-limited` warnings in `LogOutput.log` from the multiplayer mod
+- [ ] Blink a ship you do not command: the blink **stops itself** within a few seconds and the log
+      says the switch was refused or reverted. That is the expected behaviour, not a failure
+- [ ] **Sensors → Auto-ARM shutoff** reads `not available in multiplayer`, and **Defensive ECM** reads
+      `the host runs missile defence in multiplayer`
+- [ ] **Lock with ECM** on an enemy contact, then **Jam now**: the log reads `jam order sent to the
+      host`, and the multiplayer mod's own log shows it applied the jam on the host
+- [ ] Stop jamming: the message says plainly that the host's jam task is its own and runs until it ends
+- [ ] ECM cones still draw on the client, from whatever jamming the host replicated in
+
 ## What to send back
 
 - **Which numbered checks failed** — just the numbers, that is enough.
@@ -204,6 +228,8 @@ Then repeat with planes set to `1`/`2` and ships `0`/`0`.
 - `hatch-report.txt` for anything hatch-related that did not move.
 - For traffic: the ship class and mount for any hatch that did not move, and whether the units
   appeared in the right place, off the coast, or not at all.
+- In a multiplayer session: `multiplayer.txt`, plus the multiplayer mod's `LogOutput.log` lines for
+  the same minute — a refused order is logged on both sides.
 
 `diagnose.cmd` collects system, game folder, mod files, build logs and game logs into one file. If in
 doubt, run it and send `SeaPowerAdvanced-diagnose.txt`.

@@ -43,6 +43,16 @@ internal static class AutoArm
             return false;
         }
 
+        // Cutting the radars is a plain radar switch, so in a session it is the same switch the
+        // multiplayer mod throttles and the host can refuse. Arming it here would promise something
+        // this machine cannot deliver.
+        string? refused = Multiplayer.RefusedTo("Auto-ARM shutoff");
+        if (refused != null)
+        {
+            report = refused;
+            return false;
+        }
+
         UnitRecord record = UnitState.Of(unit);
         record.AutoArm = !record.AutoArm;
 
@@ -62,6 +72,8 @@ internal static class AutoArm
 
     internal static void Tick()
     {
+        if (Multiplayer.IsClient) return;
+
         float now = Time.unscaledTime;
 
         foreach (ObjectBase unit in FleetTicker.Tracked())
