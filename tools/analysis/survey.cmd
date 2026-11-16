@@ -1,6 +1,7 @@
 @echo off
 REM Same as survey.ps1, for machines where the PowerShell execution policy blocks .ps1 files.
 REM Usage:  survey.cmd            full API survey -> analysis-report.txt
+REM         survey.cmd readiness  which planned features are buildable
 REM         survey.cmd selftest   check the reader against a known assembly
 REM         survey.cmd "C:\path\to\Seapower-Scripts.dll"
 setlocal
@@ -15,6 +16,11 @@ if not exist "%PYTHON%" (
         exit /b 1
     )
     "%PYTHON%" -m pip install --quiet -r "%HERE%requirements.txt" || exit /b 1
+)
+
+if /i "%1"=="readiness" (
+    "%PYTHON%" "%HERE%analyze.py" readiness
+    exit /b %ERRORLEVEL%
 )
 
 if /i "%1"=="selftest" (

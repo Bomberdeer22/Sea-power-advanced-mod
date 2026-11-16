@@ -15,6 +15,7 @@ param(
     [string]$Dll = "",
     [string]$Out = "",
     [switch]$Selftest,
+    [switch]$Readiness,
     [string]$Python = ""
 )
 
@@ -33,6 +34,9 @@ $arguments = @(Join-Path $here "analyze.py")
 
 if ($Selftest) {
     $arguments += "selftest"
+} elseif ($Readiness) {
+    if ($Dll) { $arguments += @("--dll", $Dll) }
+    $arguments += "readiness"
 } else {
     if ($Dll) { $arguments += @("--dll", $Dll) }
     $arguments += "brief"

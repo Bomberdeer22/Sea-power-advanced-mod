@@ -18,6 +18,9 @@ case "${1:-}" in
     --selftest|selftest)
         exec .venv/bin/python analyze.py selftest
         ;;
+    --readiness|readiness)
+        exec .venv/bin/python analyze.py readiness
+        ;;
     "")
         exec .venv/bin/python analyze.py brief
         ;;

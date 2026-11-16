@@ -234,8 +234,12 @@ a feature is a five-line change or impossible. That reader lives in
 
 ```bat
 tools\analysis\survey.cmd              :: full API survey -> tools\analysis\analysis-report.txt
+tools\analysis\survey.cmd readiness    :: which planned features this build can support
 tools\analysis\survey.cmd selftest     :: verify the reader still works
 ```
+
+The next batch of features is triaged in [docs/feature-plan.md](docs/feature-plan.md): what depends
+on what, what order to build it in, and which parts the game may not model at all.
 
 It reads metadata and IL only — nothing is loaded or run — and it also answers one-off questions:
 

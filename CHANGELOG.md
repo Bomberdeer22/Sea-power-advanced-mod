@@ -1,5 +1,22 @@
 # Changelog
 
+## Unreleased — feature readiness probe
+
+Planning tooling for the next batch of features (sensor/EMCON, tactics, formation, logistics).
+
+- `tools/analysis features.py` + `analyze.py readiness`: probes each planned feature's decisive
+  capabilities against the installed assembly and reports READY / PARTIAL / BLOCKED, with the
+  matched member names as evidence. Exposed as `survey.cmd readiness`.
+- Each feature records the guess made *before* the check, so a surprise stays visible.
+- `docs/feature-plan.md`: the twelve requested features triaged by dependency, with the build order
+  and an explicit list of what is probably not possible.
+- Performance work found by testing on real assemblies: metadata table lookups are cached (they were
+  being re-materialised inside loops, turning name scans into minutes), member labels are built
+  lazily, and compiler-generated member names are excluded from capability matches.
+- Three real bugs caught by running the probe on F# and Android assemblies rather than on the fixture:
+  a `\b` missing from a "towed array" pattern matched `sonAr` inside "Compari**sonAr**b", a regex
+  without word boundaries matched `ToArray`, and `types`/`member` failed on short type names.
+
 ## 0.6.0 — civilian traffic zones (mission editor)
 
 New feature: random civilian traffic, spawned into an area you draw yourself.

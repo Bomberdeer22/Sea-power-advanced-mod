@@ -5,6 +5,7 @@ member's signature and accessibility are, and — most usefully — **which meth
 
 ```bat
 tools\analysis\survey.cmd                 :: full survey -> tools\analysis\analysis-report.txt
+tools\analysis\survey.cmd readiness       :: which planned features are buildable
 tools\analysis\survey.cmd selftest        :: prove the reader still works
 ```
 
@@ -75,6 +76,7 @@ Run them with `tools\analysis\.venv\Scripts\python.exe tools\analysis\analyze.py
 | `find <text>` | Members whose name contains `<text>`. |
 | `find <text> --callsites` | **Every method that calls something matching `<text>`** — this is how "who does the game actually invoke?" gets answered. |
 | `enums <Type>` | An enum's members and their numeric values. |
+| `readiness` | **Which of the planned features this build can support**, capability by capability. Add `--fast` to skip the call-site scans. |
 | `selftest` | Verifies the reader against a known assembly (see below). |
 
 Examples:
@@ -104,6 +106,31 @@ python analyze.py --dll "D:\...\Seapower-Scripts.dll" types WeaponSystem
 
 Adding a topic is one entry in `TOPICS` in `survey.py`: a type-name pattern, a member-name pattern
 and a sentence saying what the feature needs to learn.
+
+## The readiness probe
+
+`readiness` answers "can this game support feature X?" before any code is written for it. Each
+planned feature is broken into the capabilities it needs, and each capability is one question with a
+concrete answer in the assembly:
+
+```
+  [READY  ] Radar blink cycling
+            prior guess: likely
+              ok   an emitter can be switched on and off
+                   SeaPower.SensorSystem::set_Active
+  [BLOCKED] Battle stations fatigue
+            prior guess: unlikely
+             MISS  crew state exists as a modelled thing
+```
+
+`READY` = every required capability found, `PARTIAL` = some, `BLOCKED` = at least one missing. The
+matched names are printed so a match can be judged: the probe looks for *names*, which answers "does
+this concept exist?" and not "does it work the way we need?". A `READY` verdict means *worth
+starting*.
+
+The feature list and the reasoning behind each verdict live in
+[docs/feature-plan.md](../../docs/feature-plan.md); the checks themselves are in `features.py`, one
+entry per feature, so a new feature is a new entry there.
 
 ## Is the reader trustworthy?
 
@@ -141,6 +168,9 @@ plausible-looking nonsense rather than an error:
   a future patch could change that.
 * **Bodies that fail to decode are skipped, not fatal** — a survey that loses one method still
   answers the rest. Call-site counts can therefore be a hair lower than reality on exotic IL.
+* **Loading dominates on a large assembly.** On a 24 MB assembly the first load takes ~100 s, almost
+  all of it inside dnfile parsing the PE and metadata tables — not this code. A game-sized assembly
+  is much quicker, and nothing else in the toolchain is close to that cost.
 * Python 3 (3.9+) is required; the Windows wrapper creates `.venv` inside this folder and installs
   `dnfile` and `dncil` from PyPI. No admin rights, nothing system-wide; delete `.venv` to undo it.
 
@@ -149,6 +179,7 @@ plausible-looking nonsense rather than an error:
 | File | Purpose |
 |---|---|
 | `gameapi.py` | Metadata and IL reader (`Assembly`): types, members, signatures, enum values, call sites. |
+| `features.py` | The readiness probe: the planned features and the capabilities each needs. |
 | `survey.py` | The report: topics, call-site buckets, enum dumps, inventory. |
 | `analyze.py` | Command line. |
 | `selftest.py` | The check described above. |

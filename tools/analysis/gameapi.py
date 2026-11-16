@@ -92,6 +92,7 @@ class Assembly:
         self.path = path
         self.pe = dnfile.dnPE(path)
         self.md = self.pe.net.mdtables
+        self._tables: dict[str, list] = {}
 
         self.types: dict[str, object] = {}
         self._type_index: dict[int, str] = {}
@@ -112,13 +113,23 @@ class Assembly:
 
         self._nested = self._build_nested()
 
-        self._member_labels: dict[int, str] = {}
-        self._build_member_labels()
+        # Built on first use: labelling every member in the assembly costs about a minute on a large
+        # one, and most commands (name searches, the readiness probe) never need a label.
+        self._member_labels: dict[int, str] | None = None
 
     def table(self, name: str) -> list:
-        """Rows of a metadata table; dnfile reports an absent table as None."""
-        table = getattr(self.md, name, None)
-        return list(table.rows) if table is not None else []
+        """Rows of a metadata table; dnfile reports an absent table as None.
+
+        Cached: dnfile hands back a live row collection, and the callers here index into it inside
+        loops. Re-materialising it per lookup turns those loops quadratic (seconds into minutes on
+        a large assembly).
+        """
+        cached = self._tables.get(name)
+        if cached is None:
+            table = getattr(self.md, name, None)
+            cached = list(table.rows) if table is not None else []
+            self._tables[name] = cached
+        return cached
 
     # -- identity -----------------------------------------------------------------------
 
@@ -247,6 +258,26 @@ class Assembly:
         options = self.type_name_without_namespace.get(name) or []
         return options[0] if len(options) == 1 else name
 
+    def iter_member_names(self):
+        """(declaring type, "field"/"method", name) for every member.
+
+        Names only: no signature parsing. Checks of the form "does a member like this exist?"
+        (the readiness probe asks dozens of them) should not pay for signatures they never read.
+        """
+        for full_name, typedef in self.types.items():
+            for entry in (typedef.FieldList or []):
+                row = self.table("Field")[entry.row_index - 1]
+                yield full_name, "field", text(row.Name)
+            for entry in (typedef.MethodList or []):
+                row = self.table("MethodDef")[entry.row_index - 1]
+                yield full_name, "method", text(row.Name)
+
+    def member_index(self):
+        """The names above, cached as one list."""
+        if not hasattr(self, "_names"):
+            self._names = list(self.iter_member_names())
+        return self._names
+
     # -- signatures ---------------------------------------------------------------------
 
     def _method_signature(self, row) -> tuple[str, list[str]]:
@@ -333,14 +364,21 @@ class Assembly:
 
     # -- member labels ------------------------------------------------------------------
 
+    @property
+    def member_labels(self) -> dict[int, str]:
+        if self._member_labels is None:
+            self._member_labels = {}
+            self._build_member_labels()
+        return self._member_labels
+
     def _build_member_labels(self):
         for index, row in enumerate(self.table("Field"), start=1):
             declaring = self._declaring.get(("f", index), "?")
-            self._member_labels[0x04000000 | index] = declaring + "::" + text(row.Name)
+            self.member_labels[0x04000000 | index] = declaring + "::" + text(row.Name)
 
         for index, row in enumerate(self.table("MethodDef"), start=1):
             declaring = self._declaring.get(("m", index), "?")
-            self._member_labels[0x06000000 | index] = declaring + "::" + text(row.Name)
+            self.member_labels[0x06000000 | index] = declaring + "::" + text(row.Name)
 
         for index, row in enumerate(self.table("MemberRef"), start=1):
             try:
@@ -359,7 +397,7 @@ class Assembly:
                     declaring = table
             except Exception:
                 declaring = "?"
-            self._member_labels.setdefault(0x0A000000 | index, declaring + "::" + text(row.Name))
+            self.member_labels.setdefault(0x0A000000 | index, declaring + "::" + text(row.Name))
 
     def user_string(self, token: int) -> str:
         try:
@@ -376,8 +414,8 @@ class Assembly:
         table = token >> 24
         if table == 0x70:
             return repr(self.user_string(token))
-        if token in self._member_labels:
-            return self._member_labels[token]
+        if token in self.member_labels:
+            return self.member_labels[token]
         if table in (0x01, 0x02, 0x1B):
             return self.type_name_of_token(token)
         if table == 0x11:
@@ -412,7 +450,7 @@ class Assembly:
 
     def tokens_for(self, needles: list[str]) -> set[int]:
         """Member tokens whose label contains any of `needles`."""
-        return {token for token, label in self._member_labels.items()
+        return {token for token, label in self.member_labels.items()
                 if any(needle in label for needle in needles)}
 
     def instructions(self, method: dict) -> list[tuple[int, str, object]]:

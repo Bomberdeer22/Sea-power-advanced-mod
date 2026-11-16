@@ -1,0 +1,111 @@
+====================================================================================================
+FEATURE READINESS
+====================================================================================================
+assembly   FSharp.Core  4.4.1.0
+file       /tmp/probe/FSharp.Core.dll
+types      2649   methods 9492
+
+READY    every required capability found
+PARTIAL  some found: possible with a workaround
+BLOCKED  a required capability is missing
+
+'expectation' is my guess before the check, so a surprise is visible as a surprise.
+
+summary    READY 0   PARTIAL 1   BLOCKED 11
+
+
+## Sensor & EMCON
+
+  [BLOCKED] Radar blink cycling
+            prior guess: likely
+             MISS  ships own sensor/radar objects
+             MISS  a unit exposes the list of its own emitters
+             MISS  an emitter can be switched on and off
+             opt   detection is driven from a tick that can be hooked
+
+  [BLOCKED] Auto-ARM shutoff (anti-radiation defence)
+            prior guess: maybe
+             MISS  anti-radiation missiles exist as a recognisable kind
+             MISS  a unit can see weapons inbound to it
+             MISS  emitters can be cut and restored
+             MISS  a weapon's bearing/target is readable
+
+  [BLOCKED] Commercial signature spoofing
+            prior guess: unlikely
+             MISS  a unit's radar cross-section is a readable field
+             MISS  the cross-section can be changed at runtime
+             MISS  the emission profile can be swapped
+             MISS  speed can be driven to mimic a merchant
+
+## Tactical
+
+  [PARTIAL] Task-force salvo deconfliction
+            prior guess: maybe
+             MISS  a mount can fire without the UI's fire command
+             MISS  a mount reports ready/ammo so a shot can be assigned
+              ok   ships share a picture through a datalink
+                   Microsoft.FSharp.Core.CompilationMappingAttribute::sourceConstructFlags
+                   Microsoft.FSharp.Core.CompilationMappingAttribute::get_SourceConstructFlags
+                   Microsoft.FSharp.Reflection.Impl::tryFindSourceConstructFlagsOfType
+              ok   time-to-intercept can be computed
+                   Microsoft.FSharp.Core.CompilerServices.TypeProviderConfig::resolutionFolder
+                   Microsoft.FSharp.Core.CompilerServices.TypeProviderConfig::useResolutionFolderAtRuntime
+                   Microsoft.FSharp.Core.CompilerServices.TypeProviderConfig::get_ResolutionFolder
+                   Microsoft.FSharp.Core.CompilerServices.TypeProviderConfig::set_ResolutionFolder
+
+  [BLOCKED] Seduction chaff and hard-rudder manoeuvres
+            prior guess: maybe
+             MISS  chaff/flares can be released from code
+             MISS  an incoming missile's phase is visible
+             MISS  a hard turn can be ordered
+
+  [BLOCKED] Degraded local control
+            prior guess: maybe
+             MISS  fire-control directors are damageable subsystems
+             MISS  a mount can be disabled independently
+             MISS  guns/CIWS can be told to engage locally
+
+  [BLOCKED] Cold cruise vs battle stations readiness
+            prior guess: maybe
+             MISS  reload/readiness is a per-mount timer
+             MISS  a unit's weapon status is set by the game
+             MISS  seekers/gyros have an explicit ready state
+
+## Formation & ASW
+
+  [BLOCKED] Threat-axis screen reorientation
+            prior guess: maybe
+             MISS  formations expose their stations
+             MISS  formation slots are addressable
+             MISS  bearing to a contact can be read
+             MISS  a course can be ordered
+
+  [BLOCKED] Automated sprint-and-drift ASW
+            prior guess: likely
+             MISS  speed can be set from code
+             MISS  towed arrays/sonars exist per ship
+             MISS  a quiet/cavitation speed exists
+
+  [BLOCKED] One-click helicopter search patterns
+            prior guess: likely
+             MISS  a flight deck can launch aircraft from code
+             MISS  launch is callable
+             MISS  waypoint tasks can be pushed onto a unit
+             MISS  sonobuoys can be deployed
+
+## Logistics
+
+  [BLOCKED] Functional underway replenishment
+            prior guess: unlikely
+             MISS  ships have a fuel quantity
+             MISS  fuel can be transferred between ships
+             MISS  magazines have a countable inventory
+
+  [BLOCKED] Battle stations fatigue
+            prior guess: unlikely
+             MISS  crew state exists as a modelled thing
+             MISS  general quarters is a settable state
+             MISS  reload time can be modified
+
+What next: send this file back. A PARTIAL verdict lists exactly which capability was missing,
+which is usually the question that decides the implementation.

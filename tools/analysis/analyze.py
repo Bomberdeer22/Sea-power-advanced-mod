@@ -3,6 +3,7 @@
 Ask questions of a .NET assembly from the command line.
 
     python analyze.py brief                     # the full survey -> analysis-report.txt
+    python analyze.py readiness                 # which planned features are buildable
     python analyze.py types   Sensor
     python analyze.py member  SeaPower.ObjectBase
     python analyze.py il      SeaPower.ObjectBase setOrder
@@ -21,6 +22,7 @@ import os
 import sys
 
 from gameapi import Assembly, access, modifiers
+from features import Probe, format_report
 from survey import build_report
 
 DEFAULT_DLL = r"C:\Program Files (x86)\Steam\steamapps\common\Sea Power\Sea Power_Data\Managed\Seapower-Scripts.dll"
@@ -53,6 +55,23 @@ def cmd_brief(assembly: Assembly, args) -> None:
         handle.write(report)
     print(f"Wrote {output} ({len(report.splitlines())} lines, {len(report) // 1024} KB)")
     print("Send that file back; it contains everything needed to check the API.")
+
+
+def cmd_readiness(assembly: Assembly, args) -> None:
+    probe = Probe(assembly, callsites=not args.fast, log=lambda message: print(message, file=sys.stderr))
+    results = probe.run()
+    report = format_report(assembly, results)
+
+    output = args.output or os.path.join(HERE, "feature-readiness.txt")
+    with open(output, "w", encoding="utf-8") as handle:
+        handle.write(report)
+
+    for result in results:
+        print(f"  [{result['verdict']:<7}] {result['name']}")
+
+    print()
+    print(f"Wrote {output}")
+    print("Send that file back to have the buildable ones implemented.")
 
 
 def cmd_types(assembly: Assembly, args) -> None:
@@ -141,6 +160,11 @@ def main() -> None:
     brief.add_argument("-o", "--output")
     brief.add_argument("--verbose", action="store_true", help="longer type lists")
     brief.set_defaults(func=cmd_brief)
+
+    readiness = sub.add_parser("readiness", help="which planned features this build can support")
+    readiness.add_argument("-o", "--output")
+    readiness.add_argument("--fast", action="store_true", help="skip call-site scans (much faster)")
+    readiness.set_defaults(func=cmd_readiness)
 
     types = sub.add_parser("types", help="list type names containing a string")
     types.add_argument("pattern")
