@@ -47,6 +47,26 @@ internal sealed class UnitRecord
     /// <summary>When the cut may end, so a volley does not leave the ship blind for ever.</summary>
     internal float AutoArmRestoreAt;
 
+    // --- defensive ECM -------------------------------------------------------------------------
+
+    /// <summary>Automatic defensive jamming is armed for this ship.</summary>
+    internal bool DefensiveEcm;
+
+    /// <summary>The jammer is up and being held on a missile right now.</summary>
+    internal bool EcmEngaged;
+
+    /// <summary>The engagement has been written to the log, so it is not repeated every refresh.</summary>
+    internal bool EcmEngagedLogged;
+
+    /// <summary>Game-clock time at which the lock should be re-pointed.</summary>
+    internal float EcmRefreshAt;
+
+    /// <summary>Game-clock time after which the jammer may stand down.</summary>
+    internal float EcmReleaseAt;
+
+    /// <summary>Air-search radar state before the engagement, so it can be put back.</summary>
+    internal bool EcmAirWasOn;
+
     // --- strike --------------------------------------------------------------------------------
 
     /// <summary>This ship is waiting for its slot in a deconflicted salvo.</summary>

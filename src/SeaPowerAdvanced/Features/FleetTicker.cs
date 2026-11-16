@@ -8,7 +8,8 @@ namespace SeaPowerAdvanced.Features;
 
 /// <summary>
 /// Drives everything that has to happen without the player clicking: radar blink cycles, automatic
-/// anti-radiation shutoff, release of a deconflicted salvo, and the readiness/fatigue clocks.
+/// anti-radiation shutoff, automatic defensive jamming, release of a deconflicted salvo, and the
+/// readiness/fatigue clocks.
 ///
 /// This is a hidden object with no interface at all. The features themselves live in the game's own
 /// right-click menus, in its own style; this only does the timing behind them.
@@ -42,6 +43,9 @@ public sealed class FleetTicker : MonoBehaviour
 
         try { AutoArm.Tick(); }
         catch (Exception error) { ModLog.Error("Auto-ARM shutoff failed", error); }
+
+        try { DefensiveEcm.Tick(); }
+        catch (Exception error) { ModLog.Error("Defensive ECM failed", error); }
 
         try { SalvoPlan.Tick(); }
         catch (Exception error) { ModLog.Error("Salvo release failed", error); }

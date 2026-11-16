@@ -211,6 +211,15 @@ internal static class SensorControl
         catch (Exception) { return null; }
     }
 
+    /// <summary>Whether the air-search radar is currently radiating, per the game's own state.</summary>
+    internal static bool? GetAirSearchOn(ObjectBase unit)
+    {
+        if (unit == null) return null;
+        MemberInfo? state = Find("airState",
+            () => MemberProbe.Value(Unit, "IsAirSearchRadarsOn"));
+        return MemberProbe.ReadReactiveBool(state, unit);
+    }
+
     /// <summary>Whether the surface-search radar is currently radiating, per the game's own state.</summary>
     internal static bool? GetSurfaceSearchOn(ObjectBase unit)
     {

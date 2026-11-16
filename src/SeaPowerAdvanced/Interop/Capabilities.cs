@@ -53,10 +53,16 @@ internal static class Capabilities
     internal static Capability FlightDeck { get; } =
         new("flight deck", "launch an aircraft from a ship's deck");
 
+    internal static Capability EcmSwitch { get; } =
+        new("ECM switch", "turn a unit's electronic countermeasures on or off");
+
+    internal static Capability EcmLock { get; } =
+        new("ECM lock", "point the jammer at a specific missile");
+
     private static readonly List<Capability> All = new()
     {
         RadarSwitch, TowedSonarSwitch, SonarSwitch, Emcon, Doctrine, Chaff, Reload, Incoming,
-        Waypoints, FlightDeck,
+        Waypoints, FlightDeck, EcmSwitch, EcmLock,
     };
 
     private static bool discovered;
@@ -131,6 +137,15 @@ internal static class Capabilities
         Bind(FlightDeck,
             MemberProbe.Method(unit, null, "FlightDeckLaunchUnit"),
             "FlightDeckLaunchUnit(ObjectType, ..., UnitRoles, MissionType, ...)");
+
+        // ECM is not in any dump this project has, so it is found by scanning the unit type for
+        // names mentioning ecm/jam - see Interop/EcmControl.cs, which also writes ecm-report.txt
+        // with everything it found. Nothing here is guessed member by member.
+        EcmControl.Discover();
+        Bind(EcmSwitch, EcmControl.SwitchMember,
+             "any member of ObjectBase named *ecm* / *jam* that switches state");
+        Bind(EcmLock, EcmControl.LockMember,
+             "any member of ObjectBase named *ecm* / *jam* that accepts a weapon");
 
         foreach (Capability capability in All) Report(capability);
     }

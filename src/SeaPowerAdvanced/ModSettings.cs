@@ -38,7 +38,7 @@ internal static class ModSettings
     internal static bool ShowWhenNoMounts => showWhenNoMounts?.Value ?? true;
     internal static bool VerboseLog => verboseLog?.Value ?? true;
 
-    /// <summary>Master switch for the twelve menu features (hatch control is unaffected).</summary>
+    /// <summary>Master switch for the menu features (hatch control is unaffected).</summary>
     internal static bool FeaturesEnabled => featuresEnabled?.Value ?? true;
 
     /// <summary>Seconds between radar blink flips. Short enough to see in a test mission.</summary>
@@ -127,7 +127,7 @@ internal static class ModSettings
                 + "make traffic come from more than one place.");
 
             featuresEnabled = file.Bind("Features", "Enabled", true,
-                "Add the twelve advanced features to the game's right-click menus: sensors and EMCON, "
+                "Add the advanced features to the game's right-click menus: sensors and EMCON, "
                 + "countermeasures, readiness, manoeuvres, air operations, strike, deception, logistics.");
 
             blinkSeconds = file.Bind("Features", "BlinkSeconds", 6f,

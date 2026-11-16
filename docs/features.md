@@ -1,12 +1,13 @@
-# The twelve advanced features
+# The advanced features
 
-All twelve live in the game's own right-click menu, each in the section a player would look in
-first - not stacked into one submenu. There is no mod window and no hotkey.
+There are thirteen now: the twelve original ones and automatic defensive ECM. All of them live in
+the game's own right-click menu, each in the section a player would look in first - not stacked into
+one submenu. There is no mod window and no hotkey.
 
 | Feature | Where it appears |
 |---|---|
 | Radars, air/surface search only, active sonar, towed array, EMCON profiles | **Sensors** |
-| Radar blink, auto-ARM shutoff, commercial disguise | **Sensors** (they are emission decisions) |
+| Radar blink, auto-ARM shutoff, **defensive ECM**, commercial disguise | **Sensors** (they are emission decisions) |
 | Salvo deconfliction | **Engage** (it is about who may fire, and when) |
 | Action stations, cold cruise, crew fatigue | **Rules of engagement** |
 | Sprint and drift, turn the screen onto the threat | **Formation** |
@@ -22,12 +23,13 @@ member it drives, and - where it matters - what it honestly cannot do.
 
 ## How to test them
 
-Right-click one of your ships → **Orders**. You should see **Weapon hatches** and eight more
-submenus. Each toggle states its own state in the label ("Radar blink: on - click to stop"), and
+Right-click one of your ships → **Orders**. You should see **Weapon hatches** and the feature
+entries, spread across Sensors, Engage, Rules of engagement, Formation, Air operations, Damage
+control and Logistics. Each toggle states its own state in the label ("Radar blink: on - click to stop"), and
 each action reports through the game's order-feedback text as well as `seapoweradvanced.log`.
 
 Anything that goes wrong is written down. `capabilities.txt` in the mod folder lists every lever the
-mod found in your build of the game.
+mod found in your build of the game, and `ecm-report.txt` lists every ECM member and type it found.
 
 ---
 
@@ -51,6 +53,39 @@ picture, which is why it is off by default and opt-in per ship.
 |---|---|
 | Sensors used | `_incomingWeapons`, `_dangerousMissiles`, `ThreateningMissile` (read by reflection: you cannot call the `get_` accessor, that is CS0571) |
 | Honest limit | The game does not label a missile as anti-radiation in any readable member, so **any** inbound weapon goes dark. That is conservative on purpose. |
+| With defensive ECM | Defensive ECM wins while it is jamming: a jammer cannot hold a lock with the radar dark. The two features do not fight each other on the same ship. |
+
+## 2b. Automatic defensive ECM — `Sensors and EMCON`
+
+Every ship that carries a jammer also defends itself and its formation with it, without being
+asked twice. When a vampire - a weapon the game is tracking against this ship, or against any ship
+of the task force within 25 nm - appears, the mod:
+
+1. **puts the air-search radar on.** A jammer needs a fire-control quality bearing to know where to
+   point, and that bearing comes from radiating. This is the price, and it is not optional: while
+   the jammer works, the ship is the loudest thing in the water. It is the same trade a real
+   commanding officer makes, and it is why the feature is armed deliberately rather than always on.
+2. **hands the missile itself to the jammer** as its target, so the set is pointing at the seeker
+   rather than at a bearing the mod computed.
+3. **raises power or mode**, where this build exposes a control whose units the mod can trust.
+4. **holds the lock** - the target is re-pointed four times a second for as long as the missile is
+   tracked, so a lock that the game clears is immediately re-established.
+
+When the sky has been clear for six seconds it stands down, stops jamming, and puts the air-search
+radar back exactly as it was found.
+
+| Drives | The game's own ECM switch, ECM target member and power/mode member - all found at runtime by name, never guessed (see `Interop/EcmControl.cs`) |
+|---|---|
+| Sensors | Air-search radar on for the duration; that is the deliberate cost |
+| Range | Defends the ship and any task-force ship within 25 nm of it |
+| Honest limit | **The mod cannot promise the missile misses.** It points the game's jammer at the game's missile and keeps it there; whether the seeker breaks lock is the simulation's answer. "Almost impossible to resist" is not something a mod can guarantee without knowing the game's jamming model, and this one does not pretend to. |
+| Honest limit | If this build names its jammers something the scan does not recognise, the feature says so in the menu and writes `ecm-report.txt` listing every ECM-like member it found. That file is ground truth from the installed game and is the fastest way to make the next build exact. |
+
+| Setting | What it does |
+|---|---|
+| Sensors → *Defensive ECM: off - click to arm automatic jamming* | Arms this ship |
+| Sensors → *Defensive ECM for the whole task force* | Arms every ship under command |
+| Sensors → *ECM: what this build exposes* | Writes `ecm-report.txt` again on demand |
 
 ## 3. Commercial signature spoofing — `Deception`
 
@@ -161,5 +196,6 @@ more slowly than tiring, so there is a real cost to leaving the fleet closed up 
 
 ## What to send back if something misbehaves
 
-`seapoweradvanced.log` (mod folder) and `capabilities.txt` (same folder). The log names every feature
-and its result per ship, so a single failed action is easy to find.
+`seapoweradvanced.log` (mod folder), `capabilities.txt` and `ecm-report.txt` (same folder). The log
+names every feature and its result per ship, so a single failed action is easy to find; the two
+report files say what the game actually exposes.

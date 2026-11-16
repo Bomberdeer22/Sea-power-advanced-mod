@@ -4,7 +4,7 @@ An advanced mod for **Sea Power: Naval Combat in the Missile Age**, built as an
 [Anchor Chain](https://github.com/SeaPower-Modders/AnchorChain) code mod and loadable as a plain
 BepInEx plugin.
 
-**Version 0.8.2** — twelve advanced features, plus hatch control and civilian traffic.
+**Version 0.9.0** — thirteen advanced features, plus hatch control and civilian traffic.
 
 ### 1. Manual hatch control
 
@@ -27,7 +27,7 @@ Orders
       Log hatch report
 ```
 
-### 3. Twelve advanced features, in the right-click menu
+### 3. Thirteen advanced features, in the right-click menu
 
 Right-click one of your ships. Each feature appears in the section of the menu where a player would
 look for it, rather than in one long submenu:
@@ -35,7 +35,8 @@ look for it, rather than in one long submenu:
 ```
 Orders                      Weapon hatches (feature 1)
 Sensors                     radars, air/surface search only, active sonar, towed array,
-                            EMCON profiles, radar blink, auto-ARM, commercial disguise
+                            EMCON profiles, radar blink, auto-ARM, defensive ECM,
+                            commercial disguise
 Engage                      deconflict the salvo, release everyone
 Rules of engagement         action stations / cold cruise, crew fatigue status
 Formation                   sprint and drift (this ship or the whole force),
@@ -52,6 +53,14 @@ in an unexpected place.
 
 Every entry that is a toggle shows its current state in the label, and every one reports what
 happened through the game's own order-feedback text as well as the log.
+
+**Defensive ECM** is the newest one. Arm it on a ship (or on the whole task force) and its jammer
+comes up automatically the moment a vampire is in the air - pointing at the missile itself and
+holding the lock, at the price of radiating air search while it works, because a jammer needs a
+fire-control quality bearing to know where to point. It stands down six seconds after the sky is
+clear and puts the radar back as it found it. What it cannot promise is that the missile misses:
+that is the game's own jamming model, not the mod's. `ecm-report.txt` says exactly which ECM members
+your install exposes and what the mod does with them.
 
 ### 2. Civilian traffic zones (mission editor)
 
@@ -114,7 +123,7 @@ or a PowerShell window that closes itself).
 Prefer PowerShell? `tools\build-portable.ps1 -Install` does the same job when it is permitted.
 
 The DLL goes into `BepInEx\plugins\SeaPowerAdvanced\`, so **BepInEx loads it directly** — there is
-no mod-manager checkbox on this route. BepInEx's log then shows `Loading [Sea Power Advanced 0.8.2]`,
+no mod-manager checkbox on this route. BepInEx's log then shows `Loading [Sea Power Advanced 0.9.0]`,
 and the mod writes its own `seapoweradvanced.log` next to the DLL.
 
 ## Use it
@@ -328,7 +337,9 @@ src/SeaPowerAdvanced/
   Interop/WeaponStatusControl.cs the weapons-status enum, taken from the game's method signature
   Interop/WaypointControl.cs     setWaypointTask, with its arguments built from its own signature
   Interop/FlightDeckControl.cs   the flight-deck launch call, likewise - no game enum is named
-  Menu/FleetMenu.cs              the twelve features, distributed across the game's sections
+  Interop/Inbound.cs             the vampires: what is inbound to a ship or to the ships near it
+  Interop/EcmControl.cs          discovers the ECM switch, target and power by name; ecm-report.txt
+  Menu/FleetMenu.cs              the features, distributed across the game's sections
   Menu/MenuRouting.cs            puts each entry in the section a player would look in first
   Menu/FleetMenuPatch.cs         its own Harmony patch, so a hatch-menu problem cannot hide it
   Menu/MenuReport.cs             menu-report.txt: which label went where in the live menus
@@ -343,6 +354,7 @@ src/SeaPowerAdvanced/
   Features/HeloPatterns.cs       one-click helicopter search patterns
   Features/MerchantDisguise.cs   reduced emissions and a civilian-looking signature
   Features/Replenishment.cs      ammunition from a supply ship alongside
+  Features/DefensiveEcm.cs       automatic defensive jamming of missiles inbound to ship or force
   Features/FleetTicker.cs        the timers behind the timed features (no interface of its own)
   ModInfo.cs, ModLog.cs     identity and logging
 

@@ -72,12 +72,17 @@ internal static class Boot
             // it. Reflection, so a renamed or non-public member is a logged miss, not a crash.
             Capabilities.Discover();
             CapabilityReport.Write();
+
+            // The ECM interface is discovered before anything uses it, and written down: if this
+            // build names its jammers differently, ecm-report.txt says what they are called.
+            EcmControl.Discover();
+            EcmControl.WriteReport();
             ModLog.Info("Game interface: " + CapabilityReport.Summary());
 
             harmony = new Harmony(ModInfo.Id);
             HatchMenu.Install(harmony);
 
-            // Its own patch, so a hatch-menu skip cannot take the twelve features with it.
+            // Its own patch, so a hatch-menu skip cannot take the features with it.
             FleetMenuPatch.Install(harmony);
             TrafficPanel.Install();
 

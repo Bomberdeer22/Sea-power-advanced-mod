@@ -3,7 +3,7 @@
 Run this once per game version, and after any change to `HatchControl`, `HatchMenu`,
 `TrafficGenerator` or `RouteFactory`.
 
-Version under test: **0.8.2**. Mod id `io.github.bomberdeer22.seapoweradvanced`.
+Version under test: **0.9.0**. Mod id `io.github.bomberdeer22.seapoweradvanced`.
 
 **Read the log, do not guess.** Everything below is confirmed by two files:
 
@@ -34,11 +34,11 @@ If `seapoweradvanced.log` is missing, nothing else in this plan can pass — sto
 
 In `LogOutput.log`, BepInEx's own banner should appear:
 
-- [ ] `Loading [Sea Power Advanced 0.8.2]`
+- [ ] `Loading [Sea Power Advanced 0.9.0]`
 
 Then the mod's own startup lines:
 
-- [ ] `Sea Power Advanced: ================ Sea Power Advanced 0.8.2 ================`
+- [ ] `Sea Power Advanced: ================ Sea Power Advanced 0.9.0 ================`
 - [ ] `Sea Power Advanced: Entry point:  BepInEx plugin`
 - [ ] `Sea Power Advanced: Settings: enabled=True includeGuns=False ...`
 - [ ] `Sea Power Advanced: Patched MapUnitViewModel.GetContextMenuItems.`
@@ -103,7 +103,7 @@ the BepInEx route.
 - [ ] No `NullReferenceException` or `TypeLoadException` in `LogOutput.log`
 - [ ] Ten minutes of play: no crash, log does not grow without bound
 
-## 6b. The twelve advanced features (right-click menu)
+## 6b. The advanced features (right-click menu)
 
 Full description of each: [features.md](features.md). Right-click one of your ships.
 
@@ -112,12 +112,23 @@ Full description of each: [features.md](features.md). Right-click one of your sh
 - [ ] **Breakaway** is at the top level of the right-click menu, one click away
 - [ ] `menu-report.txt` (mod folder) lists the section labels found and **where each entry went** -
       check it against the list above; it is the file to send if an entry is in the wrong place
-- [ ] `capabilities.txt` lists the gameplay levers found in this build
+- [ ] `capabilities.txt` lists the gameplay levers found in this build, and `ecm-report.txt` lists
+      every ECM member and type the scan found
 - [ ] Each toggle shows its state in the label and flips when clicked
 - [ ] **Sensors and EMCON → Radars off** actually darkens the ship; `Radars on` brings them back
 - [ ] **Radar blink** cycles the surface-search radar; stopping puts it back as it was
 - [ ] **Countermeasures → Breakaway** launches chaff and turns the ship
 - [ ] **Countermeasures → Auto-ARM shutoff** goes dark when a missile is inbound, then recovers
+- [ ] **Sensors → Defensive ECM: ... - click to arm** arms one ship; the label then reads
+      *armed, waiting for a vampire*
+- [ ] **Sensors → Defensive ECM for the whole task force** arms every ship at once
+- [ ] With a missile fired at the task force: the log shows
+      `Defensive ECM: <ship> engaging a missile inbound to <ship> - air search on, lock on the
+      missile via <member>, jamming`, the ship's air-search radar comes on, and six seconds after
+      the sky clears the log shows `stood down` and the radar goes back as it was
+- [ ] If this build exposes no ECM at all, the menu says so instead of pretending, and
+      `ecm-report.txt` lists what the scan looked at - **send that file**, it is the missing piece
+- [ ] **Sensors → ECM: what this build exposes** rewrites `ecm-report.txt` on demand
 - [ ] **Readiness → Action stations** shows fatigue climbing; reloads shorten
 - [ ] **Manoeuvres → Sprint and drift** sets the doctrine (check the log for the cavitation speed)
 - [ ] **Manoeuvres → Turn the screen onto the threat** re-stations the ships on one bearing

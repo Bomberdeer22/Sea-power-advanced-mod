@@ -1,5 +1,42 @@
 # Changelog
 
+## 0.9.0 — automatic defensive ECM
+
+Every ship that carries a jammer now defends itself and its formation with it, without being asked
+twice. Armed per ship or for the whole task force, and automatic from there.
+
+- **A vampire wakes the jammer.** Any weapon the game tracks against this ship - or against a
+  task-force ship within 25 nm - triggers it. The missile *instance* is handed to the game's own ECM
+  target member, so the set points at the seeker rather than at a bearing the mod computed, and the
+  lock is re-pointed four times a second for as long as the missile is tracked, so a lock the game
+  clears is immediately re-established.
+- **Air search radars go on, deliberately.** A jammer needs a fire-control quality bearing, and the
+  price of that bearing is an emission the other side can see. The feature is loud on purpose; that
+  is the trade, and it is why it is armed rather than always on.
+- **Power to maximum** where this build exposes a power or mode member whose units the mod can
+  trust. A bare number with unknown units is left alone rather than set to a guess.
+- **Stands down on its own** six seconds after the last vampire, stops jamming, and restores the
+  air-search radar to exactly the state it was found in.
+- **Honest limit, stated in the menu and the docs:** the mod points the game's jammer at the game's
+  missile and holds it there. Whether the seeker breaks lock is the simulation's answer. No mod that
+  cannot see the jamming model should claim a missile "almost certainly" misses, and this one does
+  not.
+
+### How the interface was found
+
+ECM is not in any dump this project has, and every game type named in code from memory has failed to
+compile. So `Interop/EcmControl.cs` discovers the interface instead: it scans the game's unit type
+for members whose names mention `ecm` or `jam`, sorts them by shape (switch, target holder, power or
+mode), and uses whatever is there. `Interop/Inbound.cs` holds the single definition of "inbound",
+now shared with the auto-ARM feature so the two can never disagree.
+
+- **`ecm-report.txt`** is written at startup and on demand: every ECM-like member on the game's
+  unit type, every type in `Seapower-Scripts.dll` whose name mentions ecm/jam/decoy, and what the
+  mod does with each. If this build names its jammers something else, that file says what - it is
+  read from the installed game, so it is ground truth rather than a guess.
+- If nothing is found, the menu says so plainly instead of pretending, and the report is the file to
+  send. `diagnose.cmd` now collects it alongside `capabilities.txt`.
+
 ## 0.8.2 — 0.8.1's compile errors
 
 0.8.1 got past the `Capability` and `using` errors and stopped on twelve more, all of the same two

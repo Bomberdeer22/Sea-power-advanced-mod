@@ -38,6 +38,12 @@ internal static class CapabilityReport
             foreach (string line in SensorControl.Describe()) text.AppendLine(line);
 
             text.AppendLine();
+            text.AppendLine("Electronic countermeasures");
+            text.AppendLine("--------------------------");
+            foreach (string line in EcmControl.Describe()) text.AppendLine(line);
+            text.AppendLine("  ecm-report.txt lists every member and type the scan found.");
+
+            text.AppendLine();
             text.AppendLine("Context menu sections found in this build");
             text.AppendLine("-----------------------------------------");
             text.AppendLine("  " + MenuRouting.Describe());

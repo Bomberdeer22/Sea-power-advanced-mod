@@ -10,7 +10,7 @@ using UniRx;
 namespace SeaPowerAdvanced.Menu;
 
 /// <summary>
-/// The twelve advanced features, dropped into the section of the game's own right-click menu where
+/// The advanced features, dropped into the section of the game's own right-click menu where
 /// each belongs rather than stacked into one submenu.
 ///
 /// Where things go, and why:
@@ -148,6 +148,39 @@ internal static class FleetMenu
             : Action("Auto-ARM shutoff: off - click to turn on",
                 "Cuts the radars for eight seconds whenever a weapon is inbound.",
                 () => Report(unit, "auto-ARM", AutoArm.Toggle(unit, out string r), r)), MenuRouting.Sensors);
+
+        if (EcmControl.Available)
+        {
+            Add(DefensiveEcm.IsArmed(unit)
+                ? Action("Defensive ECM: " + DefensiveEcm.Describe(unit) + " - click to disarm",
+                    "Stops jamming incoming missiles automatically.",
+                    () => Report(unit, "defensive ECM", DefensiveEcm.Toggle(unit, out string r), r))
+                : Action("Defensive ECM: off - click to arm automatic jamming",
+                    "Points this ship's jammer at any missile inbound to it or to the task force, "
+                    + "and holds the lock. Air search has to radiate while it does.",
+                    () => Report(unit, "defensive ECM", DefensiveEcm.Toggle(unit, out string r), r)),
+                MenuRouting.Sensors);
+
+            Add(Action("Defensive ECM for the whole task force",
+                "Arms automatic defensive jamming on every ship under command.",
+                () => Fleet("defensive ECM (fleet)", DefensiveEcm.ArmFleet(true, out string r), r)),
+                MenuRouting.Sensors);
+        }
+        else
+        {
+            Add(Disabled("Defensive ECM: this build exposes no ECM to drive",
+                "The mod found no ECM member on the game's units. ecm-report.txt lists what it "
+                + "looked at - send that file and the next build can use the real names."),
+                MenuRouting.Sensors);
+        }
+
+        Add(Action("ECM: what this build exposes",
+            "Writes ecm-report.txt and logs what the jammer interface looks like in this install.",
+            () =>
+            {
+                EcmControl.WriteReport();
+                ModLog.Info("Menu: ECM report written - " + EcmControl.Summary());
+            }), MenuRouting.Sensors);
 
         Add(MerchantDisguise.IsDisguised(unit)
             ? Action("Commercial disguise: on - click to drop it",

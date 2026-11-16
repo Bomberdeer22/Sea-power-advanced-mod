@@ -1,6 +1,5 @@
 using System;
 using System.Collections.Generic;
-using System.Reflection;
 using SeaPower;
 using SeaPowerAdvanced.Interop;
 using UnityEngine;
@@ -17,9 +16,13 @@ namespace SeaPowerAdvanced.Features;
 /// ObjectBase._incomingWeapons        List&lt;WeaponBase&gt;  - weapons tracked against this unit
 /// ObjectBase._dangerousMissiles      List&lt;Missile&gt;
 /// ObjectBase.ThreateningMissile      read by reflection - the accessor cannot be called
+///                                          (see Interop/Inbound.cs, shared with the ECM feature)
 /// ObjectBase.TracksIncomingWeapons()
 /// ObjectBase.DisableAllRadars() / EnableAllRadars(bool)
 /// </code>
+///
+/// If defensive ECM is also armed on the same ship, it takes precedence while it is jamming: the
+/// jammer cannot hold a lock with the radar dark, so going dark would defeat both features.
 ///
 /// Because the game does not label a missile as "anti-radiation" in any member this mod can read,
 /// the rule is deliberately conservative: any inbound weapon triggers a dark period. That leaves
@@ -76,6 +79,12 @@ internal static class AutoArm
                 }
 
                 if (!record.AutoArm || record.AutoArmCut) continue;
+
+                // Contradictory tactics, one ship: defensive ECM needs the air-search radar
+                // radiating to keep its lock, so it wins for as long as a jammer is up. Going dark
+                // would blind the jammer and defeat both features at once.
+                if (record.EcmEngaged) continue;
+
                 if (!HasInbound(unit)) continue;
 
                 if (SensorControl.SetAllRadars(unit, false))
@@ -93,37 +102,11 @@ internal static class AutoArm
     }
 
     /// <summary>
-    /// True when the game is tracking a weapon against this unit. Both the public missile list and
-    /// the private weapon list are consulted, so either one being present is enough.
+    /// True when the game is tracking a weapon against this unit. The definition of "inbound" lives
+    /// in <see cref="Inbound"/> and is shared with the defensive ECM feature, so the two can never
+    /// disagree about whether a vampire is in the air.
     /// </summary>
-    private static bool HasInbound(ObjectBase unit)
-    {
-        try
-        {
-            if (unit._dangerousMissiles != null && unit._dangerousMissiles.Count > 0) return true;
-            if (unit._incomingWeapons != null && unit._incomingWeapons.Count > 0) return true;
-        }
-        catch (Exception) { }
-
-        // The documented getter is get_ThreateningMissile(), and calling that explicitly is a
-        // compile error (CS0571: you cannot call an accessor by name), so the property is read
-        // through reflection instead. A value type can never be null there, so one is treated as
-        // "no answer" rather than as "a missile is inbound" - otherwise the ship would sit with its
-        // radars cut for ever, which is worse than missing one warning.
-        try
-        {
-            MemberInfo? missile = MemberProbe.Value(typeof(ObjectBase), "ThreateningMissile");
-            if (missile == null) return false;
-
-            Type type = missile is PropertyInfo property ? property.PropertyType
-                        : ((FieldInfo)missile).FieldType;
-
-            if (type.IsValueType && Nullable.GetUnderlyingType(type) == null) return false;
-
-            return MemberProbe.Read(missile, unit) != null;
-        }
-        catch (Exception) { return false; }
-    }
+    private static bool HasInbound(ObjectBase unit) => Inbound.Any(unit);
 
     private static string Name(ObjectBase unit)
     {
