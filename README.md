@@ -4,7 +4,7 @@ An advanced mod for **Sea Power: Naval Combat in the Missile Age**, built as an
 [Anchor Chain](https://github.com/SeaPower-Modders/AnchorChain) code mod and loadable as a plain
 BepInEx plugin.
 
-**Version 0.9.0** — thirteen advanced features, plus hatch control and civilian traffic.
+**Version 0.10.0** — fourteen advanced features, plus hatch control and civilian traffic.
 
 ### 1. Manual hatch control
 
@@ -27,7 +27,7 @@ Orders
       Log hatch report
 ```
 
-### 3. Thirteen advanced features, in the right-click menu
+### 3. Fourteen advanced features, in the right-click menu
 
 Right-click one of your ships. Each feature appears in the section of the menu where a player would
 look for it, rather than in one long submenu:
@@ -36,7 +36,7 @@ look for it, rather than in one long submenu:
 Orders                      Weapon hatches (feature 1)
 Sensors                     radars, air/surface search only, active sonar, towed array,
                             EMCON profiles, radar blink, auto-ARM, defensive ECM,
-                            commercial disguise
+                            offensive ECM (two modes), commercial disguise
 Engage                      deconflict the salvo, release everyone
 Rules of engagement         action stations / cold cruise, crew fatigue status
 Formation                   sprint and drift (this ship or the whole force),
@@ -123,7 +123,7 @@ or a PowerShell window that closes itself).
 Prefer PowerShell? `tools\build-portable.ps1 -Install` does the same job when it is permitted.
 
 The DLL goes into `BepInEx\plugins\SeaPowerAdvanced\`, so **BepInEx loads it directly** — there is
-no mod-manager checkbox on this route. BepInEx's log then shows `Loading [Sea Power Advanced 0.9.0]`,
+no mod-manager checkbox on this route. BepInEx's log then shows `Loading [Sea Power Advanced 0.10.0]`,
 and the mod writes its own `seapoweradvanced.log` next to the DLL.
 
 ## Use it
@@ -339,6 +339,7 @@ src/SeaPowerAdvanced/
   Interop/FlightDeckControl.cs   the flight-deck launch call, likewise - no game enum is named
   Interop/Inbound.cs             the vampires: what is inbound to a ship or to the ships near it
   Interop/EcmControl.cs          discovers the ECM switch, target and power by name; ecm-report.txt
+  Interop/SensorSet.cs           reads a unit's sensor fit and signatures, and silences them
   Menu/FleetMenu.cs              the features, distributed across the game's sections
   Menu/MenuRouting.cs            puts each entry in the section a player would look in first
   Menu/FleetMenuPatch.cs         its own Harmony patch, so a hatch-menu problem cannot hide it
@@ -355,6 +356,7 @@ src/SeaPowerAdvanced/
   Features/MerchantDisguise.cs   reduced emissions and a civilian-looking signature
   Features/Replenishment.cs      ammunition from a supply ship alongside
   Features/DefensiveEcm.cs       automatic defensive jamming of missiles inbound to ship or force
+  Features/OffensiveEcm.cs       two modes: the game's own, or signature lock on one contact
   Features/FleetTicker.cs        the timers behind the timed features (no interface of its own)
   ModInfo.cs, ModLog.cs     identity and logging
 

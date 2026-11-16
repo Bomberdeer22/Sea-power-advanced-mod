@@ -83,7 +83,7 @@ MOD_TYPES = [
     "Boot", "ModInfo", "ModLog", "ModSettings", "ModFolders", "ModActivation",
     "Capabilities", "Capability", "CapabilityReport", "MemberProbe", "SensorControl",
     "GameWorld", "UnitState", "UnitRecord", "WeaponStatusControl",
-    "WaypointControl", "FlightDeckControl", "Inbound", "EcmControl", "DefensiveEcm",
+    "WaypointControl", "FlightDeckControl", "Inbound", "EcmControl", "DefensiveEcm", "OffensiveEcm", "SensorSet",
     "HatchMenu", "FleetMenu", "FleetMenuPatch", "MenuRouting", "MenuReport",
     "HatchBay", "HatchControl", "HatchGroup", "ShipReport", "TrafficPanel",
     "FleetTicker", "Blink", "AutoArm", "SalvoPlan", "Breakaway", "Readiness",

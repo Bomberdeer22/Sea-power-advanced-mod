@@ -30,6 +30,7 @@ internal static class ModSettings
     private static ConfigEntry<bool>? featuresEnabled;
     private static ConfigEntry<float>? blinkSeconds;
     private static ConfigEntry<float>? salvoSpacingSeconds;
+    private static ConfigEntry<float>? jamRangeNm;
 
     internal static bool Enabled => enabled?.Value ?? true;
     internal static bool IncludeGuns => includeGuns?.Value ?? false;
@@ -43,6 +44,9 @@ internal static class ModSettings
 
     /// <summary>Seconds between radar blink flips. Short enough to see in a test mission.</summary>
     internal static float BlinkSeconds => blinkSeconds?.Value ?? 6f;
+
+    /// <summary>How far the focused (signature-lock) offensive jammer reaches, in nautical miles.</summary>
+    internal static float JamRangeNm => jamRangeNm?.Value ?? 40f;
 
     /// <summary>Seconds between ships being released in a deconflicted salvo.</summary>
     internal static float SalvoSpacingSeconds => salvoSpacingSeconds?.Value ?? 8f;
@@ -133,6 +137,10 @@ internal static class ModSettings
             blinkSeconds = file.Bind("Features", "BlinkSeconds", 6f,
                 "Seconds between radar blink flips (2-120). Blink cycles the surface-search radar so "
                 + "an anti-radiation seeker has less to home on.");
+
+            jamRangeNm = file.Bind("Features", "JamRangeNm", 40f,
+                "How far the focused offensive jammer reaches, in nautical miles (5-200). Beyond "
+                + "this the lock drops and the target's crew can bring its sensors back up.");
 
             salvoSpacingSeconds = file.Bind("Features", "SalvoSpacingSeconds", 8f,
                 "Seconds between ships being released to fire in a deconflicted salvo (1-60).");

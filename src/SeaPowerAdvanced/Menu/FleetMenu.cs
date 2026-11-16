@@ -174,6 +174,37 @@ internal static class FleetMenu
                 MenuRouting.Sensors);
         }
 
+        // --- Offensive ECM: two modes, the game's own and the focused one ---------------------
+        if (EcmControl.Available)
+        {
+            Add(OffensiveEcm.ModeOf(unit) == OffensiveEcm.Mode.SignatureLock
+                ? Action("Offensive ECM: signature lock - click for standard",
+                    "Hands the jammer back to the game's own behaviour and releases any lock.",
+                    () => Report(unit, "offensive ECM",
+                        OffensiveEcm.SetMode(unit, OffensiveEcm.Mode.Standard, out string r), r))
+                : Action("Offensive ECM: standard - click for signature lock",
+                    "The game's own ECM leaves the target's sensors alone. Signature lock reads one "
+                    + "contact's sensor fit and holds every family of it switched off.",
+                    () => Report(unit, "offensive ECM",
+                        OffensiveEcm.SetMode(unit, OffensiveEcm.Mode.SignatureLock, out string r), r)),
+                MenuRouting.Sensors);
+
+            if (OffensiveEcm.ModeOf(unit) == OffensiveEcm.Mode.SignatureLock)
+            {
+                Add(OffensiveLockMenu(unit), MenuRouting.Sensors);
+
+                Add(Disabled("Offensive ECM: " + OffensiveEcm.Describe(unit),
+                    "What the focused jammer is doing right now."), MenuRouting.Sensors);
+            }
+        }
+        else
+        {
+            Add(Disabled("Offensive ECM: this build exposes no ECM to drive",
+                "The mod found no ECM member to point at a contact. ecm-report.txt lists what it "
+                + "looked at - send that file and the next build can use the real names."),
+                MenuRouting.Sensors);
+        }
+
         Add(Action("ECM: what this build exposes",
             "Writes ecm-report.txt and logs what the jammer interface looks like in this install.",
             () =>
@@ -255,6 +286,59 @@ internal static class FleetMenu
             Array.Empty<string>());
 
         return entries;
+    }
+
+    /// <summary>
+    /// The lock menu: one entry per hostile contact the ship can actually see, plus release.
+    ///
+    /// The list is rebuilt every time the menu opens from the ship's own contact picture, so a
+    /// target that has been sunk or has run out of range is not offered. Nothing here invents a
+    /// contact the force cannot see.
+    /// </summary>
+    private static ContextMenuItem OffensiveLockMenu(ObjectBase unit)
+    {
+        var items = new List<ContextMenuItem>();
+
+        List<ObjectBase> contacts = OffensiveEcm.Contacts(unit);
+        int offered = 0;
+
+        foreach (ObjectBase contact in contacts)
+        {
+            if (offered >= 8) break;
+            offered++;
+
+            items.Add(Action("Lock " + ContactName(contact) + " (" + ContactRange(unit, contact) + " nm)",
+                "Read this contact's sensor fit, then hold every sensor it has switched off.",
+                () => Report(unit, "offensive lock",
+                    OffensiveEcm.Lock(unit, contact, out string r), r)));
+        }
+
+        if (offered == 0)
+        {
+            items.Add(Disabled("No hostile contact within " + (int)ModSettings.JamRangeNm + " nm",
+                "The ship's own picture has to hold the contact before the jammer can be pointed at "
+                + "it - the mod does not invent targets."));
+        }
+
+        items.Add(Action("Release the lock", "Stops holding the target's sensors down.",
+            () => Report(unit, "offensive release", OffensiveEcm.Release(unit, out string r), r)));
+
+        return new ContextMenuItem(
+            label: "Offensive ECM lock (" + OffensiveEcm.ContactSummary(unit) + ")",
+            items: new TrulyObservableCollection<ContextMenuItem>(items),
+            tooltip: "Point this ship's jammer at one contact and keep it blind.");
+    }
+
+    private static string ContactName(ObjectBase contact)
+    {
+        try { return contact.DisplayNameShort; }
+        catch (Exception) { return "<contact>"; }
+    }
+
+    private static int ContactRange(ObjectBase ship, ObjectBase contact)
+    {
+        try { return (int)ThreatAxis.Distance(ship.getGeoPosition(), contact.getGeoPosition()); }
+        catch (Exception) { return -1; }
     }
 
     private static ContextMenuItem SprintDoctrineItem(ObjectBase unit)

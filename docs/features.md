@@ -1,13 +1,14 @@
 # The advanced features
 
-There are thirteen now: the twelve original ones and automatic defensive ECM. All of them live in
+There are fourteen now: the twelve original ones, automatic defensive ECM, and offensive ECM in
+two modes. All of them live in
 the game's own right-click menu, each in the section a player would look in first - not stacked into
 one submenu. There is no mod window and no hotkey.
 
 | Feature | Where it appears |
 |---|---|
 | Radars, air/surface search only, active sonar, towed array, EMCON profiles | **Sensors** |
-| Radar blink, auto-ARM shutoff, **defensive ECM**, commercial disguise | **Sensors** (they are emission decisions) |
+| Radar blink, auto-ARM shutoff, **defensive ECM**, **offensive ECM**, commercial disguise | **Sensors** (they are emission decisions) |
 | Salvo deconfliction | **Engage** (it is about who may fire, and when) |
 | Action stations, cold cruise, crew fatigue | **Rules of engagement** |
 | Sprint and drift, turn the screen onto the threat | **Formation** |
@@ -86,6 +87,45 @@ radar back exactly as it was found.
 | Sensors → *Defensive ECM: off - click to arm automatic jamming* | Arms this ship |
 | Sensors → *Defensive ECM for the whole task force* | Arms every ship under command |
 | Sensors → *ECM: what this build exposes* | Writes `ecm-report.txt` again on demand |
+
+## 2c. Offensive ECM, two modes — `Sensors and EMCON`
+
+The ship's jammer, used deliberately. There are two modes and the default is the one that changes
+nothing.
+
+### Standard (default)
+
+The game's own ECM behaviour. The mod does not touch the set, does not radiate for it, and switches
+back to this the moment you pick it - which also releases any lock it was holding. If you never open
+this menu, nothing about your jamming changes.
+
+### Signature lock
+
+Right-click the ship → **Sensors → Offensive ECM lock** and pick a contact from the list (the
+contacts your own picture holds, nearest first, max 40 nm). The mod then:
+
+1. **reads that contact's sensor fit** - which radar families it has and whether each is up, whether
+   it has a towed array or active sonar, whether it is running ESM or its own jammer, and what its
+   hull signature reads as. This read is the lock: a jammer that has not identified what the other
+   ship is radiating with has nothing to aim at.
+2. **switches every one of those families off** on that contact, and only that contact.
+3. **holds them down** - re-asserted ten times a second for as long as the lock is held, because
+   the target's crew can switch a set back on in between. This is sustained suppression, not a
+   one-off toggle.
+4. **stands the lock down** when the target is sunk, runs beyond range, you release it, or you go
+   back to standard. The air-search radar the jammer needed is then put back the way it was found.
+
+| Drives | The target's own switches: `DisableAllRadars()`, `DisableAirSearchRadars`, `DisableSurfaceSearchRadars`, `TowedSonarsSetActive(false)`, `DisableActiveSonars`, plus any ESM / jammer switch it exposes |
+|---|---|
+| Reads | Its radiator state (`IsAirSearchRadarsOn`, `IsSurfaceSearchRadarsOn`), its sensor fit (`HasTowedSonar`, `HasActiveSonar`), its hull signature from its parameter block |
+| Range | `Features/JamRangeNm`, default 40 nm |
+| Cost | The jammer ship radiates air search for the whole engagement, exactly as the defensive feature does |
+| Honest limit | "Fully blind" means **every sensor family the mod could reach was switched off and read back as off**. If this build will not let the mod switch one, the menu says *partially blind* and names it, and `offensive-ecm.txt` lists it as `STILL`. The mod does not edit the target's picture to hide that. |
+| Honest limit | The effect lasts as long as the lock is held. It is not a permanent state change to the other ship's data, and it stops the moment the lock is released - which is why the mod re-asserts rather than setting it once. |
+
+`offensive-ecm.txt` in the mod folder records every lock, appended rather than overwritten: the
+signatures read off the target, what was silenced, what was not, and the jammer path used. It is the
+file to send if the target does not go quiet when it should.
 
 ## 3. Commercial signature spoofing — `Deception`
 

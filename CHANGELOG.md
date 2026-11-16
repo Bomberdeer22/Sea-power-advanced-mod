@@ -1,5 +1,38 @@
 # Changelog
 
+## 0.10.0 — offensive ECM, in two modes
+
+The ship's jammer, used deliberately. Standard stays the default and changes nothing; signature lock
+is the focused mode.
+
+- **Standard** is the game's own ECM behaviour. The mod does not touch the set and does not radiate
+  for it. Switching back to it releases any lock.
+- **Signature lock** reads one contact's sensor fit before jamming anything - which radar families
+  it has and whether each is up, towed array, active sonar, ESM and its own jammer, and what its hull
+  signature reads as. That read *is* the lock: nothing is jammed until the mod knows what the target
+  radiates with.
+- With the read in hand, every one of those families is switched off **on that contact only**, and
+  re-asserted ten times a second for as long as the lock is held, because the target's crew can
+  switch a set back on in between. Sustained suppression, not a one-off toggle.
+- The jammer ship radiates air search for the whole engagement - the same honest cost as the
+  defensive feature - and gets it back as it was found when the lock is released, the target is
+  sunk, or it runs beyond `Features/JamRangeNm` (default 40 nm).
+- **"Fully blind" is a claim about evidence, not intent.** It is only reported when every sensor
+  family the mod could reach was switched off *and read back as off*. A family this build refuses to
+  switch is reported as *partially blind*, named in the log and listed as `STILL` in
+  `offensive-ecm.txt`. The mod does not edit anyone's picture to hide the gap.
+
+### How it reads another ship
+
+`Interop/SensorSet.cs` is the reading half: it enumerates a unit's sensor families from the state the
+game exposes (`IsAirSearchRadarsOn`, `IsSurfaceSearchRadarsOn`, `HasTowedSonar`, `HasActiveSonar`),
+finds ESM and jammer switches by name, and reads the hull signature out of the unit's parameter block.
+The same code switches them off, so the read and the jam can never disagree about what a "sensor" is.
+
+The contact list comes from the ship's own picture - `_threats`, `_spottedObjects`,
+`_dangerousMissiles` - filtered to hostiles inside jam range, so the mod never invents a target the
+force cannot see.
+
 ## 0.9.0 — automatic defensive ECM
 
 Every ship that carries a jammer now defends itself and its formation with it, without being asked
@@ -8,7 +41,7 @@ twice. Armed per ship or for the whole task force, and automatic from there.
 - **A vampire wakes the jammer.** Any weapon the game tracks against this ship - or against a
   task-force ship within 25 nm - triggers it. The missile *instance* is handed to the game's own ECM
   target member, so the set points at the seeker rather than at a bearing the mod computed, and the
-  lock is re-pointed four times a second for as long as the missile is tracked, so a lock the game
+  lock is re-pointed ten times a second for as long as the missile is tracked, so a lock the game
   clears is immediately re-established.
 - **Air search radars go on, deliberately.** A jammer needs a fire-control quality bearing, and the
   price of that bearing is an emission the other side can see. The feature is loud on purpose; that

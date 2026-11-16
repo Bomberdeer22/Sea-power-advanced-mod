@@ -3,7 +3,7 @@
 Run this once per game version, and after any change to `HatchControl`, `HatchMenu`,
 `TrafficGenerator` or `RouteFactory`.
 
-Version under test: **0.9.0**. Mod id `io.github.bomberdeer22.seapoweradvanced`.
+Version under test: **0.10.0**. Mod id `io.github.bomberdeer22.seapoweradvanced`.
 
 **Read the log, do not guess.** Everything below is confirmed by two files:
 
@@ -34,11 +34,11 @@ If `seapoweradvanced.log` is missing, nothing else in this plan can pass — sto
 
 In `LogOutput.log`, BepInEx's own banner should appear:
 
-- [ ] `Loading [Sea Power Advanced 0.9.0]`
+- [ ] `Loading [Sea Power Advanced 0.10.0]`
 
 Then the mod's own startup lines:
 
-- [ ] `Sea Power Advanced: ================ Sea Power Advanced 0.9.0 ================`
+- [ ] `Sea Power Advanced: ================ Sea Power Advanced 0.10.0 ================`
 - [ ] `Sea Power Advanced: Entry point:  BepInEx plugin`
 - [ ] `Sea Power Advanced: Settings: enabled=True includeGuns=False ...`
 - [ ] `Sea Power Advanced: Patched MapUnitViewModel.GetContextMenuItems.`
@@ -129,6 +129,18 @@ Full description of each: [features.md](features.md). Right-click one of your sh
 - [ ] If this build exposes no ECM at all, the menu says so instead of pretending, and
       `ecm-report.txt` lists what the scan looked at - **send that file**, it is the missing piece
 - [ ] **Sensors → ECM: what this build exposes** rewrites `ecm-report.txt` on demand
+- [ ] **Sensors → Offensive ECM: standard - click for signature lock** switches mode; the lock
+      submenu then appears and the label becomes *Offensive ECM: signature lock*
+- [ ] **Offensive ECM lock** lists hostile contacts with ranges; picking one logs
+      `Offensive ECM: <ship> lock on <target> (N nm, hull <sig>): fully blind | read ...`, and
+      **`offensive-ecm.txt`** appears in the mod folder with a per-sensor verdict table
+- [ ] The target's radars go dark and stay dark while the lock is held (watch its emissions); the
+      log repeats `holding <target> ... blind` only when the picture changes
+- [ ] **Release the lock** (or switching back to standard) stops the suppression, logs
+      `released <target> after N assertion(s)`, and puts the jammer ship's air search back as found
+- [ ] If a sensor cannot be switched off, the menu says *partially blind* and `offensive-ecm.txt`
+      shows `STILL ...` for that family - **that line is the one to send**, it names the member the
+      next build needs
 - [ ] **Readiness → Action stations** shows fatigue climbing; reloads shorten
 - [ ] **Manoeuvres → Sprint and drift** sets the doctrine (check the log for the cavitation speed)
 - [ ] **Manoeuvres → Turn the screen onto the threat** re-stations the ships on one bearing

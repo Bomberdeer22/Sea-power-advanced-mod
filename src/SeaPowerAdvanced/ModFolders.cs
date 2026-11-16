@@ -26,6 +26,26 @@ internal static class ModFolders
         }
     }
 
+    /// <summary>
+    /// Appends to a text file in the mod folder, creating it if needed. Used for records that
+    /// accumulate - the offensive ECM log grows one entry per lock rather than one per run.
+    /// </summary>
+    internal static string AppendText(string fileName, string contents)
+    {
+        foreach (string folder in new[] { Package, Path.GetTempPath() })
+        {
+            try
+            {
+                Directory.CreateDirectory(folder);
+                string path = Path.Combine(folder, fileName);
+                File.AppendAllText(path, contents);
+                return path;
+            }
+            catch (Exception) { }
+        }
+        return "<could not write " + fileName + ">";
+    }
+
     /// <summary>Writes a text file into the mod folder (falls back to the temp folder).</summary>
     internal static string WriteText(string fileName, string contents)
     {
