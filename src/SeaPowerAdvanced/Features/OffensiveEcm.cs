@@ -53,6 +53,12 @@ internal static class OffensiveEcm
         internal int Assertions;
         internal string LastReport = "";
         internal bool Reported;
+
+        /// <summary>
+        /// True once the player has told it to transmit. Locking only aims the beam: holding the
+        /// target's switches down is a separate, deliberate order.
+        /// </summary>
+        internal bool Jamming;
     }
 
     private static readonly Dictionary<ObjectBase, Hold> Held = new();
@@ -213,7 +219,9 @@ internal static class OffensiveEcm
             return false;
         }
 
-        // 2. The hold: every family it has is switched off and re-asserted until released.
+        // 2. The lock itself: hold the track and aim the beam. Nothing is transmitted yet - that is
+        //    a separate order, so a lock never jams by accident and the player decides when the set
+        //    actually radiates.
         Modes[ship] = Mode.SignatureLock;
         Held[ship] = new Hold
         {
@@ -221,23 +229,17 @@ internal static class OffensiveEcm
             NextAssertAt = 0f,
             Assertions = 0,
             Reported = false,
+            Jamming = false,
         };
 
-        List<SensorSet.Reading> silenced = SensorSet.Silence(target);
-        string outcome = SensorSet.FullyBlind(silenced)
-            ? "every sensor off"
-            : "NOT all sensors off - " + Stubborn(silenced);
-
-        EcmControl.Engage(ship, target, false, out string jam);
-
-        report = "lock on " + Name(target) + " (" + (int)range + " nm, hull " + signature + "): "
-                 + outcome + " | read " + SensorSet.Describe(signatures) + " | " + jam;
+        report = "locked on " + Name(target) + " (" + (int)range + " nm, hull " + signature + "). "
+                 + "Read " + SensorSet.Describe(signatures) + ". The beam is on the map; use "
+                 + "'Jam now' to transmit.";
 
         ModLog.Info("Offensive ECM: " + Name(ship) + " " + report);
-        WriteReport(ship, target, signature, signatures, silenced, jam);
 
-        // Not marked as reported on purpose: the first assertion a tenth of a second later reads the
-        // target back and logs the confirmed picture, which is the line worth trusting.
+        WriteReport(ship, target, signature, signatures,
+                    new List<SensorSet.Reading>(), "lock only - not transmitting");
         return true;
     }
 
@@ -295,6 +297,79 @@ internal static class OffensiveEcm
         }
 
         return best;
+    }
+
+    /// <summary>
+    /// Starts transmitting on the held lock: the target's sensors are switched off and held down
+    /// from here. This is the manual step - the lock on its own only aims the beam.
+    /// </summary>
+    internal static bool JamNow(ObjectBase ship, out string report)
+    {
+        report = "";
+
+        if (ship == null || !Held.TryGetValue(ship, out Hold hold) || hold.Target == null)
+        {
+            report = "no lock to jam - lock a contact first";
+            return false;
+        }
+
+        if (hold.Jamming)
+        {
+            report = "already jamming " + Name(hold.Target);
+            return true;
+        }
+
+        List<SensorSet.Reading> readings = SensorSet.Silence(hold.Target);
+        EcmControl.Engage(ship, hold.Target, false, out string jam);
+
+        hold.Jamming = true;
+        hold.NextAssertAt = Time.unscaledTime + AssertSeconds;
+        hold.Reported = false;
+
+        bool blind = SensorSet.FullyBlind(readings);
+        report = "jamming " + Name(hold.Target) + " on EMCON: "
+                 + (blind ? "every sensor off" : "NOT all sensors off - " + Stubborn(readings))
+                 + " | " + jam;
+
+        ModLog.Info("Offensive ECM: " + Name(ship) + " " + report);
+        return true;
+    }
+
+    /// <summary>Stops transmitting but keeps the lock and the beam, so it can be resumed.</summary>
+    internal static bool StopJam(ObjectBase ship, out string report)
+    {
+        report = "";
+
+        if (ship == null || !Held.TryGetValue(ship, out Hold hold) || !hold.Jamming)
+        {
+            report = "not jamming";
+            return false;
+        }
+
+        hold.Jamming = false;
+        EcmControl.StandDown(ship, out _);
+
+        report = "stopped jamming " + Name(hold.Target) + "; the lock is still held";
+        ModLog.Info("Offensive ECM: " + Name(ship) + " " + report);
+        return true;
+    }
+
+    /// <summary>Whether this ship is transmitting right now (as opposed to merely locked on).</summary>
+    internal static bool IsJamming(ObjectBase? ship) =>
+        ship != null && Held.TryGetValue(ship, out Hold hold) && hold.Jamming;
+
+    /// <summary>The beams the map overlay draws for the offensive set.</summary>
+    internal static List<EcmBeam> Beams()
+    {
+        var beams = new List<EcmBeam>();
+
+        foreach (KeyValuePair<ObjectBase, Hold> entry in Held)
+        {
+            if (entry.Key == null || entry.Value.Target == null) continue;
+            beams.Add(new EcmBeam(entry.Key, entry.Value.Target, entry.Value.Jamming, true));
+        }
+
+        return beams;
     }
 
     /// <summary>Drops the lock. The mod stops holding the target's switches down.</summary>
@@ -378,6 +453,11 @@ internal static class OffensiveEcm
                     continue;
                 }
 
+                // Locked but silent: the beam is on the map, nothing is being transmitted, and the
+                // target's own crew is free to use its sensors. That is the point of the two-step
+                // order.
+                if (!hold.Jamming) continue;
+
                 if (now < hold.NextAssertAt) continue;
                 hold.NextAssertAt = now + AssertSeconds;
                 hold.Assertions++;
@@ -421,7 +501,8 @@ internal static class OffensiveEcm
         if (Held.TryGetValue(unit, out Hold hold) && hold.Target != null)
         {
             double range = SafeRange(Position(unit), hold.Target);
-            return "locked on " + Name(hold.Target) + " (" + (int)range + " nm)";
+            return (hold.Jamming ? "jamming " : "locked on ") + Name(hold.Target)
+                   + " (" + (int)range + " nm)";
         }
 
         return "signature lock, no target yet";

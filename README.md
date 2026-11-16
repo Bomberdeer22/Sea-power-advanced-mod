@@ -4,7 +4,7 @@ An advanced mod for **Sea Power: Naval Combat in the Missile Age**, built as an
 [Anchor Chain](https://github.com/SeaPower-Modders/AnchorChain) code mod and loadable as a plain
 BepInEx plugin.
 
-**Version 0.10.1** — fourteen advanced features, plus hatch control and civilian traffic.
+**Version 0.11.0** — fourteen advanced features, plus hatch control and civilian traffic.
 
 ### 1. Manual hatch control
 
@@ -123,7 +123,7 @@ or a PowerShell window that closes itself).
 Prefer PowerShell? `tools\build-portable.ps1 -Install` does the same job when it is permitted.
 
 The DLL goes into `BepInEx\plugins\SeaPowerAdvanced\`, so **BepInEx loads it directly** — there is
-no mod-manager checkbox on this route. BepInEx's log then shows `Loading [Sea Power Advanced 0.10.1]`,
+no mod-manager checkbox on this route. BepInEx's log then shows `Loading [Sea Power Advanced 0.11.0]`,
 and the mod writes its own `seapoweradvanced.log` next to the DLL.
 
 ## Use it
@@ -341,6 +341,9 @@ src/SeaPowerAdvanced/
   Interop/EcmControl.cs          discovers the ECM switch, target and power by name; ecm-report.txt
   Interop/SensorSet.cs           reads a unit's sensor fit and signatures, and silences them
   Interop/UnitFit.cs             per-unit answers: does this hull carry ECM, can it fly, is it ours
+  Interop/MapProjection.cs       game position -> screen, found at runtime; ecm-cone.txt if not
+  Interop/Selection.cs           the selected unit, from the game if it can, else the last one touched
+  UI/EcmConeOverlay.cs           draws the beams: long, narrow, and only where they belong
   Menu/FleetMenu.cs              the features, distributed across the game's sections
   Menu/MenuRouting.cs            puts each entry in the section a player would look in first
   Menu/FleetMenuPatch.cs         its own Harmony patch, so a hatch-menu problem cannot hide it

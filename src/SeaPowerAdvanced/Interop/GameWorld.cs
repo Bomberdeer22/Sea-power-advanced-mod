@@ -59,6 +59,9 @@ internal static class GameWorld
         return units;
     }
 
+    /// <summary>The running <c>GameMain</c>, or null before a mission is loaded.</summary>
+    internal static object? GameMainInstance => FindGameMain();
+
     /// <summary>
     /// The running <c>GameMain</c>. Found by type rather than by a singleton, because the dump does
     /// not show an Instance property and guessing one would be the same mistake the offline scan
@@ -66,18 +69,48 @@ internal static class GameWorld
     /// </summary>
     private static object? FindGameMain()
     {
+        // Cached, because the map overlay asks every frame it draws and FindObjectOfType is a scene
+        // walk. The cache is dropped when the object behind it is destroyed, which is what happens
+        // between missions.
+        if (cachedMain != null)
+        {
+            try
+            {
+                if (cachedMain is UnityEngine.Object scene)
+                {
+                    if (scene != null) return cachedMain;
+                }
+                else
+                {
+                    return cachedMain;
+                }
+            }
+            catch (Exception) { }
+
+            cachedMain = null;
+            objectsField = null;
+            looked = false;
+        }
+
         try
         {
             Type type = typeof(SeaPower.GameMain);
             UnityEngine.Object? found = UnityEngine.Object.FindObjectOfType(type);
-            if (found != null) return found;
 
-            // Not a scene component, or not up yet: fall back to every loaded object of that type.
-            UnityEngine.Object[] all = Resources.FindObjectsOfTypeAll(type);
-            return all.Length > 0 ? all[0] : null;
+            if (found == null)
+            {
+                // Not a scene component, or not up yet: fall back to every loaded object of that type.
+                UnityEngine.Object[] all = Resources.FindObjectsOfTypeAll(type);
+                found = all.Length > 0 ? all[0] : null;
+            }
+
+            cachedMain = found;
+            return cachedMain;
         }
         catch (Exception) { return null; }
     }
+
+    private static object? cachedMain;
 
     /// <summary>Player surface units and submarines - what a formation order should reach.</summary>
     internal static List<ObjectBase> PlayerShips()

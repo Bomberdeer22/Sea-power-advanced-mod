@@ -3,7 +3,7 @@
 Run this once per game version, and after any change to `HatchControl`, `HatchMenu`,
 `TrafficGenerator` or `RouteFactory`.
 
-Version under test: **0.10.1**. Mod id `io.github.bomberdeer22.seapoweradvanced`.
+Version under test: **0.11.0**. Mod id `io.github.bomberdeer22.seapoweradvanced`.
 
 **Read the log, do not guess.** Everything below is confirmed by two files:
 
@@ -34,11 +34,11 @@ If `seapoweradvanced.log` is missing, nothing else in this plan can pass — sto
 
 In `LogOutput.log`, BepInEx's own banner should appear:
 
-- [ ] `Loading [Sea Power Advanced 0.10.1]`
+- [ ] `Loading [Sea Power Advanced 0.11.0]`
 
 Then the mod's own startup lines:
 
-- [ ] `Sea Power Advanced: ================ Sea Power Advanced 0.10.1 ================`
+- [ ] `Sea Power Advanced: ================ Sea Power Advanced 0.11.0 ================`
 - [ ] `Sea Power Advanced: Entry point:  BepInEx plugin`
 - [ ] `Sea Power Advanced: Settings: enabled=True includeGuns=False ...`
 - [ ] `Sea Power Advanced: Patched MapUnitViewModel.GetContextMenuItems.`
@@ -131,8 +131,13 @@ Full description of each: [features.md](features.md). Right-click one of your sh
 - [ ] **Sensors → ECM: what this build exposes** rewrites `ecm-report.txt` on demand
 - [ ] **Sensors → Offensive ECM: standard - click for signature lock** switches mode; the lock
       submenu then appears and the label becomes *Offensive ECM: signature lock*
+- [ ] After locking, a **long narrow blue beam** runs from the jammer to the contact and stops
+      there - thin while locked; **`Jam now - transmit on the lock`** appears and thickens it when
+      pressed; `ecm-cone.txt` records how positions are projected
+- [ ] With a defensive set armed and a missile inbound, an **amber beam** runs to the missile
+- [ ] If no beam appears, the bottom of the screen says why and `ecm-cone.txt` names what was tried
 - [ ] **Offensive ECM lock** lists hostile contacts with ranges; picking one logs
-      `Offensive ECM: <ship> lock on <target> (N nm, hull <sig>): fully blind | read ...`, and
+      `Offensive ECM: <ship> locked on <target> (N nm, hull <sig>). Read ...`, and
       **`offensive-ecm.txt`** appears in the mod folder with a per-sensor verdict table
 - [ ] The target's radars go dark and stay dark while the lock is held (watch its emissions); the
       log repeats `holding <target> ... blind` only when the picture changes

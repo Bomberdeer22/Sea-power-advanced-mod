@@ -9,6 +9,7 @@ one submenu. There is no mod window and no hotkey.
 |---|---|
 | Radars, air/surface search only, active sonar, towed array, EMCON profiles | **Sensors** |
 | Radar blink, auto-ARM shutoff, **defensive ECM**, **offensive ECM**, commercial disguise | **Sensors** (they are emission decisions) |
+| **ECM cones on the map** | Not a menu entry - drawn over the map whenever a set is aimed |
 | Salvo deconfliction | **Engage** (it is about who may fire, and when) |
 | Action stations, cold cruise, crew fatigue | **Rules of engagement** |
 | Sprint and drift, turn the screen onto the threat | **Formation** |
@@ -128,13 +129,16 @@ Either way the mod then:
 1. **reads that contact's sensor fit** - which radar families it has and whether each is up, whether
    it has a towed array or active sonar, whether it is running ESM or its own jammer, and what its
    hull signature reads as. This read is the lock: a jammer that has not identified what the other
-   ship is radiating with has nothing to aim at.
-2. **switches every one of those families off** on that contact, and only that contact.
-3. **holds them down** - re-asserted ten times a second for as long as the lock is held, because
-   the target's crew can switch a set back on in between. This is sustained suppression, not a
-   one-off toggle.
-4. **stands the lock down** when the target is sunk, runs beyond range, you release it, or you go
-   back to standard. Nothing is put back on the radar front, because this mode never touched it.
+   ship is radiating with has nothing to aim at. **Locking does not transmit.** The beam appears on
+   the map and the target carries on as it was.
+2. **`Jam now - transmit on the lock`** is a second, manual order. Only then are every one of those
+   families switched off on that contact, and only that contact.
+3. **holds them down** - re-asserted ten times a second while transmitting, because the target's crew
+   can switch a set back on in between. Sustained suppression, not a one-off toggle.
+4. **`Jamming: on - click to stop transmitting`** stops the jam and keeps the lock, so it can be
+   resumed. Nothing is put back on the radar front, because this mode never touched it.
+5. **stands the lock down** when the target is sunk, runs beyond range, you release it, or you go
+   back to standard.
 
 | Drives | The target's own switches: `DisableAllRadars()`, `DisableAirSearchRadars`, `DisableSurfaceSearchRadars`, `TowedSonarsSetActive(false)`, `DisableActiveSonars`, plus any ESM / jammer switch it exposes |
 |---|---|
@@ -147,6 +151,30 @@ Either way the mod then:
 `offensive-ecm.txt` in the mod folder records every lock, appended rather than overwritten: the
 signatures read off the target, what was silenced, what was not, and the jammer path used. It is the
 file to send if the target does not go quiet when it should.
+
+## 2d. The ECM cones on the map — `Sensors and EMCON`
+
+A jammer is directional and a menu cannot show you which way it is pointing, so the mod draws it:
+
+| State | What you see |
+|---|---|
+| Offensive set, locked, not transmitting | a long, narrow cyan beam from the jammer to the ship it is locked on, thin and dim |
+| Offensive set, jamming | the same beam, bright and thicker, with `ECM JAMMING` on the far end |
+| Defensive set, engaged | an amber beam to the missile it is tracking, with a marker on the missile |
+| A ship with ECM selected, nothing aimed | a small cyan box on the ship and `ECM ready` |
+
+The beams are deliberately long and narrow - they are bearings, not areas, and a cone wide enough to
+look like a search fan would be telling you something that is not true.
+
+| How it is drawn | IMGUI, the same way the civilian traffic panel is - no assets, no XAML |
+|---|---|
+| Where the ends come from | `Interop/MapProjection.cs`: the game's own `GeoPosition`-to-world conversion if one exists, otherwise the unit's Unity transform, projected through the active camera |
+| If neither exists | nothing is drawn, one line appears at the bottom of the screen saying so, and `ecm-cone.txt` records exactly what was looked for. A cone in the wrong place would be worse than none |
+| Setting | `Features/ShowEcmCone`, default true |
+| Follows the selected unit | the game's own selection member if the mod can find one, otherwise the unit whose right-click menu you opened last |
+
+If the cones do not appear, `ecm-cone.txt` in the mod folder says which of the two projection routes
+was tried and what the camera was - that file is the thing to send.
 
 ## 3. Commercial signature spoofing — `Deception`
 

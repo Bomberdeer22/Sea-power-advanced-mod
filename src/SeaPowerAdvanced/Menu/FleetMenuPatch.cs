@@ -87,6 +87,10 @@ internal static class FleetMenuPatch
 
         if (unit.IsDestroyed) return;
 
+        // The player is looking at this unit: the cone overlay follows it until the game's own
+        // selection can be read (see Interop/Selection.cs).
+        Selection.Note(unit);
+
         // A contact is not one of ours. It gets the jammer and nothing else - the game's own
         // identification entries are already in that menu and are the right ones for it.
         if (!UnitFit.IsPlayer(unit))

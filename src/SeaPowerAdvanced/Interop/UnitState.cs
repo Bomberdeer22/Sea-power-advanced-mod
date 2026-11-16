@@ -67,6 +67,13 @@ internal sealed class UnitRecord
     /// <summary>Air-search radar state before the engagement, so it can be put back.</summary>
     internal bool EcmAirWasOn;
 
+    /// <summary>
+    /// The missile the defensive jammer is currently pointed at. Kept as an object because the
+    /// weapon types cannot be named in code, and read only by the map overlay, which needs a
+    /// position to draw the beam onto.
+    /// </summary>
+    internal object? EcmTarget;
+
     // --- strike --------------------------------------------------------------------------------
 
     /// <summary>This ship is waiting for its slot in a deconflicted salvo.</summary>

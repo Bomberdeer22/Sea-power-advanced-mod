@@ -83,7 +83,8 @@ MOD_TYPES = [
     "Boot", "ModInfo", "ModLog", "ModSettings", "ModFolders", "ModActivation",
     "Capabilities", "Capability", "CapabilityReport", "MemberProbe", "SensorControl",
     "GameWorld", "UnitState", "UnitRecord", "WeaponStatusControl",
-    "WaypointControl", "FlightDeckControl", "Inbound", "EcmControl", "DefensiveEcm", "OffensiveEcm", "SensorSet", "UnitFit",
+    "WaypointControl", "FlightDeckControl", "Inbound", "EcmControl", "DefensiveEcm", "OffensiveEcm", "SensorSet", "UnitFit", "MapProjection", "Selection",
+    "EcmConeOverlay", "EcmBeam",
     "HatchMenu", "FleetMenu", "FleetMenuPatch", "MenuRouting", "MenuReport",
     "HatchBay", "HatchControl", "HatchGroup", "ShipReport", "TrafficPanel",
     "FleetTicker", "Blink", "AutoArm", "SalvoPlan", "Breakaway", "Readiness",
@@ -123,8 +124,10 @@ DOTNET_TYPES = {
     "TimeSpan", "Tuple", "Type", "UInt32", "ValueTuple", "Version", "Void",
     "BindingFlags", "ConstructorInfo", "Assembly", "Module", "TargetInvocationException",
     # Unity
-    "GameObject", "GUILayout", "GUIStyle", "Input", "KeyCode", "Mathf", "MonoBehaviour",
-    "Object", "Rect", "Texture2D", "Time", "Vector2", "Vector3",
+    "GameObject", "GUILayout", "GUIStyle", "GUI", "GUIUtility", "Input", "KeyCode", "Mathf",
+    "MonoBehaviour", "Matrix4x4", "Object", "Rect", "Screen", "Texture2D", "TextureFormat",
+    "Time", "Vector2", "Vector3", "Color", "Camera", "Transform", "Quaternion", "Resources",
+    "Application", "Debug", "Font", "GUIContent", "GUISkin",
 }
 
 # A name in a type position that is none of these is reported. Type positions are deliberately a

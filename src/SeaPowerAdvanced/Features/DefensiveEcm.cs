@@ -136,6 +136,7 @@ internal static class DefensiveEcm
                     }
 
                     record.EcmReleaseAt = now + HoldSeconds;
+                    record.EcmTarget = weapon;
 
                     if (now < record.EcmRefreshAt) continue;
                     record.EcmRefreshAt = now + RefreshSeconds;
@@ -179,9 +180,43 @@ internal static class DefensiveEcm
 
         record.EcmEngaged = false;
         record.EcmEngagedLogged = false;
+        record.EcmTarget = null;
 
         ModLog.Info("Defensive ECM: " + Name(ship) + " stood down (" + why + ") - "
                     + (off ? note : "nothing to switch off; " + note));
+    }
+
+    /// <summary>
+    /// The missile this ship's defensive jammer is holding, if any. Read by the map overlay, which
+    /// needs it to draw the beam; null whenever the set is not engaged, so a stale target can never
+    /// be drawn pointing at a missile that has gone.
+    /// </summary>
+    internal static object? TargetOf(ObjectBase? ship)
+    {
+        if (ship == null) return null;
+
+        return UnitState.TryGet(ship, out UnitRecord record) && record.EcmEngaged
+            ? record.EcmTarget
+            : null;
+    }
+
+    /// <summary>The beams the map overlay draws for the defensive sets.</summary>
+    internal static List<EcmBeam> Beams()
+    {
+        var beams = new List<EcmBeam>();
+
+        foreach (ObjectBase ship in FleetTicker.Tracked())
+        {
+            try
+            {
+                if (!UnitState.TryGet(ship, out UnitRecord record) || !record.EcmEngaged) continue;
+
+                beams.Add(new EcmBeam(ship, record.EcmTarget, true, false));
+            }
+            catch (Exception) { }
+        }
+
+        return beams;
     }
 
     /// <summary>One line describing this ship's state, for the menu tooltip.</summary>

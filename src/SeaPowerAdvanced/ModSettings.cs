@@ -31,6 +31,7 @@ internal static class ModSettings
     private static ConfigEntry<float>? blinkSeconds;
     private static ConfigEntry<float>? salvoSpacingSeconds;
     private static ConfigEntry<float>? jamRangeNm;
+    private static ConfigEntry<bool>? showEcmCone;
 
     internal static bool Enabled => enabled?.Value ?? true;
     internal static bool IncludeGuns => includeGuns?.Value ?? false;
@@ -44,6 +45,9 @@ internal static class ModSettings
 
     /// <summary>Seconds between radar blink flips. Short enough to see in a test mission.</summary>
     internal static float BlinkSeconds => blinkSeconds?.Value ?? 6f;
+
+    /// <summary>Draw the ECM cones on the map.</summary>
+    internal static bool ShowEcmCone => showEcmCone?.Value ?? true;
 
     /// <summary>How far the focused (signature-lock) offensive jammer reaches, in nautical miles.</summary>
     internal static float JamRangeNm => jamRangeNm?.Value ?? 40f;
@@ -137,6 +141,10 @@ internal static class ModSettings
             blinkSeconds = file.Bind("Features", "BlinkSeconds", 6f,
                 "Seconds between radar blink flips (2-120). Blink cycles the surface-search radar so "
                 + "an anti-radiation seeker has less to home on.");
+
+            showEcmCone = file.Bind("Features", "ShowEcmCone", true,
+                "Draw a long, narrow cone from each jammer to the missile or ship it is holding. "
+                + "Cyan for the offensive set, amber for the defensive one.");
 
             jamRangeNm = file.Bind("Features", "JamRangeNm", 40f,
                 "How far the focused offensive jammer reaches, in nautical miles (5-200). Beyond "

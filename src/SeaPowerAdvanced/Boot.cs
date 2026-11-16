@@ -86,6 +86,9 @@ internal static class Boot
             FleetMenuPatch.Install(harmony);
             TrafficPanel.Install();
 
+            // The map cones: a beam from every jammer to what it is holding.
+            EcmConeOverlay.Install();
+
             // Timers only: blink, auto-ARM, salvo release, readiness clocks. No interface of its own;
             // every feature is reached through the game's right-click menus.
             FleetTicker.Install();

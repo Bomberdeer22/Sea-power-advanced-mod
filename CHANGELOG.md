@@ -1,5 +1,27 @@
 # Changelog
 
+## 0.11.0 — the ECM cones, and a manual transmit order
+
+- **The beams are on the map.** Every set that is aimed at something draws a long, narrow cone:
+  cyan from an offensive jammer to the ship it is locked on (thin while locked, thick and labelled
+  while transmitting), amber from a defensive set to the missile it is tracking, and a small cyan box
+  on a selected ship that carries ECM but has nothing locked. `Features/ShowEcmCone`, default on.
+- **Locking and transmitting are now two orders.** A lock reads the target, holds the track and aims
+  the beam; it does not switch anything off. **`Jam now - transmit on the lock`** does that, and
+  **`Jamming: on - click to stop transmitting`** stops it while keeping the lock. The same two
+  buttons appear on the contact's own menu once that contact is locked, next to the order that acted
+  on it.
+- **The overlay never guesses a screen position.** `Interop/MapProjection.cs` looks for the game's own
+  `GeoPosition`-to-world conversion first, then falls back to each unit's Unity transform through the
+  active camera. If neither exists it draws nothing, says so on screen, and writes `ecm-cone.txt`
+  with what it looked for. A cone in the wrong place would be worse than no cone.
+- **Cost control, because this draws every frame**: only on repaint, the beam list rebuilds five times
+  a second rather than every GUI event, and `GameMain` is now cached in `GameWorld` instead of being
+  found by a scene walk on every query.
+- Audit: `tools/check-source.py` clean across 55 files, brace balance clean, every build script's
+  labels resolve, and the new Unity types are on the checker's allow-list so it cannot mistake
+  `Color` for a game type.
+
 ## 0.10.1 — ECM runs silent, and only where it fits
 
 Four corrections after playing it, all of them about the same thing: the mod was offering things to

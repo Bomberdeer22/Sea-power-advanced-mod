@@ -103,14 +103,42 @@ internal static class FleetMenu
                 items: null,
                 command: new DelegateCommand(_ => Report(contact, "lock with ECM",
                     OffensiveEcm.LockOnContact(contact, out string r), r)),
-                tooltip: "Point " + ContactName(jammer) + "'s jammer at this contact, read its "
-                         + "sensor fit, and hold every sensor it has switched off. Runs on EMCON.");
+                tooltip: "Point " + ContactName(jammer) + "'s jammer at this contact and read its "
+                         + "sensor fit. The beam appears on the map; jamming is a second order.");
 
             // Top level: a contact menu is short, and hiding this inside a section would make the
             // player hunt for the one entry the mod adds there.
             string where = MenuRouting.Place(roots, live, item, Array.Empty<string>());
             MenuRouting.Placements.Add(label + "  ->  " + where);
-            return 1;
+
+            int added = 1;
+
+            // Already locked on this contact? Then the manual transmit order belongs here too, next
+            // to the lock it acts on.
+            bool locked = OffensiveEcm.IsLocked(jammer) &&
+                          ReferenceEquals(OffensiveEcm.TargetOf(jammer), contact);
+
+            if (locked)
+            {
+                bool jamming = OffensiveEcm.IsJamming(jammer);
+
+                var transmit = new ContextMenuItem(
+                    label: jamming ? "Stop jamming this contact" : "Jam this contact now",
+                    items: null,
+                    command: new DelegateCommand(_ => Report(contact,
+                        jamming ? "stop jamming" : "jam now",
+                        jamming ? OffensiveEcm.StopJam(jammer, out string s2)
+                                : OffensiveEcm.JamNow(jammer, out s2), s2)),
+                    tooltip: jamming
+                        ? "Stops transmitting; the lock and the beam stay."
+                        : "Switch this contact's sensors off and hold them down until stopped.");
+
+                MenuRouting.Place(roots, live, transmit, Array.Empty<string>());
+                MenuRouting.Placements.Add(transmit.Label + "  ->  top level");
+                added++;
+            }
+
+            return added;
         }
         catch (Exception error)
         {
@@ -247,6 +275,20 @@ internal static class FleetMenu
             if (OffensiveEcm.ModeOf(unit) == OffensiveEcm.Mode.SignatureLock)
             {
                 Add(OffensiveLockMenu(unit), MenuRouting.Sensors);
+
+                // The lock only aims the beam. Transmitting is a separate, deliberate order, and it
+                // only appears once there is a lock to transmit on.
+                if (OffensiveEcm.IsLocked(unit))
+                {
+                    Add(OffensiveEcm.IsJamming(unit)
+                        ? Action("Jamming: on - click to stop transmitting",
+                            "Stops the jam. The lock and the beam stay, so it can be resumed.",
+                            () => Report(unit, "stop jamming", OffensiveEcm.StopJam(unit, out string r), r))
+                        : Action("Jam now - transmit on the lock",
+                            "Switches the target's sensors off and holds them down until stopped.",
+                            () => Report(unit, "jam now", OffensiveEcm.JamNow(unit, out string r), r)),
+                        MenuRouting.Sensors);
+                }
 
                 Add(Disabled("Offensive ECM: " + OffensiveEcm.Describe(unit),
                     "What the focused jammer is doing right now."), MenuRouting.Sensors);
