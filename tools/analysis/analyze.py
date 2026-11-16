@@ -204,4 +204,26 @@ def main() -> None:
 
 
 if __name__ == "__main__":
-    main()
+    # A crash must still leave a file behind: this is often run by double-clicking, where the
+    # console window can close before anything can be read or copied.
+    try:
+        main()
+    except SystemExit:
+        raise
+    except BaseException:
+        import traceback
+        log = os.path.join(HERE, "analysis-error.txt")
+        try:
+            with open(log, "w", encoding="utf-8") as handle:
+                handle.write("Sea Power Advanced - analysis error\n")
+                handle.write(f"when:   {__import__('datetime').datetime.now()}\n")
+                handle.write(f"python: {sys.version}\n")
+                handle.write(f"script: {os.path.abspath(__file__)}\n")
+                handle.write(f"args:   {sys.argv}\n\n")
+                handle.write(traceback.format_exc())
+            print(f"\nThe analysis crashed. The full error was written to:")
+            print(f"  {log}")
+            print("Send that file; it contains everything needed to diagnose it.")
+        except Exception:
+            traceback.print_exc()
+        sys.exit(1)

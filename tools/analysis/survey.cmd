@@ -15,6 +15,7 @@ setlocal enabledelayedexpansion
 set "HERE=%~dp0"
 set "PYTHON=%HERE%.venv\Scripts\python.exe"
 set "ANALYZE=%HERE%analyze.py"
+set "RUNLOG=%HERE%run-log.txt"
 
 if not exist "%PYTHON%" (
     echo First run: creating a private Python environment, about 10 seconds...
@@ -46,22 +47,26 @@ goto :brief
 
 :readiness
 echo Checking which planned features this build can support...
-"%PYTHON%" "%ANALYZE%" readiness
+"%PYTHON%" "%ANALYZE%" readiness > "%RUNLOG%" 2>&1
+type "%RUNLOG%"
 goto :result
 
 :selftest
 echo Verifying the reader against a known assembly...
-"%PYTHON%" "%ANALYZE%" selftest
+"%PYTHON%" "%ANALYZE%" selftest > "%RUNLOG%" 2>&1
+type "%RUNLOG%"
 goto :result
 
 :custom
 echo Surveying "%~1" ...
-"%PYTHON%" "%ANALYZE%" --dll "%~1" brief
+"%PYTHON%" "%ANALYZE%" --dll "%~1" brief > "%RUNLOG%" 2>&1
+type "%RUNLOG%"
 goto :result
 
 :brief
 echo Surveying the installed game...
-"%PYTHON%" "%ANALYZE%" brief
+"%PYTHON%" "%ANALYZE%" brief > "%RUNLOG%" 2>&1
+type "%RUNLOG%"
 goto :result
 
 :result
@@ -89,6 +94,7 @@ echo.
 echo Reports are written to:
 echo   %HERE%analysis-report.txt    (full API survey)
 echo   %HERE%feature-readiness.txt  (which features are buildable)
+echo   %HERE%run-log.txt            (everything this run printed)
 
 REM Pause so a double-click window does not vanish before it can be read.
 set "INTERACTIVE="

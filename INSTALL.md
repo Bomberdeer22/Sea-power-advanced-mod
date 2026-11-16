@@ -104,14 +104,14 @@ What it does:
 1. sees there is no .NET SDK in `.dotnet\`, downloads one (about 200 MB, **once**, no installer),
 2. compiles the mod against `Seapower-Scripts.dll` from your game,
 3. copies `SeaPowerAdvanced.dll` and `_info.ini` into
-   `Sea Power_Data\StreamingAssets\SeaPowerAdvanced\`.
+   `BepInEx\plugins\SeaPowerAdvanced\`.
 
 Expected last lines:
 
 ```
 Build succeeded.
 Package ready: ...\dist\SeaPowerAdvanced
-Installed to: C:\Program Files (x86)\Steam\steamapps\common\Sea Power\Sea Power_Data\StreamingAssets\SeaPowerAdvanced
+Installed to: C:\Program Files (x86)\Steam\steamapps\common\Sea Power\BepInEx\plugins\SeaPowerAdvanced
 ```
 
 ### If Windows blocks the script ("is not digitally signed")
@@ -142,7 +142,7 @@ build.cmd install
 
 Batch files are not covered by the execution policy, so this works even on a machine where the
 policy is locked down by IT. It does the same thing: fetches the portable SDK into `.dotnet\`,
-builds the mod, and copies it into `StreamingAssets`.
+builds the mod, and copies it into `BepInEx\plugins\SeaPowerAdvanced\`.
 
 > Which fix you need depends on the policy: `Get-ExecutionPolicy -List` shows it. If `MachinePolicy`
 > or `UserPolicy` says `AllSigned`, options A and B cannot override it — IT set it — so use
@@ -209,8 +209,8 @@ Useful to know:
   together — that is what the game's own `openHatches()` does.
 - The game still owns the hatches during a launch; if the ship fires, it may reopen or close what it
   needs and your last manual order can be overridden. The check marks always show the truth.
-- **Log hatch report** writes `hatch-report.txt` into `StreamingAssets\SeaPowerAdvanced\` — that is
-  the file to send if something does not move.
+- **Log hatch report** writes `hatch-report.txt` next to the DLL, in
+  `BepInEx\plugins\SeaPowerAdvanced\` — that is the file to send if something does not move.
 
 ---
 
@@ -224,14 +224,24 @@ then **fully restart** the game. Close Sea Power before rebuilding, or the DLL i
 
 ## Uninstalling
 
-1. In the Mod Manager, untick **Sea Power Advanced** (or just delete its folder).
-2. Delete `Sea Power_Data\StreamingAssets\SeaPowerAdvanced\`.
+1. Delete `BepInEx\plugins\SeaPowerAdvanced\`.
+2. If an older release was installed into `Sea Power_Data\StreamingAssets\SeaPowerAdvanced\`,
+   delete that folder too — leaving it means the mod loads twice.
 3. Optional cleanup: delete `.dotnet\`, `dist\` and `BepInEx\config\io.github.bomberdeer22.seapoweradvanced.cfg`.
 
 To remove Anchor Chain itself, unsubscribe on Steam and delete `winhttp.dll`,
 `doorstop_config.ini` and the `BepInEx` folder from the game directory.
 
 ---
+
+## If something goes wrong
+
+**Run `diagnose.cmd`** (double-click it in the repo folder). It writes one file,
+`SeaPowerAdvanced-diagnose.txt`, containing the game folder it found, which files are present, the
+game's own `LogOutput.log`, the mod's log, and a check of the analysis tools. **Send that file** —
+it answers almost every "it doesn't work" question without anyone needing to copy console text.
+
+It uses only `cmd.exe`: no PowerShell, no admin rights, nothing changed.
 
 ## Troubleshooting
 
@@ -252,7 +262,7 @@ To remove Anchor Chain itself, unsubscribe on Steam and delete `winhttp.dll`,
 
 Build anywhere (the same `./tools/build-portable.sh --install` works, with `SEAPOWER_DIR` set), or
 build on another machine and copy `dist/SeaPowerAdvanced/` across. Then copy that folder into
-`.../steamapps/common/Sea Power/Sea Power_Data/StreamingAssets/`.
+`.../steamapps/common/Sea Power/BepInEx/plugins/`.
 
 For BepInEx under Proton you may also need the standard `winhttp` override:
 
@@ -268,12 +278,12 @@ protontricks 1286220 --force winecfg   # Libraries → add "winhttp" as native,b
 Sea Power\                                  <- game folder
 ├── winhttp.dll                             <- step 1 (BepInEx/Anchor Chain preloader)
 ├── doorstop_config.ini                     <- step 1
-├── BepInEx\
-│   ├── LogOutput.log                       <- where to look when something is wrong
-│   └── config\io.github.bomberdeer22.seapoweradvanced.cfg   <- settings
-└── Sea Power_Data\StreamingAssets\
-    └── SeaPowerAdvanced\
-        ├── SeaPowerAdvanced.dll            <- step 3 (the mod)
-        ├── _info.ini                       <- name and description in the Mod Manager
-        └── hatch-report.txt                <- written on demand from the menu
+└── BepInEx\
+    ├── LogOutput.log                       <- where to look when something is wrong
+    ├── config\io.github.bomberdeer22.seapoweradvanced.cfg   <- settings
+    └── plugins\
+        └── SeaPowerAdvanced\               <- step 3 (the mod)
+            ├── SeaPowerAdvanced.dll        <- loaded by BepInEx at startup
+            ├── _info.ini                   <- name and description
+            └── seapoweradvanced.log        <- the mod's own log
 ```

@@ -20,3 +20,8 @@ tools/analysis/.venv/
 __pycache__/
 *.pyc
 analysis-report.txt
+
+# Diagnostic output produced on a player's machine
+SeaPowerAdvanced-diagnose.txt
+tools/analysis/run-log.txt
+tools/analysis/analysis-error.txt

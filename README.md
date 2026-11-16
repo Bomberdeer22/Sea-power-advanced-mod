@@ -47,6 +47,10 @@ How it works, and the verified mission-file format:
 [docs/civilian-traffic.md](docs/civilian-traffic.md). Hatch API:
 [docs/hatch-api.md](docs/hatch-api.md).
 
+**Something not working? Run `diagnose.cmd`** — one double-click, one text file to send. Plain-text
+copies of this file and of the install guide are included: [README.txt](README.txt),
+[INSTALL.txt](INSTALL.txt).
+
 ---
 
 ## Requirements
@@ -66,7 +70,7 @@ The short version, once BepInEx + Anchor Chain are in place:
 
 ```powershell
 Copy-Item Directory.Build.local.props.example Directory.Build.local.props   # set the game paths
-.\tools\build-portable.ps1 -Install        # build + copy into StreamingAssets
+.\tools\build-portable.ps1 -Install        # build + copy into BepInEx\plugins
 ```
 
 Blocked by PowerShell's execution policy (`is not digitally signed`)? Use `build.cmd install`
@@ -219,6 +223,8 @@ $EDITOR Directory.Build.local.props
 | `tools/build-portable.*` | Fetch a portable SDK into `.dotnet/` and run the build script. |
 | `build.cmd` | Same thing as a batch file, for machines where PowerShell policy blocks `.ps1`. |
 | `docs/usage.md` | How to use the mod once it is installed. |
+| `diagnose.cmd` | One double-click: collects system, game folder, mod files and game logs into `SeaPowerAdvanced-diagnose.txt`. Send that file when something breaks. |
+| `README.txt`, `INSTALL.txt` | Plain-text copies of this file and the install guide, for Notepad. Regenerate with `python tools/md2txt.py README.md README.txt`. |
 | `tools/analysis/` | **Read the game's API out of `Seapower-Scripts.dll`** — types, signatures, access flags and who calls what. Self-tested against ILDasm. See [tools/analysis/README.md](tools/analysis/README.md). |
 | `tools/read-metadata.py`, `tools/dump-game-api.ps1` | Older, narrower metadata dumps (type and member names only). |
 

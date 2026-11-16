@@ -6,11 +6,12 @@ How to open hatches by hand. Thirty seconds of clicking, plus what the menu is t
 
 The mod has to be installed **and loaded**:
 
-- `SeaPowerAdvanced\` is in `Sea Power_Data\StreamingAssets\`, and
-- it is ticked in the **Mod Manager**, and
-- the game has been **restarted** since ticking it (mod code loads once per launch).
+- `SeaPowerAdvanced\` is in `BepInEx\plugins\` (or the older `Sea Power_Data\StreamingAssets\`
+  location, if that is the route you installed), and
+- the game has been **restarted** since installing it (mod code loads once per launch).
 
-To confirm, search `BepInEx\LogOutput.log` for `Hatch menu installed.`
+To confirm, search `BepInEx\LogOutput.log` for `Loading [Sea Power Advanced` and
+`Hatch menu installed.`, or read the mod's own `seapoweradvanced.log` next to the DLL.
 
 ## The short version
 
@@ -89,7 +90,7 @@ own `openHatches()` does for a container. Individual lids inside one cell are no
 ## Log hatch report
 
 **Orders → Weapon hatches → Log hatch report** writes `hatch-report.txt` next to the mod DLL
-(`StreamingAssets\SeaPowerAdvanced\`) and prints the same thing into `LogOutput.log`.
+(`BepInEx\plugins\SeaPowerAdvanced\`) and prints the same thing into `LogOutput.log`.
 
 It lists, per ship: every mount, its type, cells, hatch counts, live open state, ammo count and the
 game's pending auto-close flag. That file is what makes a report actionable:
@@ -128,7 +129,7 @@ animation for it. Run **Log hatch report** and send the file.
 
 | What you see | What it means |
 |---|---|
-| No `Weapon hatches` entry at all | Check `StreamingAssets\SeaPowerAdvanced\seapoweradvanced.log` first: it records the entry point, both patch targets and every menu built. No file at all means the mod never ran. |
+| No `Weapon hatches` entry at all | Check `BepInEx\plugins\SeaPowerAdvanced\seapoweradvanced.log` first: it records the entry point, both patch targets and every menu built. No file at all means the mod never ran. |
 | Entry says "This ship has no launchers" | That unit genuinely has no launcher mounts (or guns only, with `IncludeGuns` off). |
 | A mount says `no hatch data` | That ship's files define no hatch animation for the mount, so the game cannot open it. |
 | Cell click logs `cell has no open animation` | That cell's data cannot be opened in this game build. Note the ship class. |
