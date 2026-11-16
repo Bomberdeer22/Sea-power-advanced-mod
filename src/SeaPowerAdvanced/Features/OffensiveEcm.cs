@@ -18,8 +18,11 @@ namespace SeaPowerAdvanced.Features;
 /// there, and the mod first *reads* that contact's sensor fit - which radars, which sonar, whether
 /// each is up, and what its hull is radiating as. That reading is the lock: without it the jammer
 /// does not know what to jam. With it, every sensor family the contact has is switched off and kept
-/// off, re-asserted ten times a second, so the target is blind for as long as the lock is held and
-/// the ship keeps radiating.
+/// off, re-asserted ten times a second, so the target is blind for as long as the lock is held.
+///
+/// Unlike the defensive feature, this mode does **not** switch the attacking ship's radar on: it runs
+/// on EMCON. Nothing here radiates, so the jammer gives away nothing while it works - which is the
+/// whole reason to use ECM instead of a radar lock.
 ///
 /// The effect is real and it is entirely the game's own switches: the target's radar, its sonar, its
 /// towed array and its own electronic warfare fit are all turned off through the same members this
@@ -50,9 +53,6 @@ internal static class OffensiveEcm
         internal int Assertions;
         internal string LastReport = "";
         internal bool Reported;
-
-        /// <summary>Air-search state before the jammer was pointed at anything, so it can be put back.</summary>
-        internal bool AirWasOn;
     }
 
     private static readonly Dictionary<ObjectBase, Hold> Held = new();
@@ -102,8 +102,8 @@ internal static class OffensiveEcm
         }
 
         report = EcmControl.Available
-            ? "signature lock armed. Pick a contact from the lock menu; air search will radiate "
-              + "while it jams"
+            ? "signature lock armed. Runs on EMCON - no radar, nothing radiated by this ship. "
+              + "Pick a contact to lock."
             : "signature lock selected, but this build exposes no ECM to drive - see ecm-report.txt";
         return true;
     }
@@ -189,6 +189,12 @@ internal static class OffensiveEcm
             return false;
         }
 
+        if (!UnitFit.HasEcm(ship))
+        {
+            report = Name(ship) + " carries no ECM, so it cannot jam anything";
+            return false;
+        }
+
         double range = SafeRange(Position(ship), target);
         if (range > RangeNm)
         {
@@ -215,15 +221,14 @@ internal static class OffensiveEcm
             NextAssertAt = 0f,
             Assertions = 0,
             Reported = false,
-            AirWasOn = SensorControl.GetAirSearchOn(ship) ?? false,
         };
 
         List<SensorSet.Reading> silenced = SensorSet.Silence(target);
         string outcome = SensorSet.FullyBlind(silenced)
-            ? "fully blind"
-            : "PARTIALLY blind - " + Stubborn(silenced);
+            ? "every sensor off"
+            : "NOT all sensors off - " + Stubborn(silenced);
 
-        EcmControl.Engage(ship, target, out string jam);
+        EcmControl.Engage(ship, target, false, out string jam);
 
         report = "lock on " + Name(target) + " (" + (int)range + " nm, hull " + signature + "): "
                  + outcome + " | read " + SensorSet.Describe(signatures) + " | " + jam;
@@ -236,6 +241,62 @@ internal static class OffensiveEcm
         return true;
     }
 
+    /// <summary>
+    /// Locks a contact from whichever of our own ships can actually do it: the nearest one with ECM,
+    /// inside jam range. This is what the enemy contact's menu calls, so the player never has to
+    /// first work out which of their ships has a jammer.
+    /// </summary>
+    internal static bool LockOnContact(ObjectBase contact, out string report)
+    {
+        report = "";
+
+        if (contact == null)
+        {
+            report = "no contact";
+            return false;
+        }
+
+        ObjectBase? jammer = BestJammerFor(contact);
+
+        if (jammer == null)
+        {
+            report = "no ship of ours with ECM is within " + (int)RangeNm + " nm of "
+                     + Name(contact) + " - nothing to jam it with";
+            ModLog.Warn("Offensive ECM: " + report);
+            return false;
+        }
+
+        bool ok = Lock(jammer, contact, out string inner);
+        report = ok ? Name(jammer) + ": " + inner : inner;
+        return ok;
+    }
+
+    /// <summary>The nearest of our ships with ECM that is inside jam range of this contact.</summary>
+    internal static ObjectBase? BestJammerFor(ObjectBase? contact)
+    {
+        if (contact == null) return null;
+
+        ObjectBase? best = null;
+        double bestRange = double.MaxValue;
+
+        foreach (ObjectBase ship in FleetTicker.Tracked())
+        {
+            try
+            {
+                if (!UnitFit.HasEcm(ship)) continue;
+
+                double range = SafeRange(Position(ship), contact);
+                if (range > RangeNm || range >= bestRange) continue;
+
+                bestRange = range;
+                best = ship;
+            }
+            catch (Exception) { }
+        }
+
+        return best;
+    }
+
     /// <summary>Drops the lock. The mod stops holding the target's switches down.</summary>
     internal static bool Release(ObjectBase ship, out string report)
     {
@@ -246,11 +307,9 @@ internal static class OffensiveEcm
         string target = Name(hold.Target);
         Held.Remove(ship);
 
+        // Nothing to restore on the radar front: this mode never switched it on. Offensive jamming
+        // runs on EMCON - silent, radiating nothing - which is the point of using ECM over radar.
         EcmControl.StandDown(ship, out _);
-
-        // Put the air search back as it was found: the jammer needed it, the ship afterwards does
-        // not, and leaving it radiating would be the mod giving the position away for nothing.
-        if (!hold.AirWasOn) SensorControl.SetAirSearch(ship, false);
 
         report = "released " + target + " after " + hold.Assertions
                  + " assertion(s); its own crew can bring its sensors back up";
@@ -325,7 +384,7 @@ internal static class OffensiveEcm
 
                 // Re-assert the jammer itself as well as the suppression: the target's crew can
                 // switch a set back on between assertions, and the game can reset our own set.
-                EcmControl.Engage(ship, target, out _);
+                EcmControl.Engage(ship, target, false, out _);
                 List<SensorSet.Reading> readings = SensorSet.Silence(target);
 
                 bool blind = SensorSet.FullyBlind(readings);
@@ -337,7 +396,8 @@ internal static class OffensiveEcm
                     hold.LastReport = summary;
 
                     ModLog.Info("Offensive ECM: " + Name(ship) + " holding " + Name(target) + " ("
-                                + (int)range + " nm) - " + (blind ? "blind" : "NOT yet blind")
+                                + (int)range + " nm) - "
+                                + (blind ? "every sensor off" : "some sensors still up")
                                 + ": " + summary);
                 }
             }
@@ -370,6 +430,10 @@ internal static class OffensiveEcm
     /// <summary>How many contacts are within reach, for the submenu label.</summary>
     internal static string ContactSummary(ObjectBase ship) => Contacts(ship).Count + " contact(s) in range";
 
+    /// <summary>
+    /// Names the sensor families this build would not let the mod switch, so the report says which
+    /// one is still working instead of a vague "partially".
+    /// </summary>
     private static string Stubborn(List<SensorSet.Reading> readings)
     {
         var names = new List<string>();
@@ -379,7 +443,9 @@ internal static class OffensiveEcm
             if (reading.Stubborn) names.Add(reading.Name);
         }
 
-        return names.Count > 0 ? string.Join(", ", names) : "one or more sensors could not be confirmed off";
+        return names.Count > 0
+            ? string.Join(", ", names) + " would not switch off on this build"
+            : "one or more sensors could not be confirmed off on this build";
     }
 
     private static GeoPosition Position(ObjectBase? unit)
@@ -427,7 +493,8 @@ internal static class OffensiveEcm
             foreach (SensorSet.Reading reading in applied) text.AppendLine("  " + Line(reading));
             text.AppendLine();
             text.AppendLine("A sensor marked STILL is one this build of the game will not let the mod");
-            text.AppendLine("switch off; the menu says 'partially blind' rather than claiming otherwise.");
+            text.AppendLine("switch off; the menu says 'NOT all sensors off' and names it rather than");
+            text.AppendLine("claiming otherwise.");
             text.AppendLine("The hold is re-asserted ten times a second - it is sustained suppression, not");
             text.AppendLine("a permanent state change, and it stops the moment the lock is released.");
 

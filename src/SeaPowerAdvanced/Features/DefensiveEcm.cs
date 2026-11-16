@@ -72,6 +72,10 @@ internal static class DefensiveEcm
         {
             try
             {
+                // Only hulls that carry ECM. A submarine or an unarmed auxillary is not armed with
+                // a jammer, and arming one would put a feature in a menu that cannot work.
+                if (!UnitFit.HasEcm(ship)) continue;
+
                 UnitRecord record = UnitState.Of(ship);
                 if (record.DefensiveEcm == on) continue;
 
@@ -113,6 +117,10 @@ internal static class DefensiveEcm
                     continue;
                 }
 
+                // A hull with no jammer cannot defend with one: leave it alone rather than reporting
+                // an engagement that could not have happened.
+                if (!UnitFit.HasEcm(ship)) continue;
+
                 bool inbound = Inbound.AnyNearby(ship, fleet, FormationNm,
                                                  out object? weapon, out ObjectBase? threatened);
 
@@ -132,7 +140,7 @@ internal static class DefensiveEcm
                     if (now < record.EcmRefreshAt) continue;
                     record.EcmRefreshAt = now + RefreshSeconds;
 
-                    bool ok = EcmControl.Engage(ship, weapon, out string note);
+                    bool ok = EcmControl.Engage(ship, weapon, true, out string note);
 
                     if (!record.EcmEngagedLogged)
                     {

@@ -82,6 +82,18 @@ radar back exactly as it was found.
 | Honest limit | **The mod cannot promise the missile misses.** It points the game's jammer at the game's missile and keeps it there; whether the seeker breaks lock is the simulation's answer. "Almost impossible to resist" is not something a mod can guarantee without knowing the game's jamming model, and this one does not pretend to. |
 | Honest limit | If this build names its jammers something the scan does not recognise, the feature says so in the menu and writes `ecm-report.txt` listing every ECM-like member it found. That file is ground truth from the installed game and is the fastest way to make the next build exact. |
 
+### Which units get which entries
+
+The mod only offers an option to a unit that can carry it out:
+
+| Entry | Shown for |
+|---|---|
+| ECM (defensive, offensive, mode and lock) | hulls the game says carry ECM, and surface hulls where it does not say. **Never on submarines** |
+| Active sonar, towed array | hulls that report the fit, or where the game does not report one |
+| Helicopter search patterns | hulls with a flight deck or hangar, or surface hulls where the game does not say |
+| Replenish alongside | surface hulls |
+| **Lock with ECM** on a contact | hostile and neutral contacts, when one of your ships with ECM is in range. Nothing else is added to a contact's menu |
+
 | Setting | What it does |
 |---|---|
 | Sensors → *Defensive ECM: off - click to arm automatic jamming* | Arms this ship |
@@ -101,8 +113,17 @@ this menu, nothing about your jamming changes.
 
 ### Signature lock
 
-Right-click the ship → **Sensors → Offensive ECM lock** and pick a contact from the list (the
-contacts your own picture holds, nearest first, max 40 nm). The mod then:
+Two ways in, and both end in the same place:
+
+- **Right-click the enemy contact itself → Lock with ECM.** That is the only entry the mod adds to a
+  contact's menu; the game's own identification entries (mark hostile/neutral, request identify) are
+  untouched. The mod picks whichever of your ships with ECM is nearest and inside range, and names it
+  in the label, so you do not have to work out which hull carries the jammer. If nothing of yours is
+  in range, the entry is not added at all.
+- **Right-click your own ship → Sensors → Offensive ECM lock** and pick a contact from the list (the
+  contacts that ship's own picture holds, nearest first, max 40 nm).
+
+Either way the mod then:
 
 1. **reads that contact's sensor fit** - which radar families it has and whether each is up, whether
    it has a towed array or active sonar, whether it is running ESM or its own jammer, and what its
@@ -113,14 +134,14 @@ contacts your own picture holds, nearest first, max 40 nm). The mod then:
    the target's crew can switch a set back on in between. This is sustained suppression, not a
    one-off toggle.
 4. **stands the lock down** when the target is sunk, runs beyond range, you release it, or you go
-   back to standard. The air-search radar the jammer needed is then put back the way it was found.
+   back to standard. Nothing is put back on the radar front, because this mode never touched it.
 
 | Drives | The target's own switches: `DisableAllRadars()`, `DisableAirSearchRadars`, `DisableSurfaceSearchRadars`, `TowedSonarsSetActive(false)`, `DisableActiveSonars`, plus any ESM / jammer switch it exposes |
 |---|---|
 | Reads | Its radiator state (`IsAirSearchRadarsOn`, `IsSurfaceSearchRadarsOn`), its sensor fit (`HasTowedSonar`, `HasActiveSonar`), its hull signature from its parameter block |
 | Range | `Features/JamRangeNm`, default 40 nm |
-| Cost | The jammer ship radiates air search for the whole engagement, exactly as the defensive feature does |
-| Honest limit | "Fully blind" means **every sensor family the mod could reach was switched off and read back as off**. If this build will not let the mod switch one, the menu says *partially blind* and names it, and `offensive-ecm.txt` lists it as `STILL`. The mod does not edit the target's picture to hide that. |
+| Cost | **None in emissions.** This mode runs on EMCON: it never switches the attacking ship's radar on, so the jammer gives away nothing while it works. (The defensive feature does need air search - it is locking onto a missile, not a contact.) |
+| Result you will see | *every sensor off*, or *NOT all sensors off - <sensor> would not switch off on this build*. The second is not a bug in the lock: it means the game gives no way to reach that one sensor family, so it is still working. The menu names it and `offensive-ecm.txt` lists it as `STILL`. The mod does not edit the target's picture to hide that. |
 | Honest limit | The effect lasts as long as the lock is held. It is not a permanent state change to the other ship's data, and it stops the moment the lock is released - which is why the mod re-asserts rather than setting it once. |
 
 `offensive-ecm.txt` in the mod folder records every lock, appended rather than overwritten: the

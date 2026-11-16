@@ -1,5 +1,30 @@
 # Changelog
 
+## 0.10.1 — ECM runs silent, and only where it fits
+
+Four corrections after playing it, all of them about the same thing: the mod was offering things to
+units and in modes that did not suit them.
+
+- **Offensive ECM no longer switches the radar on.** It runs on EMCON - the attacking ship radiates
+  nothing while it jams. The air-search requirement was copied from the defensive feature, where it
+  belongs: shooting at a missile needs a fire-control bearing, jamming a contact does not.
+  `EcmControl.Engage` now takes that decision as a parameter instead of assuming it.
+- **A contact's menu gets one entry, not twenty.** Right-clicking a hostile or neutral contact now
+  adds **Lock with ECM (<ship>, N nm)** at the top level and nothing else; the game's own
+  identification entries are untouched. The ship is whichever of yours carries ECM, is nearest, and
+  is in range - so the player never has to work out which hull has the jammer. If nothing of yours is
+  in range, the entry is not added.
+- **Only units that can do a thing are offered it.** ECM entries appear on hulls the game says carry
+  ECM (and on surface hulls where it does not say), and never on submarines. Active sonar and towed
+  array follow the game's own `HasActiveSonar` / `HasTowedSonar`. Helicopter patterns need a flight
+  deck or hangar. Replenishment is surface hulls only. Where the game does not answer, the mod shows
+  the entry rather than hiding a feature it could not check.
+- **"Partially blind" replaced with what it actually means:** *NOT all sensors off - <sensor> would
+  not switch off on this build*. The old wording read like a mod state; it was a missing game member.
+
+`Interop/UnitFit.cs` holds the per-unit answers, caches its lookups, and logs what it decided for the
+first contact menu it augments, so a menu that looks wrong can be explained from the log.
+
 ## 0.10.0 — offensive ECM, in two modes
 
 The ship's jammer, used deliberately. Standard stays the default and changes nothing; signature lock

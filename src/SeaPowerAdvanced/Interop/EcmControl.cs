@@ -208,11 +208,12 @@ internal static class EcmControl
     /// <summary>
     /// Points the ship's ECM at one weapon and switches it on.
     ///
-    /// The air-search radar is switched on first, deliberately: a jammer needs a fire-control quality
-    /// lock, and the price of that lock is an emission the other side can see. That trade is the
-    /// feature, not a side effect of it.
+    /// <paramref name="radiate"/> decides whether the air-search radar is switched on first. The
+    /// defensive feature does, because a ship defending itself wants a fire-control quality bearing
+    /// on the missile and will pay for it. Offensive jamming against a contact does not: it runs on
+    /// EMCON, silent, which is the whole point of using ECM instead of radar.
     /// </summary>
-    internal static bool Engage(ObjectBase unit, object? weapon, out string note)
+    internal static bool Engage(ObjectBase unit, object? weapon, bool radiate, out string note)
     {
         var steps = new List<string>();
         note = "";
@@ -233,7 +234,14 @@ internal static class EcmControl
             return false;
         }
 
-        if (SensorControl.SetAirSearch(unit, true)) steps.Add("air search on");
+        if (radiate)
+        {
+            if (SensorControl.SetAirSearch(unit, true)) steps.Add("air search on");
+        }
+        else
+        {
+            steps.Add("on EMCON (no radar)");
+        }
 
         string aimed = "";
         if (weapon != null && Aim(unit, weapon, out aimed)) steps.Add(aimed);

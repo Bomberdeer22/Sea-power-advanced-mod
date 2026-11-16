@@ -66,6 +66,59 @@ internal static class FleetMenu
         return written.Count;
     }
 
+    /// <summary>
+    /// The menu for a unit that is not ours: a hostile or neutral contact.
+    ///
+    /// A contact is not a command of ours, so nothing here orders it about. The only thing the mod
+    /// can legitimately offer is the jammer, and only when one of our own ships could actually reach
+    /// it. The game's own entries - mark hostile / neutral, request identify - are left exactly as
+    /// they are: they are the game's, and they are right.
+    ///
+    /// Returns how many entries were added (0 or 1).
+    /// </summary>
+    internal static int InstallContact(ObjectBase contact, List<ContextMenuItem> roots, object live)
+    {
+        MenuRouting.Placements.Clear();
+
+        try
+        {
+            if (!EcmControl.Available) return 0;
+
+            ObjectBase? jammer = OffensiveEcm.BestJammerFor(contact);
+            if (jammer == null) return 0;
+
+            int range = -1;
+            try
+            {
+                range = (int)ThreatAxis.Distance(jammer.getGeoPosition(), contact.getGeoPosition());
+            }
+            catch (Exception) { }
+
+            string label = range >= 0
+                ? "Lock with ECM (" + ContactName(jammer) + ", " + range + " nm)"
+                : "Lock with ECM";
+
+            var item = new ContextMenuItem(
+                label: label,
+                items: null,
+                command: new DelegateCommand(_ => Report(contact, "lock with ECM",
+                    OffensiveEcm.LockOnContact(contact, out string r), r)),
+                tooltip: "Point " + ContactName(jammer) + "'s jammer at this contact, read its "
+                         + "sensor fit, and hold every sensor it has switched off. Runs on EMCON.");
+
+            // Top level: a contact menu is short, and hiding this inside a section would make the
+            // player hunt for the one entry the mod adds there.
+            string where = MenuRouting.Place(roots, live, item, Array.Empty<string>());
+            MenuRouting.Placements.Add(label + "  ->  " + where);
+            return 1;
+        }
+        catch (Exception error)
+        {
+            ModLog.Error("Could not add the ECM lock entry to a contact menu", error);
+            return 0;
+        }
+    }
+
     /// <summary>Every entry for this unit, paired with the section keywords it belongs in.</summary>
     private static List<(ContextMenuItem item, string[][] route)> Entries(ObjectBase unit)
     {
@@ -94,17 +147,25 @@ internal static class FleetMenu
                 return SensorControl.SetSurfaceSearch(u, true);
             })), MenuRouting.Sensors);
 
-        Add(Action("Active sonar on", "Go active: finds submarines, gives the ship away.",
-            () => Act(unit, "active sonar on", u => SensorControl.SetActiveSonar(u, true))), MenuRouting.Sensors);
+        // Sonar entries only on hulls that have the fit. Unknown counts as fitted: the game does
+        // not always expose a HasX for every hull, and a hidden feature looks like a broken one.
+        if (SensorControl.ActiveSonarFit(unit) != false)
+        {
+            Add(Action("Active sonar on", "Go active: finds submarines, gives the ship away.",
+                () => Act(unit, "active sonar on", u => SensorControl.SetActiveSonar(u, true))), MenuRouting.Sensors);
 
-        Add(Action("Active sonar off", "Passive only.",
-            () => Act(unit, "active sonar off", u => SensorControl.SetActiveSonar(u, false))), MenuRouting.Sensors);
+            Add(Action("Active sonar off", "Passive only.",
+                () => Act(unit, "active sonar off", u => SensorControl.SetActiveSonar(u, false))), MenuRouting.Sensors);
+        }
 
-        Add(Action("Deploy towed array", "Stream the towed array.",
-            () => Act(unit, "towed array out", u => SensorControl.SetTowedSonar(u, true))), MenuRouting.Sensors);
+        if (SensorControl.TowedArrayFit(unit) != false)
+        {
+            Add(Action("Deploy towed array", "Stream the towed array.",
+                () => Act(unit, "towed array out", u => SensorControl.SetTowedSonar(u, true))), MenuRouting.Sensors);
 
-        Add(Action("Retract towed array", "Bring the array in before making speed.",
-            () => Act(unit, "towed array in", u => SensorControl.SetTowedSonar(u, false))), MenuRouting.Sensors);
+            Add(Action("Retract towed array", "Bring the array in before making speed.",
+                () => Act(unit, "towed array in", u => SensorControl.SetTowedSonar(u, false))), MenuRouting.Sensors);
+        }
 
         Add(new ContextMenuItem(
             label: "EMCON profile",
@@ -149,7 +210,12 @@ internal static class FleetMenu
                 "Cuts the radars for eight seconds whenever a weapon is inbound.",
                 () => Report(unit, "auto-ARM", AutoArm.Toggle(unit, out string r), r)), MenuRouting.Sensors);
 
-        if (EcmControl.Available)
+        // --- ECM: only on hulls that actually carry it --------------------------------------
+        // A submarine has no jammer, so it gets no ECM entries at all - not a disabled one, nothing.
+        // The wording here also stops promising that this mode radiates: it runs on EMCON.
+        bool carriesEcm = UnitFit.HasEcm(unit);
+
+        if (carriesEcm)
         {
             Add(DefensiveEcm.IsArmed(unit)
                 ? Action("Defensive ECM: " + DefensiveEcm.Describe(unit) + " - click to disarm",
@@ -157,34 +223,23 @@ internal static class FleetMenu
                     () => Report(unit, "defensive ECM", DefensiveEcm.Toggle(unit, out string r), r))
                 : Action("Defensive ECM: off - click to arm automatic jamming",
                     "Points this ship's jammer at any missile inbound to it or to the task force, "
-                    + "and holds the lock. Air search has to radiate while it does.",
+                    + "and holds the lock. Defensive jamming needs air search; offensive does not.",
                     () => Report(unit, "defensive ECM", DefensiveEcm.Toggle(unit, out string r), r)),
                 MenuRouting.Sensors);
 
             Add(Action("Defensive ECM for the whole task force",
-                "Arms automatic defensive jamming on every ship under command.",
+                "Arms automatic defensive jamming on every ship under command that carries ECM.",
                 () => Fleet("defensive ECM (fleet)", DefensiveEcm.ArmFleet(true, out string r), r)),
                 MenuRouting.Sensors);
-        }
-        else
-        {
-            Add(Disabled("Defensive ECM: this build exposes no ECM to drive",
-                "The mod found no ECM member on the game's units. ecm-report.txt lists what it "
-                + "looked at - send that file and the next build can use the real names."),
-                MenuRouting.Sensors);
-        }
 
-        // --- Offensive ECM: two modes, the game's own and the focused one ---------------------
-        if (EcmControl.Available)
-        {
             Add(OffensiveEcm.ModeOf(unit) == OffensiveEcm.Mode.SignatureLock
                 ? Action("Offensive ECM: signature lock - click for standard",
                     "Hands the jammer back to the game's own behaviour and releases any lock.",
                     () => Report(unit, "offensive ECM",
                         OffensiveEcm.SetMode(unit, OffensiveEcm.Mode.Standard, out string r), r))
                 : Action("Offensive ECM: standard - click for signature lock",
-                    "The game's own ECM leaves the target's sensors alone. Signature lock reads one "
-                    + "contact's sensor fit and holds every family of it switched off.",
+                    "Runs on EMCON: this ship radiates nothing. Signature lock reads one contact's "
+                    + "sensor fit and holds every sensor it has switched off.",
                     () => Report(unit, "offensive ECM",
                         OffensiveEcm.SetMode(unit, OffensiveEcm.Mode.SignatureLock, out string r), r)),
                 MenuRouting.Sensors);
@@ -197,21 +252,17 @@ internal static class FleetMenu
                     "What the focused jammer is doing right now."), MenuRouting.Sensors);
             }
         }
-        else
-        {
-            Add(Disabled("Offensive ECM: this build exposes no ECM to drive",
-                "The mod found no ECM member to point at a contact. ecm-report.txt lists what it "
-                + "looked at - send that file and the next build can use the real names."),
-                MenuRouting.Sensors);
-        }
 
-        Add(Action("ECM: what this build exposes",
-            "Writes ecm-report.txt and logs what the jammer interface looks like in this install.",
-            () =>
-            {
-                EcmControl.WriteReport();
-                ModLog.Info("Menu: ECM report written - " + EcmControl.Summary());
-            }), MenuRouting.Sensors);
+        if (UnitFit.IsSurfaceHull(unit))
+        {
+            Add(Action("ECM: what this build exposes",
+                "Writes ecm-report.txt and logs what the jammer interface looks like in this install.",
+                () =>
+                {
+                    EcmControl.WriteReport();
+                    ModLog.Info("Menu: ECM report written - " + EcmControl.Summary());
+                }), MenuRouting.Sensors);
+        }
 
         Add(MerchantDisguise.IsDisguised(unit)
             ? Action("Commercial disguise: on - click to drop it",
@@ -253,18 +304,21 @@ internal static class FleetMenu
             "Re-stations the task force on the bearing of the nearest tracked threat.",
             () => Fleet("threat axis", ThreatAxis.Reorient(out string r), r)), MenuRouting.Formation);
 
-        // --- Air operations ------------------------------------------------------------------
-        Add(Action("Fly a ladder search", "Launches (if needed) and flies a ladder pattern.",
-            () => Report(unit, "helo ladder", HeloPatterns.Fly(unit, SearchPattern.Ladder, out string r), r)),
-            MenuRouting.Air);
+        // --- Air operations: only on hulls that can put an aircraft up ----------------------
+        if (UnitFit.HasAviation(unit))
+        {
+            Add(Action("Fly a ladder search", "Launches (if needed) and flies a ladder pattern.",
+                () => Report(unit, "helo ladder", HeloPatterns.Fly(unit, SearchPattern.Ladder, out string r), r)),
+                MenuRouting.Air);
 
-        Add(Action("Fly an expanding square", "Launches (if needed) and flies an expanding square.",
-            () => Report(unit, "helo square", HeloPatterns.Fly(unit, SearchPattern.ExpandingSquare, out string r), r)),
-            MenuRouting.Air);
+            Add(Action("Fly an expanding square", "Launches (if needed) and flies an expanding square.",
+                () => Report(unit, "helo square", HeloPatterns.Fly(unit, SearchPattern.ExpandingSquare, out string r), r)),
+                MenuRouting.Air);
 
-        Add(Action("Fly a sector search", "Launches (if needed) and sweeps a sector.",
-            () => Report(unit, "helo sector", HeloPatterns.Fly(unit, SearchPattern.Sector, out string r), r)),
-            MenuRouting.Air);
+            Add(Action("Fly a sector search", "Launches (if needed) and sweeps a sector.",
+                () => Report(unit, "helo sector", HeloPatterns.Fly(unit, SearchPattern.Sector, out string r), r)),
+                MenuRouting.Air);
+        }
 
         // --- Damage control ------------------------------------------------------------------
         Add(LocalControl.IsLocal(unit)
@@ -276,9 +330,12 @@ internal static class FleetMenu
                 () => Report(unit, "local control", LocalControl.Toggle(unit, out string r), r)),
             MenuRouting.Damage, MenuRouting.Weapons);
 
-        Add(Action("Replenish alongside", "Takes on ammunition from a supply ship within 2 nm.",
-            () => Report(unit, "replenishment", Replenishment.Alongside(unit, out string r), r)),
-            MenuRouting.Logistics, MenuRouting.Damage);
+        if (UnitFit.IsSurfaceHull(unit))
+        {
+            Add(Action("Replenish alongside", "Takes on ammunition from a supply ship within 2 nm.",
+                () => Report(unit, "replenishment", Replenishment.Alongside(unit, out string r), r)),
+                MenuRouting.Logistics, MenuRouting.Damage);
+        }
 
         // --- Top level: the emergency action ------------------------------------------------
         Add(Action(BreakawayLabel, "Full ahead, hard rudder, chaff away - all at once, now.",

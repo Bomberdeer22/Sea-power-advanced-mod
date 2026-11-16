@@ -9,7 +9,7 @@ An advanced mod for Sea Power: Naval Combat in the Missile Age, built as an
 Anchor Chain (https://github.com/SeaPower-Modders/AnchorChain) code mod and
 loadable as a plain BepInEx plugin.
 
-Version 0.10.0  -  fourteen advanced features, plus hatch control and civilian
+Version 0.10.1  -  fourteen advanced features, plus hatch control and civilian
 traffic.
 
 1. Manual hatch control
@@ -137,7 +137,7 @@ is permitted.
 
 The DLL goes into BepInEx\plugins\SeaPowerAdvanced\, so BepInEx loads it
 directly  -  there is no mod-manager checkbox on this route. BepInEx's log
-then shows Loading [Sea Power Advanced 0.10.0], and the mod writes its own
+then shows Loading [Sea Power Advanced 0.10.1], and the mod writes its own
 seapoweradvanced.log next to the DLL.
 
 USE IT
@@ -436,6 +436,7 @@ LAYOUT
       Interop/Inbound.cs             the vampires: what is inbound to a ship or to the ships near it
       Interop/EcmControl.cs          discovers the ECM switch, target and power by name; ecm-report.txt
       Interop/SensorSet.cs           reads a unit's sensor fit and signatures, and silences them
+      Interop/UnitFit.cs             per-unit answers: does this hull carry ECM, can it fly, is it ours
       Menu/FleetMenu.cs              the features, distributed across the game's sections
       Menu/MenuRouting.cs            puts each entry in the section a player would look in first
       Menu/FleetMenuPatch.cs         its own Harmony patch, so a hatch-menu problem cannot hide it

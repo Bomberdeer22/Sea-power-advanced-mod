@@ -291,7 +291,7 @@ internal static class SensorSet
     /// <summary>
     /// Whether this member is something the mod can actually switch. A read-only strength field that
     /// happens to be named "jammerPower" is not a sensor switch, and counting it would make every
-    /// target permanently "partially blind" for no reason.
+    /// target permanently "not all sensors off" for no reason.
     /// </summary>
     private static bool Switchable(MemberInfo member) => member switch
     {

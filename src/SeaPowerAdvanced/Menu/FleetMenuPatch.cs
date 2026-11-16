@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using HarmonyLib;
 using SeaPower;
+using SeaPowerAdvanced.Interop;
 using SeapowerUI;
 using SeapowerUI.ViewModels;
 using UniRx;
@@ -86,6 +87,22 @@ internal static class FleetMenuPatch
 
         if (unit.IsDestroyed) return;
 
+        // A contact is not one of ours. It gets the jammer and nothing else - the game's own
+        // identification entries are already in that menu and are the right ones for it.
+        if (!UnitFit.IsPlayer(unit))
+        {
+            if (FleetMenu.InstallContact(unit, MenuRouting.Roots(result), result) > 0)
+                MenuRouting.MarkHandled(result);
+
+            if (ModSettings.VerboseLog && !contactLogged)
+            {
+                contactLogged = true;
+                ModLog.Info("Contact menu: the mod adds only an ECM lock entry. "
+                            + UnitFit.Describe(unit));
+            }
+            return;
+        }
+
         List<ContextMenuItem> roots = MenuRouting.Roots(result);
         int sections = FleetMenu.Install(unit, roots, result);
         MenuRouting.MarkHandled(result);
@@ -106,6 +123,8 @@ internal static class FleetMenuPatch
     }
 
     private static bool logged;
+
+    private static bool contactLogged;
 
     private static string SafeName(ObjectBase unit)
     {

@@ -232,6 +232,35 @@ internal static class SensorControl
     internal static bool HasTowedArray(ObjectBase unit) =>
         unit != null && MemberProbe.Invoke(HasTowed, unit);
 
+    /// <summary>
+    /// Whether this hull has a towed array, or null when the game does not say. A null is not a
+    /// "no": the menu shows the entry, because hiding a feature the mod could not check is worse
+    /// than showing one that might do nothing.
+    /// </summary>
+    internal static bool? TowedArrayFit(ObjectBase? unit)
+    {
+        if (unit == null) return null;
+        return Query(HasTowed, unit);
+    }
+
+    /// <summary>Whether this hull has an active sonar fit, or null when the game does not say.</summary>
+    internal static bool? ActiveSonarFit(ObjectBase? unit)
+    {
+        if (unit == null) return null;
+        return Query(HasActiveSonar, unit);
+    }
+
+    private static bool? Query(MemberInfo? member, object unit)
+    {
+        if (member is not MethodInfo method) return null;
+
+        try
+        {
+            return method.Invoke(unit, null) as bool?;
+        }
+        catch (Exception) { return null; }
+    }
+
     internal static bool HasActiveSonarFit(ObjectBase unit) =>
         unit != null && MemberProbe.Invoke(HasActiveSonar, unit);
 
