@@ -68,13 +68,20 @@ copies of this file and of the install guide are included: [README.txt](README.t
 
 The short version, once BepInEx + Anchor Chain are in place:
 
-```powershell
-Copy-Item Directory.Build.local.props.example Directory.Build.local.props   # set the game paths
-.\tools\build-portable.ps1 -Install        # build + copy into BepInEx\plugins
+```bat
+build.cmd
 ```
 
-Blocked by PowerShell's execution policy (`is not digitally signed`)? Use `build.cmd install`
-instead — batch files are not affected by it.
+**Double-click it.** It finds your game, fetches a portable .NET SDK if you have none, builds the
+mod against your own game DLLs and copies it into `BepInEx\plugins\SeaPowerAdvanced\`. It pauses
+at the end, and writes `build-log.txt` plus `build-output.txt` so a closing window never loses an
+error.
+
+It uses **no PowerShell** — `curl` and `tar`, both built into Windows, do the fetching and unpacking.
+That makes it the route to use if PowerShell is restricted on your PC (`is not digitally signed`,
+or a PowerShell window that closes itself).
+
+Prefer PowerShell? `tools\build-portable.ps1 -Install` does the same job when it is permitted.
 
 The DLL goes into `BepInEx\plugins\SeaPowerAdvanced\`, so **BepInEx loads it directly** — there is
 no mod-manager checkbox on this route. BepInEx's log then shows `Loading [Sea Power Advanced 0.6.0]`,

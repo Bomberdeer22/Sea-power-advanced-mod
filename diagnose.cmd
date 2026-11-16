@@ -26,6 +26,7 @@ call :locate_game
 call :game_checks
 call :mod_files
 call :game_logs
+call :build_logs
 call :analysis
 call :footer
 
@@ -219,6 +220,25 @@ goto :logs_done
 >> "%LOG%" echo skipped: game folder unknown
 :logs_done
 echo  - game logs
+exit /b
+
+
+:build_logs
+>> "%LOG%" echo.
+>> "%LOG%" echo [ BUILD LOGS ]
+if not exist "%HERE%build-log.txt" goto :build_no_log
+>> "%LOG%" echo --- build-log.txt ---
+type "%HERE%build-log.txt" >> "%LOG%" 2>nul
+goto :build_output
+:build_no_log
+>> "%LOG%" echo build-log.txt : not found - build.cmd has not been run from this folder
+:build_output
+if not exist "%HERE%build-output.txt" goto :build_done
+>> "%LOG%" echo.
+>> "%LOG%" echo --- build-output.txt ---
+type "%HERE%build-output.txt" >> "%LOG%" 2>nul
+:build_done
+echo  - build logs
 exit /b
 
 

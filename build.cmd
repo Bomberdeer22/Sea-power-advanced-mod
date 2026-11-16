@@ -1,20 +1,21 @@
 @echo off
-rem ---------------------------------------------------------------------------
-rem  Build Sea Power Advanced without running any PowerShell script file.
+rem ===========================================================================
+rem  Build Sea Power Advanced - no PowerShell, no admin rights, no installer.
 rem
-rem  Windows blocks unsigned .ps1 files on many machines ("cannot be loaded ...
-rem  is not digitally signed"). Batch files are not covered by that policy, so
-rem  this route works when tools\build-portable.ps1 is refused.
+rem  Double-click this file. It pauses at the end and writes everything to
+rem  build-log.txt, so a window closing can never lose the error message.
 rem
 rem  Usage:
-rem     build.cmd            build into dist\SeaPowerAdvanced
-rem     build.cmd install    build, then copy into StreamingAssets
+rem     build.cmd             build and install into the game  (default)
+rem     build.cmd dist        build only, into dist\SeaPowerAdvanced
+rem     build.cmd install     build and install into the game
 rem
-rem  Needs nothing pre-installed: if there is no .NET SDK it fetches a portable
-rem  one into .dotnet\ (about 200 MB, once, no installer, no admin rights), and
-rem  it detects the game folder from your Steam install.
-rem ---------------------------------------------------------------------------
-setlocal
+rem  Needs nothing pre-installed. If there is no .NET SDK it downloads a
+rem  portable one into .dotnet\ (about 220 MB, once) with curl and tar, both of
+rem  which ship with Windows 10/11. Neither is a script, so the PowerShell
+rem  execution policy never comes into it.
+rem ===========================================================================
+setlocal enabledelayedexpansion
 
 set "ROOT=%~dp0"
 if "%ROOT:~-1%"=="\" set "ROOT=%ROOT:~0,-1%"
@@ -23,145 +24,386 @@ set "DOTNET_EXE=%DOTNET_DIR%\dotnet.exe"
 set "PROJECT=%ROOT%\src\SeaPowerAdvanced\SeaPowerAdvanced.csproj"
 set "DIST=%ROOT%\dist\SeaPowerAdvanced"
 set "PROPS=%ROOT%\Directory.Build.local.props"
+set "LOG=%ROOT%\build-log.txt"
+set "BUILDLOG=%ROOT%\build-output.txt"
 
-rem ---------------------------------------------------------------- 1. toolchain
-if exist "%DOTNET_EXE%" goto have_dotnet
+rem Default action when double-clicked: install. That is what people want.
+set "ACTION=install"
+if /i "%~1"=="dist" set "ACTION=dist"
+
+> "%LOG%" echo Sea Power Advanced - build log
+>> "%LOG%" echo started %DATE% %TIME%
+>> "%LOG%" echo folder  %ROOT%
+>> "%LOG%" echo action  %ACTION%
+>> "%LOG%" echo.
+
+echo ============================================================
+echo  Sea Power Advanced - build
+echo ============================================================
+echo  Folder : %ROOT%
+echo  Action : %ACTION%
+echo  Log    : %LOG%
+echo.
+echo  If this window ever closes by itself, open build-log.txt and send it.
+echo.
+
+call :main
+set "RC=%ERRORLEVEL%"
+
+echo.
+echo ============================================================
+if "%RC%"=="0" echo  DONE - the build succeeded.
+if not "%RC%"=="0" echo  STOPPED with an error. The lines above say what failed.
+if not "%RC%"=="0" echo  Everything is saved in: %LOG%
+echo ============================================================
+>> "%LOG%" echo.
+>> "%LOG%" echo finished with code %RC% at %DATE% %TIME%
+echo.
+echo Press any key to close this window.
+pause >nul
+endlocal
+exit /b
+
+
+rem ===========================================================================
+rem  main
+rem ===========================================================================
+:main
+call :step_sdk
+if errorlevel 1 exit /b 1
+
+call :step_paths
+if errorlevel 1 exit /b 1
+
+call :step_build
+if errorlevel 1 exit /b 1
+
+call :step_package
+if errorlevel 1 exit /b 1
+
+if /i not "%ACTION%"=="install" goto main_done
+call :step_install
+if errorlevel 1 exit /b 1
+
+:main_done
+exit /b 0
+
+
+rem ===========================================================================
+:step_sdk
+echo [1/4] Looking for a .NET SDK...
+>> "%LOG%" echo [1/4] sdk
+
+if exist "%DOTNET_EXE%" (
+    echo       using the portable copy in .dotnet
+    >> "%LOG%" echo       portable %DOTNET_EXE%
+    goto sdk_ok
+)
 
 where dotnet >nul 2>&1
 if not errorlevel 1 (
     set "DOTNET_EXE=dotnet"
-    goto have_dotnet
+    echo       using the .NET SDK already installed on this PC
+    >> "%LOG%" echo       found on PATH
+    goto sdk_ok
 )
 
-echo No .NET SDK found. Downloading a portable one into .dotnet\ ...
-echo This happens once and installs nothing system-wide.
+echo       none found - downloading a portable SDK (about 220 MB, one time).
+echo       Nothing is installed system-wide; it stays inside this folder.
+>> "%LOG%" echo       downloading portable sdk
+
+where curl >nul 2>&1
+if errorlevel 1 goto sdk_no_curl
+where tar >nul 2>&1
+if errorlevel 1 goto sdk_no_tar
+
 if not exist "%DOTNET_DIR%" mkdir "%DOTNET_DIR%"
+set "ZIP=%ROOT%\dotnet-sdk.zip"
+set "GOT="
 
-rem The installer is fetched as text and run as a script block, never as a file,
-rem so the execution policy never sees it.
-powershell -NoProfile -Command "$ProgressPreference='SilentlyContinue'; try { [Net.ServicePointManager]::SecurityProtocol=[Net.SecurityProtocolType]::Tls12 } catch {}; $text=(New-Object Net.WebClient).DownloadString('https://dot.net/v1/dotnet-install.ps1'); & ([scriptblock]::Create($text)) -InstallDir '%DOTNET_DIR%' -Channel 8.0 -NoPath"
-if not exist "%DOTNET_EXE%" goto no_sdk
+rem Three sources: the short link first, then a pinned build on both CDNs.
+call :fetch_sdk "https://aka.ms/dotnet/8.0/dotnet-sdk-win-x64.zip"
+if not defined GOT call :fetch_sdk "https://builds.dotnet.microsoft.com/dotnet/Sdk/8.0.404/dotnet-sdk-8.0.404-win-x64.zip"
+if not defined GOT call :fetch_sdk "https://dotnetcli.azureedge.net/dotnet/Sdk/8.0.404/dotnet-sdk-8.0.404-win-x64.zip"
+if not defined GOT goto sdk_download_failed
 
-:have_dotnet
-echo Using SDK: %DOTNET_EXE%
+echo       extracting...
+>> "%LOG%" echo       extracting
+tar -xf "%ZIP%" -C "%DOTNET_DIR%"
+if errorlevel 1 goto sdk_extract_failed
+del /q "%ZIP%" >nul 2>&1
+if not exist "%DOTNET_EXE%" goto sdk_extract_failed
 
-rem ------------------------------------------------------- 2. game folder paths
-if exist "%PROPS%" goto have_config
+echo       portable SDK ready.
+>> "%LOG%" echo       portable sdk ready
+goto sdk_ok
 
-rem Ask Steam where it lives, then check the default library.
+:fetch_sdk
+echo       fetching %~1
+>> "%LOG%" echo       url %~1
+curl -L --fail --retry 2 --ssl-no-revoke -o "%ZIP%" "%~1"
+if errorlevel 1 exit /b 0
+if not exist "%ZIP%" exit /b 0
+set "GOT=1"
+exit /b 0
+
+:sdk_no_curl
+echo       curl.exe is not available, and it is needed to download the SDK.
+>> "%LOG%" echo       curl.exe missing
+echo       Install the .NET 8 SDK from https://dotnet.microsoft.com/download
+echo       and run this file again - it will find it.
+exit /b 1
+
+:sdk_no_tar
+echo       tar.exe is not available, and it is needed to unpack the SDK.
+>> "%LOG%" echo       tar.exe missing
+echo       Install the .NET 8 SDK from https://dotnet.microsoft.com/download
+echo       and run this file again - it will find it.
+exit /b 1
+
+:sdk_download_failed
+echo       The download did not work.
+>> "%LOG%" echo       download failed
+echo.
+echo       Either this PC cannot reach the internet, or a proxy is blocking it.
+echo       The alternative is a normal install:
+echo         https://dotnet.microsoft.com/download    (.NET 8 SDK)
+echo       Then run build.cmd again - it finds the SDK automatically.
+exit /b 1
+
+:sdk_extract_failed
+echo       The SDK downloaded but could not be unpacked.
+>> "%LOG%" echo       extract failed
+echo       Install the .NET 8 SDK from https://dotnet.microsoft.com/download
+echo       and run build.cmd again.
+exit /b 1
+
+:sdk_ok
+echo.
+exit /b 0
+
+
+rem ===========================================================================
+:step_paths
+echo [2/4] Finding Sea Power and Anchor Chain...
+>> "%LOG%" echo [2/4] paths
+
+set "GAME="
+set "AC="
+
+if not exist "%PROPS%" goto paths_search
+for /f "tokens=2 delims=<>" %%p in ('findstr /i "<SeaPowerDir>" "%PROPS%" 2^>nul') do if not defined GAME set "GAME=%%p"
+for /f "tokens=2 delims=<>" %%p in ('findstr /i "<AnchorChainDir>" "%PROPS%" 2^>nul') do if not defined AC set "AC=%%p"
+>> "%LOG%" echo       from props: game=!GAME! ac=!AC!
+
+rem A props file left over from an earlier attempt may point somewhere that no
+rem longer exists. Drop any path that does not check out, then search afresh.
+if defined GAME if not exist "!GAME!\Sea Power_Data\Managed\Seapower-Scripts.dll" set "GAME="
+if defined AC if not exist "!AC!\AnchorChain.dll" set "AC="
+if not defined GAME goto paths_search
+if not defined AC goto paths_search
+goto paths_check
+
+:paths_search
+rem Ask Steam where it is installed, then look through the plausible libraries.
 set "STEAM="
 for /f "tokens=2,*" %%a in ('reg query "HKCU\Software\Valve\Steam" /v SteamPath 2^>nul ^| findstr /i "SteamPath"') do set "STEAM=%%b"
-if not defined STEAM goto default_config
+if not defined STEAM goto paths_scan
+set "STEAM=!STEAM:/=\!"
+call :try_root "!STEAM!"
+if defined GAME if defined AC goto paths_check
 
-set "STEAM=%STEAM:/=\%"
-set "GAME=%STEAM%\steamapps\common\Sea Power"
-set "AC=%STEAM%\steamapps\workshop\content\1286220\3380210757"
-if not exist "%GAME%\Sea Power_Data\Managed" goto default_config
-if not exist "%AC%\AnchorChain.dll" goto almost_config
-
-> "%PROPS%" echo ^<Project^>
->>"%PROPS%" echo   ^<PropertyGroup^>
->>"%PROPS%" echo     ^<SeaPowerDir^>%GAME%^</SeaPowerDir^>
->>"%PROPS%" echo     ^<AnchorChainDir^>%AC%^</AnchorChainDir^>
->>"%PROPS%" echo   ^<^/PropertyGroup^>
->>"%PROPS%" echo ^<^/Project^>
-echo Detected Sea Power:  %GAME%
-echo Detected AnchorChain: %AC%
-goto have_config
-
-:almost_config
-echo Found Sea Power at %GAME%
-echo but not AnchorChain.dll in the Workshop folder.
-goto default_config
-
-:default_config
-if not exist "%ROOT%\Directory.Build.local.props" (
-    copy /y "%ROOT%\Directory.Build.local.props.example" "%PROPS%" >nul
-    echo Created Directory.Build.local.props from the example.
+:paths_scan
+rem Scan the usual library names on every drive letter. Fast, and it avoids
+rem parsing Steam's libraryfolders.vdf, whose quoting is easy to get wrong.
+rem Every candidate is tried, every time: the game and Anchor Chain can live on
+rem different drives, and stopping at the first game folder found would miss it.
+rem :try_root skips anything that does not exist and never overwrites a hit.
+for %%L in (C D E F G H I J K L M N O P Q R S T U V W X Y Z) do (
+    call :try_root "%%L:\Steam"
+    call :try_root "%%L:\SteamLibrary"
+    call :try_root "%%L:\Program Files (x86)\Steam"
+    call :try_root "%%L:\Program Files\Steam"
 )
-echo If your Steam library is not in the default place, edit SeaPowerDir and
-echo AnchorChainDir in Directory.Build.local.props, then run this again.
 
-:have_config
+if not defined GAME goto paths_no_game
+if defined AC goto paths_check
 
-rem ------------------------------------------------------------------- 3. build
+echo       Found the game but not AnchorChain.dll.
+>> "%LOG%" echo       game=!GAME! ac=MISSING
 echo.
-echo Building...
-"%DOTNET_EXE%" build "%PROJECT%" -c Release
-if errorlevel 1 goto build_failed
+echo       Anchor Chain is the mod loader and has to be installed first:
+echo         Steam - Sea Power - Workshop - subscribe to "Anchor Chain"
+echo       then start the game once, and run this again.
+exit /b 1
 
-rem ---------------------------------------------------------------- 4. package
+:paths_no_game
+>> "%LOG%" echo       game not found
+if not exist "%PROPS%" copy /y "%ROOT%\Directory.Build.local.props.example" "%PROPS%" >nul
+echo       Could not find Sea Power automatically.
+echo.
+echo       Open this file in Notepad:
+echo         %PROPS%
+echo       Set the two paths to match your PC, save, and run this again.
+echo       It has just been created for you. Example:
+echo.
+echo         ^<SeaPowerDir^>C:\Program Files ^(x86^)\Steam\steamapps\common\Sea Power^</SeaPowerDir^>
+echo         ^<AnchorChainDir^>C:\Program Files ^(x86^)\Steam\steamapps\workshop\content\1286220\3380210757^</AnchorChainDir^>
+exit /b 1
+
+:paths_check
+>> "%LOG%" echo       game       !GAME!
+>> "%LOG%" echo       anchorchain !AC!
+echo       game        !GAME!
+echo       AnchorChain !AC!
+
+if not exist "!GAME!\Sea Power_Data\Managed\Seapower-Scripts.dll" goto paths_bad_game
+if not exist "!AC!\AnchorChain.dll" goto paths_bad_ac
+
+call :write_props
+echo.
+exit /b 0
+
+:paths_bad_game
+echo       That folder is not a Sea Power install - it has no
+echo       "Sea Power_Data\Managed\Seapower-Scripts.dll".
+>> "%LOG%" echo       bad game folder
+exit /b 1
+
+:paths_bad_ac
+echo       There is no AnchorChain.dll in:
+echo         !AC!
+>> "%LOG%" echo       bad anchorchain folder
+exit /b 1
+
+
+rem --- %1 = a Steam root (the folder that contains "steamapps") ---------------
+:try_root
+set "LIB=%~1"
+if not exist "!LIB!\steamapps" exit /b 0
+
+if not defined GAME if exist "!LIB!\steamapps\common\Sea Power\Sea Power_Data\Managed\Seapower-Scripts.dll" (
+    set "GAME=!LIB!\steamapps\common\Sea Power"
+)
+
+if not defined AC if exist "!LIB!\steamapps\workshop\content\1286220\3380210757\AnchorChain.dll" (
+    set "AC=!LIB!\steamapps\workshop\content\1286220\3380210757"
+)
+
+if not defined AC (
+    for /d %%W in ("!LIB!\steamapps\workshop\content\1286220\*") do (
+        if not defined AC if exist "%%~W\AnchorChain.dll" set "AC=%%~W"
+    )
+)
+exit /b 0
+
+:write_props
+> "%PROPS%" echo ^<?xml version="1.0" encoding="utf-8"?^>
+>> "%PROPS%" echo ^<Project^>
+>> "%PROPS%" echo   ^<PropertyGroup^>
+>> "%PROPS%" echo     ^<SeaPowerDir^>!GAME!^</SeaPowerDir^>
+>> "%PROPS%" echo     ^<AnchorChainDir^>!AC!^</AnchorChainDir^>
+>> "%PROPS%" echo   ^<^/PropertyGroup^>
+>> "%PROPS%" echo ^<^/Project^>
+>> "%LOG%" echo       wrote %PROPS%
+exit /b 0
+
+
+rem ===========================================================================
+:step_build
+echo [3/4] Building the mod...
+>> "%LOG%" echo [3/4] build
+
+rem Output goes to a file as well as the screen: MSBuild's error lines are the
+rem most useful thing to send if this fails.
+"%DOTNET_EXE%" build "%PROJECT%" -c Release -v minimal -nologo > "%BUILDLOG%" 2>&1
+set "BUILD_RC=%ERRORLEVEL%"
+type "%BUILDLOG%"
+>> "%LOG%" echo       build exit code !BUILD_RC!
+
+if not "!BUILD_RC!"=="0" goto build_bad
+echo.
+echo       build succeeded.
+echo.
+exit /b 0
+
+:build_bad
+echo.
+echo       Build failed. The error is in the lines above, and also in:
+echo         %BUILDLOG%
+>> "%LOG%" echo       build failed, see %BUILDLOG%
+exit /b 1
+
+
+rem ===========================================================================
+:step_package
+echo [4/4] Packaging...
+>> "%LOG%" echo [4/4] package
+
+set "DLL=%ROOT%\src\SeaPowerAdvanced\bin\Release\SeaPowerAdvanced.dll"
+if not exist "%DLL%" goto package_missing
+
 if not exist "%DIST%" mkdir "%DIST%"
-copy /y "%ROOT%\src\SeaPowerAdvanced\bin\Release\SeaPowerAdvanced.dll" "%DIST%" >nul
+copy /y "%DLL%" "%DIST%" >nul
 copy /y "%ROOT%\mod\_info.ini" "%DIST%" >nul
-if not exist "%DIST%\SeaPowerAdvanced.dll" goto build_failed
-echo Package ready: %DIST%
+echo       package ready: %DIST%
+>> "%LOG%" echo       package ready
+exit /b 0
 
-if /I not "%~1"=="install" goto done
+:package_missing
+echo       The build reported success but produced no DLL at:
+echo         %DLL%
+>> "%LOG%" echo       dll missing after build
+exit /b 1
 
-rem ----------------------------------------------------------------- 5. install
-set "GAME="
-for /f "tokens=2 delims=<>" %%p in ('findstr /i "<SeaPowerDir>" "%PROPS%"') do if not defined GAME set "GAME=%%p"
 
-if not defined GAME goto no_game_dir
-if not exist "%GAME%\Sea Power_Data\Managed" goto bad_game_dir
+rem ===========================================================================
+:step_install
+echo.
+echo [install] Copying into the game...
+>> "%LOG%" echo [install]
 
 set "TARGET=%GAME%\BepInEx\plugins\SeaPowerAdvanced"
-if not exist "%TARGET%" mkdir "%TARGET%"
-copy /y "%DIST%\SeaPowerAdvanced.dll" "%TARGET%" >nul
-copy /y "%DIST%\_info.ini" "%TARGET%" >nul
-if not exist "%TARGET%\SeaPowerAdvanced.dll" goto install_failed
 
-echo Installed to: %TARGET%
+if not exist "%TARGET%" mkdir "%TARGET%" 2>nul
+if not exist "%TARGET%" goto install_nofolder
+
+copy /y "%DIST%\SeaPowerAdvanced.dll" "%TARGET%" >nul 2>&1
+if not exist "%TARGET%\SeaPowerAdvanced.dll" goto install_denied
+copy /y "%DIST%\_info.ini" "%TARGET%" >nul 2>&1
+echo        copied to %TARGET%
+>> "%LOG%" echo        copied to %TARGET%
 
 set "STALE=%GAME%\Sea Power_Data\StreamingAssets\SeaPowerAdvanced"
-if exist "%STALE%\SeaPowerAdvanced.dll" (
-    echo.
-    echo NOTE: an older copy also exists at:
-    echo       %STALE%
-    echo       Delete that folder so the mod is not loaded twice.
-)
+if not exist "%STALE%\SeaPowerAdvanced.dll" goto install_done
 echo.
-echo Now: start Sea Power. There is nothing to tick - BepInEx loads it directly.
-echo Then right-click a ship - Orders - Weapon hatches.
-goto done
+echo        NOTE: an older copy is still here:
+echo          %STALE%
+echo        Delete that folder, or the mod loads twice.
+>> "%LOG%" echo        stale copy present: %STALE%
 
-rem ------------------------------------------------------------------ errors
-:no_sdk
+:install_done
 echo.
-echo Could not download the .NET SDK automatically.
-echo Install the .NET SDK 8 from https://dotnet.microsoft.com/download and run
-echo build.cmd again - it will find it.
+echo        Start Sea Power. There is nothing to tick - BepInEx loads it.
+echo        Then right-click one of your ships and open:
+echo            Orders - Weapon hatches
+exit /b 0
+
+:install_nofolder
+echo       Could not create:
+echo         %TARGET%
+>> "%LOG%" echo       cannot create target folder
+echo       Is BepInEx installed? This file should exist:
+echo         %GAME%\BepInEx\core\BepInEx.dll
 exit /b 1
 
-:build_failed
+:install_denied
+echo       Could not copy into the game folder - Windows blocked the write.
+>> "%LOG%" echo       copy denied
 echo.
-echo Build failed. Copy the error lines above and send them on.
+echo       Right-click build.cmd and choose "Run as administrator", then run
+echo       it again. The build itself worked, so the DLL is ready at:
+echo         %DIST%\SeaPowerAdvanced.dll
+echo       You can also copy that folder to:
+echo         %TARGET%
 exit /b 1
-
-:no_game_dir
-echo.
-echo Could not read SeaPowerDir from %PROPS%
-echo Set it there, for example:
-echo     ^<SeaPowerDir^>C:\Program Files (x86)\Steam\steamapps\common\Sea Power^</SeaPowerDir^>
-exit /b 1
-
-:bad_game_dir
-echo.
-echo SeaPowerDir does not look like a Sea Power folder:
-echo     %GAME%
-echo It must contain "Sea Power_Data\Managed".
-exit /b 1
-
-:install_failed
-echo.
-echo Could not copy into the game folder. If Sea Power is installed under
-echo Program Files, close this window, right-click Command Prompt, choose
-echo "Run as administrator", and run:  build.cmd install
-exit /b 1
-
-:done
-if /I "%~1"=="install" goto :eof
-echo.
-echo To install into the game as well, run:  build.cmd install
-endlocal

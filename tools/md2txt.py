@@ -105,6 +105,44 @@ def render_table(rows: list[str]) -> list[str]:
     return lines
 
 
+def gather_item(lines: list[str], index: int, first: str) -> tuple[tuple[str, str], int]:
+    """Collect a list item together with its indented continuation lines.
+
+    Markdown list items often wrap onto following lines indented under the marker. Treating each of
+    those lines as a new item (or as a paragraph) splits the sentence in the middle, which is how a
+    clean step list turns into rubble on a plain-text page.
+    """
+    marker = first[0] if first[0] in "-*" else first.split(".", 1)[0]
+    text = re.sub(r"^([-*]|\d+\.)\s+", "", first)
+    index += 1
+
+    while index < len(lines):
+        candidate = lines[index]
+        stripped = candidate.strip()
+
+        if not stripped:
+            # A blank line only continues the item if indented text follows it.
+            lookahead = index + 1
+            while lookahead < len(lines) and not lines[lookahead].strip():
+                lookahead += 1
+            if lookahead < len(lines) and lines[lookahead].startswith("  ") \
+                    and not re.match(r"^\s*([-*]|\d+\.)\s+", lines[lookahead]):
+                index = lookahead
+                continue
+            break
+
+        if re.match(r"^\s*([-*]|\d+\.)\s+", candidate):
+            break
+
+        if not candidate.startswith("  "):
+            break
+
+        text += " " + stripped
+        index += 1
+
+    return (("*" if marker in ("-", "*") else marker), text), index
+
+
 def convert(source: str) -> str:
     lines = source.splitlines()
     out: list[str] = []
@@ -175,24 +213,15 @@ def convert(source: str) -> str:
             out.append("")
             continue
 
-        if re.match(r"^[-*]\s+", stripped):
+        if re.match(r"^[-*]\s+", stripped) or re.match(r"^\d+\.\s+", stripped):
             flush_paragraph()
-            item = re.sub(r"^[-*]\s+", "", stripped)
-            wrapped = textwrap.wrap(clean(item), WIDTH - 4) or [""]
-            out.append("  * " + wrapped[0])
+            item, index = gather_item(lines, index, stripped)
+            bullet, rest = item
+            prefix = "  * " if bullet == "*" else f"  {bullet}. "
+            wrapped = textwrap.wrap(clean(rest), WIDTH - len(prefix)) or [""]
+            out.append(prefix + wrapped[0])
             for extra in wrapped[1:]:
-                out.append("    " + extra)
-            index += 1
-            continue
-
-        if re.match(r"^\d+\.\s+", stripped):
-            flush_paragraph()
-            number, _, rest = stripped.partition(".")
-            wrapped = textwrap.wrap(clean(rest.strip()), WIDTH - 5) or [""]
-            out.append(f"  {number}. " + wrapped[0])
-            for extra in wrapped[1:]:
-                out.append("     " + extra)
-            index += 1
+                out.append(" " * len(prefix) + extra)
             continue
 
         if stripped.startswith(">"):

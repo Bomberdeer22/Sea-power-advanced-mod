@@ -20,8 +20,7 @@ BEFORE YOU START
   * Windows. (Linux/Steam Proton works too  -  see Linux notes (#linux--steam-
     proton) at the end.)
   * No installer and no admin rights are needed. The .NET SDK the build uses
-    is downloaded into
-this repo folder in step 3, not into Windows.
+    is downloaded into this repo folder in step 3, not into Windows.
 
 Two things get installed around the mod:
 
@@ -48,18 +47,14 @@ Anchor Chain preloader in one go.
   2. Under the newest release, download ACPreloader.zip.
   3. Extract the zip into a folder in your Downloads.
   4. In that folder you will see winhttp.dll, doorstop_config.ini and a
-     BepInEx folder. Select
-everything inside the folder (Ctrl+A), copy it (Ctrl+C).
-
+     BepInEx folder. Select everything inside the folder (Ctrl+A), copy it
+     (Ctrl+C).
   5. Open your game folder: in Steam, right-click Sea Power -> Manage ->
-     Browse local files.
-It is usually C:\Program Files (x86)\Steam\steamapps\common\Sea Power.
-
+     Browse local files. It is usually C:\Program Files
+     (x86)\Steam\steamapps\common\Sea Power.
   6. Paste (Ctrl+V). Say yes if Windows asks about merging folders.
   7. Check the game folder now contains winhttp.dll, doorstop_config.ini and
-     BepInEx,
-next to Sea Power.exe. If yes, this step is done.
-
+     BepInEx, next to Sea Power.exe. If yes, this step is done.
   8. Start Sea Power once and quit it. This lets BepInEx generate its folders
      and log file.
 
@@ -90,81 +85,78 @@ The mod is compiled against your game's own DLLs, so it always matches your
 Sea Power version. There is no prebuilt download; the build takes about two
 minutes and downloads a compiler the first time.
 
-3a. Tell the build where the game is
+3a. Double-click build.cmd
 
-In the project folder (the one containing this file):
+That is the whole step. It:
 
-    Copy-Item Directory.Build.local.props.example Directory.Build.local.props
-    notepad Directory.Build.local.props
+  1. finds a .NET SDK  -  either one already installed, or it downloads a
+     portable one into .dotnet\ (about 220 MB, once, no installer, no admin
+     rights),
+  2. finds your game folder and Anchor Chain by itself (Steam registry, then
+     the usual library locations),
+  3. compiles the mod against your Seapower-Scripts.dll,
+  4. copies it into BepInEx\plugins\SeaPowerAdvanced\.
 
-Set the two paths inside it:
+Expected output ends with:
+
+    [3/4] Building the mod...
+          build succeeded.
+    [4/4] Packaging...
+          package ready: ...\dist\SeaPowerAdvanced
+    [install] Copying into the game...
+           copied to C:\Program Files (x86)\Steam\steamapps\common\Sea Power\BepInEx\plugins\SeaPowerAdvanced
+
+It pauses when it finishes, so the window stays open. Two files are written
+next to it:
+
+  build-log.txt
+      What it is: Which steps ran, and the result of each. Survives the
+        window closing.
+
+  build-output.txt
+      What it is: The compiler's full output. This is the file to send if
+        the build fails.
+
+build.cmd uses no PowerShell at all  -  it downloads with curl and unpacks
+with tar, both of which are part of Windows 10 and 11. That matters on a
+machine where PowerShell is restricted: the errors is not digitally signed, or
+a PowerShell window that closes itself, cannot happen here.
+
+To build without installing: build.cmd dist. To install without rebuilding,
+just run it again.
+
+If it could not find the game
+
+It writes Directory.Build.local.props for you and prints the paths it needs.
+Open that file in Notepad, set the two paths, save, and run build.cmd again:
 
     <SeaPowerDir>C:\Program Files (x86)\Steam\steamapps\common\Sea Power</SeaPowerDir>
     <AnchorChainDir>C:\Program Files (x86)\Steam\steamapps\workshop\content\1286220\3380210757</AnchorChainDir>
 
-If your Steam library is on another drive, find the second path quickly with:
+AnchorChainDir is the Workshop folder that contains AnchorChain.dll  -  its
+number (3380210757) is the same on every PC.
 
-    Get-ChildItem -Path D:\,E:\ -Filter AnchorChain.dll -Recurse -ErrorAction SilentlyContinue |
-        Select-Object -First 1 -ExpandProperty DirectoryName
+The PowerShell route (optional)
 
-The values shipped in the file are correct for a default Steam install, so if
-Steam is in the default place you may not need to change anything  -  but keep
-the copy step, it is what tells the build to use these paths.
-
-3b. Build and install in one command
+If you prefer PowerShell and it works on your machine:
 
     .\tools\build-portable.ps1 -Install
 
-If Windows blocks that script  -  is not digitally signed  -  skip to the fix
-below (#if-windows-blocks-the-script-is-not-digitally-signed) and use
-build.cmd install.
+It does the same job. If PowerShell is restricted on your PC, this is the
+wrong route  -  use build.cmd, which never invokes it.
 
-What it does:
+"is not digitally signed"  -  why it happens, and what to do
 
-  1. sees there is no .NET SDK in .dotnet\, downloads one (about 200 MB, once,
-     no installer),
-  2. compiles the mod against Seapower-Scripts.dll from your game,
-  3. copies SeaPowerAdvanced.dll and _info.ini into
-BepInEx\plugins\SeaPowerAdvanced\.
+Windows marks files downloaded from the internet, and PowerShell's execution
+policy then refuses to run .ps1 files that are not signed. It is not a problem
+with the mod, and nothing about your PC needs changing.
 
-Expected last lines:
+The only reliable fix on a locked-down machine is to not use a PowerShell
+script at all:
 
-    Build succeeded.
-    Package ready: ...\dist\SeaPowerAdvanced
-    Installed to: C:\Program Files (x86)\Steam\steamapps\common\Sea Power\BepInEx\plugins\SeaPowerAdvanced
-
-If Windows blocks the script ("is not digitally signed")
-
-Scripts downloaded from the internet are blocked by PowerShell's execution
-policy. It is not a problem with the mod, and you do not have to change any
-system setting. Three fixes, easiest first:
-
-A. Unblock the downloaded files (right fix for the common case):
-
-    Get-ChildItem .\tools\.ps1, .\.ps1 | Unblock-File
-    .\tools\build-portable.ps1 -Install
-
-This clears the "came from the internet" mark on those files. It changes no
-Windows settings.
-
-B. Run it with the policy bypassed for that one command:
-
-    powershell -NoProfile -ExecutionPolicy Bypass -File .\tools\build-portable.ps1 -Install
-
-C. Use build.cmd instead  -  no PowerShell script at all.
-
-    build.cmd install
-
-Batch files are not covered by the execution policy, so this works even on a
-machine where the policy is locked down by IT. It does the same thing: fetches
-the portable SDK into .dotnet\, builds the mod, and copies it into
-BepInEx\plugins\SeaPowerAdvanced\.
-
-  Which fix you need depends on the policy: Get-ExecutionPolicy -List shows
-  it. If MachinePolicy
-  or UserPolicy says AllSigned, options A and B cannot override it  -  IT
-  set it  -  so use
-  option C.
+Use build.cmd. Batch files are not covered by the execution policy, so it
+works even when MachinePolicy or UserPolicy is set to AllSigned by IT, where
+-ExecutionPolicy Bypass is ignored and Unblock-File changes nothing.
 
 ------------------------------------------------------------------------------
 
@@ -215,14 +207,11 @@ STEP 6  -  USE IT
 -----------------
 
   1. Start a mission with a ship that has launchers  -  a Ticonderoga, Arleigh
-     Burke, Spruance or Kirov
-is ideal.
-
+     Burke, Spruance or Kirov is ideal.
   2. Right-click the ship -> Orders -> Weapon hatches.
   3. Pick a mount, then click a cell. It opens, the check mark appears, and
-     the log records it:
-
-       [Info] Sea Power Advanced: Open Ticonderoga / Cell 7: openHatches -> started [open=yes, hatches=1]
+     the log records it:  [Info] Sea Power Advanced: Open Ticonderoga / Cell
+     7: openHatches -> started [open=yes, hatches=1]
 
   4. Click the same cell again to close it. Open all hatches does the ship in
      one click.
@@ -230,24 +219,21 @@ is ideal.
 Useful to know:
 
   * The menu lists cells, not individual lids. A cell with several hatch
-    models opens them
-together  -  that is what the game's own openHatches() does.
-
+    models opens them together  -  that is what the game's own openHatches()
+    does.
   * The game still owns the hatches during a launch; if the ship fires, it may
-    reopen or close what it
-needs and your last manual order can be overridden. The check marks always
-show the truth.
-
+    reopen or close what it needs and your last manual order can be
+    overridden. The check marks always show the truth.
   * Log hatch report writes hatch-report.txt next to the DLL, in
-BepInEx\plugins\SeaPowerAdvanced\  -  that is the file to send if something
-does not move.
+    BepInEx\plugins\SeaPowerAdvanced\  -  that is the file to send if
+    something does not move.
 
 ------------------------------------------------------------------------------
 
 UPDATING OR REBUILDING
 ----------------------
 
-    .\tools\build-portable.ps1 -Install
+    build.cmd
 
 then fully restart the game. Close Sea Power before rebuilding, or the DLL is
 locked.
@@ -257,9 +243,8 @@ UNINSTALLING
 
   1. Delete BepInEx\plugins\SeaPowerAdvanced\.
   2. If an older release was installed into Sea
-     Power_Data\StreamingAssets\SeaPowerAdvanced\,
-delete that folder too  -  leaving it means the mod loads twice.
-
+     Power_Data\StreamingAssets\SeaPowerAdvanced\, delete that folder too  -
+     leaving it means the mod loads twice.
   3. Optional cleanup: delete .dotnet\, dist\ and
      BepInEx\config\io.github.bomberdeer22.seapoweradvanced.cfg.
 
@@ -284,7 +269,7 @@ TROUBLESHOOTING
 
   dotnet : The term ... is not recognized
       Cause and fix: You ran build.ps1 directly without a .NET SDK. Use
-        tools\build-portable.ps1 instead.
+        build.cmd instead  -  it fetches one.
 
   Sea Power not found. Set SeaPowerDir in Directory.Build.local.props
       Cause and fix: You skipped 3a, or the path has a typo. It must contain
@@ -299,9 +284,18 @@ TROUBLESHOOTING
         error  -  it names the member exactly.
 
   .ps1 cannot be loaded ... is not digitally signed
-      Cause and fix: Execution policy. See the three fixes (#if-windows-
-        blocks-the-script-is-not-digitally-signed); build.cmd install always
-        works.
+      Cause and fix: Execution policy. Use build.cmd  -  it runs no
+        PowerShell at all. See why (#is-not-digitally-signed--why-it-happens-
+        and-what-to-do).
+
+  The build window opens and closes instantly
+      Cause and fix: Fixed: build.cmd now pauses. If it still happens, open
+        build-log.txt  -  it records every step, and build-output.txt has the
+        compiler's own errors.
+
+  PowerShell itself crashes or closes when building
+      Cause and fix: That is why build.cmd exists. It uses curl and tar
+        (both built into Windows) instead of any script host.
 
   Build succeeds, but no Weapon hatches in game
       Cause and fix: Read

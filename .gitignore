@@ -25,3 +25,8 @@ analysis-report.txt
 SeaPowerAdvanced-diagnose.txt
 tools/analysis/run-log.txt
 tools/analysis/analysis-error.txt
+
+# Build logs written next to build.cmd
+build-log.txt
+build-output.txt
+dotnet-sdk.zip

@@ -76,11 +76,20 @@ loaded.
 
 The short version, once BepInEx + Anchor Chain are in place:
 
-    Copy-Item Directory.Build.local.props.example Directory.Build.local.props   # set the game paths
-    .\tools\build-portable.ps1 -Install        # build + copy into BepInEx\plugins
+    build.cmd
 
-Blocked by PowerShell's execution policy (is not digitally signed)? Use
-build.cmd install instead  -  batch files are not affected by it.
+Double-click it. It finds your game, fetches a portable .NET SDK if you have
+none, builds the mod against your own game DLLs and copies it into
+BepInEx\plugins\SeaPowerAdvanced\. It pauses at the end, and writes build-
+log.txt plus build-output.txt so a closing window never loses an error.
+
+It uses no PowerShell  -  curl and tar, both built into Windows, do the
+fetching and unpacking. That makes it the route to use if PowerShell is
+restricted on your PC (is not digitally signed, or a PowerShell window that
+closes itself).
+
+Prefer PowerShell? tools\build-portable.ps1 -Install does the same job when it
+is permitted.
 
 The DLL goes into BepInEx\plugins\SeaPowerAdvanced\, so BepInEx loads it
 directly  -  there is no mod-manager checkbox on this route. BepInEx's log
@@ -95,10 +104,9 @@ Hatch control
   1. Right-click one of your ships.
   2. Orders -> Weapon hatches.
   3. Pick a mount, then a cell. The check mark shows whether that cell's
-     hatches are open right now,
-and each click logs exactly what happened:
-
-       Sea Power Advanced: Open Ticonderoga / Cell 7: openHatches -> started [open=yes, hatches=1]
+     hatches are open right now, and each click logs exactly what happened:
+     Sea Power Advanced: Open Ticonderoga / Cell 7: openHatches -> started
+     [open=yes, hatches=1]
 
 Open all hatches does the whole ship. Because the list is rebuilt from live
 game state, the check marks stay truthful even when the game opens a hatch
@@ -109,9 +117,7 @@ Civilian traffic
   1. Open the mission editor on a mission (new or existing).
   2. Press F8. The Civilian traffic panel appears; drag it by its title bar.
   3. Draw zone -> left-click around the area on the map -> middle-click to
-     finish, or press
-Finish.
-
+     finish, or press Finish.
   4. Set the four numbers and press Spawn traffic.
   5. Save the mission. The routes are part of it now and spawn when the
      mission is played.
@@ -130,47 +136,33 @@ parameter flags  -  see docs/hatch-api.md):
 
   * each mount is a WeaponSystem whose _containers are its cells,
   * each cell is a WeaponContainer that owns its hatch models (_hatches) and
-    can move them:
-
-      cell.openHatches();          // returns bool
-      cell.closeHatches();         // returns bool
-      cell._areHatchesOpen         // live state, used for the check mark
-
-These are the same methods the game's launch sequence calls, so nothing is
-faked or simulated.
-
+    can move them: csharp cell.openHatches();          // returns bool
+    cell.closeHatches();         // returns bool cell._areHatchesOpen
+    // live state, used for the check mark  These are the same methods the
+    game's launch sequence calls, so nothing is faked or simulated.
   * mounts with one cover instead of per-cell hatches use
-    WeaponSystem.openSystem() /
-closeSystem(delay).
+    WeaponSystem.openSystem() / closeSystem(delay).
 
 Two details that matter in practice:
 
   * After a launch the game parks a pending auto-close on the cell
-    (_triggerCloseAnimation). A
-manual order clears it, otherwise the hatch would shut again a moment later.
-
+    (_triggerCloseAnimation). A manual order clears it, otherwise the hatch
+    would shut again a moment later.
   * WeaponContainer.update() keeps running the animation and its sound, so
-    opening and closing
-look and sound exactly like the game's own.
+    opening and closing look and sound exactly like the game's own.
 
 STATUS AND LIMITS
 -----------------
 
   * Per cell, not per lid. Granularity is one container. A cell with four
-    hatch models
-(_numberOfHatchesPerContainers) opens all four together  -  that is what the
-game's own openHatches() does.
-
+    hatch models (_numberOfHatchesPerContainers) opens all four together  -
+    that is what the game's own openHatches() does.
   * The game still owns the hatches. If the ship launches, the launch sequence
-    opens and closes
-what it needs and may override your last manual order. That is expected; the
-check marks will reflect the result.
-
+    opens and closes what it needs and may override your last manual order.
+    That is expected; the check marks will reflect the result.
   * Not tested in game yet. The API is read from the actual shipping assembly
-    rather than
-guessed, but this build has not been flown. Log hatch report and LogOutput.log
-are there to make the first session conclusive.
-
+    rather than guessed, but this build has not been flown. Log hatch report
+    and LogOutput.log are there to make the first session conclusive.
   * Gun and CIWS mounts have no silo hatches and are hidden unless
     General/IncludeGuns is on.
 
