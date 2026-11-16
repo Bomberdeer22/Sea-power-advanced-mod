@@ -3,6 +3,9 @@ using System.Collections.Generic;
 using SeaPower;
 using SeaPowerAdvanced.Features;
 using SeaPowerAdvanced.Interop;
+using SeapowerUI;
+using SeapowerUI.ViewModels;
+using UniRx;
 
 namespace SeaPowerAdvanced.Menu;
 

@@ -18,6 +18,11 @@ rem    .NET SDK                 -> .dotnet\    about 220 MB, once
 rem    BepInEx + the Anchor     -> the game folder   about 650 KB, once
 rem    Chain preloader
 rem
+rem  Before building, it runs tools\check-source.py if Python happens to be
+rem  installed: that catches a missing using or a missing type in seconds,
+rem  instead of a two-minute compile that ends in CS0246. Optional - a
+rem  machine without Python skips it and builds exactly as before.
+rem
 rem  Anchor Chain's Workshop copy is NOT needed: the mod loads as a plain
 rem  BepInEx plugin. If AnchorChain.dll happens to be installed, the Anchor
 rem  Chain entry point is compiled in as well, for Workshop builds.
@@ -33,6 +38,7 @@ set "DIST=%ROOT%\dist\SeaPowerAdvanced"
 set "PROPS=%ROOT%\Directory.Build.local.props"
 set "LOG=%ROOT%\build-log.txt"
 set "BUILDLOG=%ROOT%\build-output.txt"
+set "CHECKLOG=%ROOT%\check-source.txt"
 
 rem Default action when double-clicked: install. That is what people want.
 set "ACTION=install"
@@ -85,6 +91,8 @@ if errorlevel 1 exit /b 1
 call :step_prereq
 if errorlevel 1 exit /b 1
 
+call :step_check
+
 call :step_build
 if errorlevel 1 exit /b 1
 
@@ -101,8 +109,8 @@ exit /b 0
 
 rem ===========================================================================
 :step_sdk
-echo [1/5] Looking for a .NET SDK...
->> "%LOG%" echo [1/5] sdk
+echo [1/6] Looking for a .NET SDK...
+>> "%LOG%" echo [1/6] sdk
 
 if exist "%DOTNET_EXE%" (
     echo       using the portable copy in .dotnet
@@ -195,8 +203,8 @@ exit /b 0
 
 rem ===========================================================================
 :step_paths
-echo [2/5] Finding Sea Power...
->> "%LOG%" echo [2/5] paths
+echo [2/6] Finding Sea Power...
+>> "%LOG%" echo [2/6] paths
 
 set "GAME="
 set "AC="
@@ -322,8 +330,8 @@ exit /b 0
 
 rem ===========================================================================
 :step_prereq
-echo [3/5] Checking BepInEx in the game folder...
->> "%LOG%" echo [3/5] prerequisites
+echo [3/6] Checking BepInEx in the game folder...
+>> "%LOG%" echo [3/6] prerequisites
 
 rem The mod cannot load at all without BepInEx inside the game folder, and Sea Power only gets
 rem BepInEx through Anchor Chain's preloader. Anchor Chain publishes both together as
@@ -413,9 +421,58 @@ exit /b 1
 
 
 rem ===========================================================================
+:step_check
+rem  A pre-flight check, not a build step: tools\check-source.py looks for the
+rem  two things that have actually broken this project - a symbol whose
+rem  namespace is not imported, and a reference to a type that no longer exists.
+rem  Those are CS0246 errors four seconds into a two-minute compile.
+rem
+rem  It is best-effort. Python may not be installed, and the script's map of the
+rem  game's namespaces is a list of names we have seen, not the game's own. So a
+rem  finding here is a warning, never a reason to refuse to build: the compiler
+rem  stays the judge.
+echo [4/6] Checking the source before building...
+>> "%LOG%" echo [4/6] check
+
+set "PY="
+py -3 --version >nul 2>&1
+if not errorlevel 1 set "PY=py -3"
+if not defined PY (
+    python --version >nul 2>&1
+    if not errorlevel 1 set "PY=python"
+)
+
+if not defined PY goto check_skipped
+if not exist "%ROOT%\tools\check-source.py" goto check_skipped
+
+%PY% "%ROOT%\tools\check-source.py" > "%CHECKLOG%" 2>&1
+set "CHECK_RC=%ERRORLEVEL%"
+type "%CHECKLOG%"
+>> "%LOG%" echo       check exit code %CHECK_RC%
+
+if "%CHECK_RC%"=="0" goto check_ok
+
+echo.
+echo       The checker is unhappy about something. The build still runs, but if
+echo       it fails with CS0246, the lines above are where to look.
+echo.
+>> "%LOG%" echo       check reported problems - see %CHECKLOG%
+exit /b 0
+
+:check_ok
+echo       source looks clean.
+exit /b 0
+
+:check_skipped
+echo       skipped - no Python, or no tools\check-source.py, on this machine.
+>> "%LOG%" echo       check skipped (no Python, or no tools\check-source.py)
+exit /b 0
+
+
+rem ===========================================================================
 :step_build
-echo [4/5] Building the mod...
->> "%LOG%" echo [4/5] build
+echo [5/6] Building the mod...
+>> "%LOG%" echo [5/6] build
 
 rem Output goes to a file as well as the screen: MSBuild's error lines are the
 rem most useful thing to send if this fails.
@@ -440,8 +497,8 @@ exit /b 1
 
 rem ===========================================================================
 :step_package
-echo [5/5] Packaging...
->> "%LOG%" echo [5/5] package
+echo [6/6] Packaging...
+>> "%LOG%" echo [6/6] package
 
 set "DLL=%ROOT%\src\SeaPowerAdvanced\bin\Release\SeaPowerAdvanced.dll"
 if not exist "%DLL%" goto package_missing
@@ -496,7 +553,7 @@ exit /b 0
 echo       Could not create:
 echo         %TARGET%
 >> "%LOG%" echo       cannot create target folder
-echo       BepInEx itself should have been installed by step [3/5]. If it
+echo       BepInEx itself should have been installed by step [3/6]. If it
 echo       was skipped, this file is missing:
 echo         %GAME%\BepInEx\core\BepInEx.dll
 exit /b 1

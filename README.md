@@ -4,7 +4,7 @@ An advanced mod for **Sea Power: Naval Combat in the Missile Age**, built as an
 [Anchor Chain](https://github.com/SeaPower-Modders/AnchorChain) code mod and loadable as a plain
 BepInEx plugin.
 
-**Version 0.8.0** — twelve advanced features, plus hatch control and civilian traffic.
+**Version 0.8.1** — twelve advanced features, plus hatch control and civilian traffic.
 
 ### 1. Manual hatch control
 
@@ -114,7 +114,7 @@ or a PowerShell window that closes itself).
 Prefer PowerShell? `tools\build-portable.ps1 -Install` does the same job when it is permitted.
 
 The DLL goes into `BepInEx\plugins\SeaPowerAdvanced\`, so **BepInEx loads it directly** — there is
-no mod-manager checkbox on this route. BepInEx's log then shows `Loading [Sea Power Advanced 0.8.0]`,
+no mod-manager checkbox on this route. BepInEx's log then shows `Loading [Sea Power Advanced 0.8.1]`,
 and the mod writes its own `seapoweradvanced.log` next to the DLL.
 
 ## Use it
@@ -324,7 +324,12 @@ src/SeaPowerAdvanced/
   Interop/SensorControl.cs       radar/sonar/EMCON/doctrine levers, named from the real assembly
   Interop/GameWorld.cs           the game's own list of live units (private, so read by reflection)
   Interop/CapabilityReport.cs    writes capabilities.txt: what this game build exposes
-  Menu/FleetMenu.cs              the eight feature submenus, in the game's menu style
+  Interop/Capability.cs          one named lever the game exposes, with how it is called
+  Interop/WeaponStatusControl.cs the weapons-status enum, taken from the game's method signature
+  Menu/FleetMenu.cs              the twelve features, distributed across the game's sections
+  Menu/MenuRouting.cs            puts each entry in the section a player would look in first
+  Menu/FleetMenuPatch.cs         its own Harmony patch, so a hatch-menu problem cannot hide it
+  Menu/MenuReport.cs             menu-report.txt: which label went where in the live menus
   Features/Blink.cs              radar blink cycling
   Features/AutoArm.cs            anti-radiation defence: go dark on an inbound weapon
   Features/SalvoPlan.cs          staggered release of the task force's launches
@@ -338,6 +343,10 @@ src/SeaPowerAdvanced/
   Features/Replenishment.cs      ammunition from a supply ship alongside
   Features/FleetTicker.cs        the timers behind the timed features (no interface of its own)
   ModInfo.cs, ModLog.cs     identity and logging
+
+tools/
+  check-source.py           pre-flight check: missing usings, missing types, UnitRecord members
+  md2txt.py                 writes the .txt twins of the documentation
 ```
 
 ## Roadmap

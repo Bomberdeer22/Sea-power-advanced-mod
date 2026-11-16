@@ -14,7 +14,7 @@ namespace SeaPowerAdvanced.Features;
 /// do exist:
 ///
 /// <code>
-/// ObjectBase.SetWeaponStatus(WeaponStatus, bool)   the game's own weapons status
+/// ObjectBase.SetWeaponStatus(...)                  the game's own weapons status (resolved at runtime)
 /// WeaponSystem._remainingReloadTime                public float, the live reload clock
 /// WeaponSystem._isReloading / StartReload(bool)
 /// </code>
@@ -70,28 +70,12 @@ internal static class Readiness
     }
 
     /// <summary>
-    /// Uses the game's own weapons status for the readiness change. The enum names are read at
-    /// runtime; if none of them looks like a readiness state, the mod's own clock still works.
+    /// Uses the game's own weapons status for the readiness change, through
+    /// <see cref="WeaponStatusControl"/>. The enum is deliberately not named here: it is taken from
+    /// the game's own method signature, because naming it failed to compile.
     /// </summary>
-    private static bool ApplyWeaponStatus(ObjectBase unit, bool atActionStations)
-    {
-        string[] wanted = atActionStations
-            ? new[] { "free", "open", "engage" }
-            : new[] { "hold", "tight", "safe", "cease" };
-
-        foreach (string name in Enum.GetNames(typeof(WeaponStatus)))
-        {
-            string lower = name.ToLowerInvariant();
-            foreach (string candidate in wanted)
-            {
-                if (!lower.Contains(candidate)) continue;
-
-                unit.SetWeaponStatus((WeaponStatus)Enum.Parse(typeof(WeaponStatus), name), true);
-                return true;
-            }
-        }
-        return false;
-    }
+    private static bool ApplyWeaponStatus(ObjectBase unit, bool atActionStations) =>
+        WeaponStatusControl.Set(unit, atActionStations);
 
     /// <summary>Shaves or stretches the reload clock on every mount of this unit.</summary>
     private static void AdjustReloads(ObjectBase unit, float fraction)

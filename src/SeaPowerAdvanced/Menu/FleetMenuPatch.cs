@@ -2,6 +2,9 @@ using System;
 using System.Collections.Generic;
 using HarmonyLib;
 using SeaPower;
+using SeapowerUI;
+using SeapowerUI.ViewModels;
+using UniRx;
 
 namespace SeaPowerAdvanced.Menu;
 

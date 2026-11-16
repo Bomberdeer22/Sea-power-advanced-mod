@@ -1,5 +1,36 @@
 # Changelog
 
+## 0.8.1 — the build compiles again
+
+0.8.0 did not compile, so nothing after it could run. This is a compile fix, not a behaviour change:
+the menu visibility work from the previous commit is still the thing to look for in game, and it has
+never been observed working yet.
+
+- **`Capability` restored.** Rewriting `Interop/Capabilities.cs` had deleted the class that eleven of
+  its members use, which reads as correct in the file itself and fails with eleven `CS0246`s. The
+  type now lives in its own file, `Interop/Capability.cs`, so a future rewrite of the reporter cannot
+  take it with it.
+- **`using SeapowerUI;`, `using SeapowerUI.ViewModels;`, `using UniRx;`** added to `FleetMenu.cs`,
+  `MenuRouting.cs` and `FleetMenuPatch.cs`. `ContextMenuItem`, `MapUnitViewModel` and
+  `TrulyObservableCollection` do not resolve from `using SeaPower;` alone.
+- **The weapons-status enum is never named in code.** `WeaponStatus` failed to compile even though it
+  is the parameter type of `ObjectBase.SetWeaponStatus`, so it is now taken from that method's own
+  signature at runtime (`Interop/WeaponStatusControl.cs`) and the salvo planner and readiness feature
+  both go through it. If a future game build renames the enum, the feature reports that it cannot hold
+  weapons instead of failing to build.
+- **`UnitRecord.BlinkPhase`** added — `Blink.cs` read a member that no longer existed.
+
+### The check that should have caught all of that
+
+- **`tools/check-source.py`** finds, without compiling: a symbol used in a file whose namespace is not
+  imported, a mod type referenced but declared nowhere, and a `UnitRecord` member read by a feature
+  but not declared. It exits non-zero and can `--fix` the usings it is sure about.
+- **`check-source.cmd`** runs it from a double-click: writes `check-source.txt`, pauses, uses no
+  PowerShell. Add `--fix` to add the missing usings.
+- **`build.cmd`** runs it as step `[4/6]`, between checking BepInEx and compiling. It is skipped when
+  Python is absent, and a finding is a warning rather than a refusal: the compiler stays the judge.
+  A four-second check cannot be wrong in a way that blocks a good build.
+
 ## Unreleased — diagnostics and plain-text docs
 
 For an install problem where the console closes before its output can be copied.

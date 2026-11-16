@@ -8,5 +8,5 @@ internal static class ModInfo
 {
     internal const string Id = "io.github.bomberdeer22.seapoweradvanced";
     internal const string Name = "Sea Power Advanced";
-    internal const string Version = "0.8.0";
+    internal const string Version = "0.8.1";
 }

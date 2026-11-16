@@ -35,6 +35,9 @@ internal sealed class UnitRecord
     /// <summary>Radar blink is cycling this unit's emitters.</summary>
     internal bool Blink;
 
+    /// <summary>Which half of the blink cycle the ship is in right now.</summary>
+    internal bool BlinkPhase;
+
     /// <summary>Game-clock time at which the next blink flip is due.</summary>
     internal float NextBlinkAt;
 

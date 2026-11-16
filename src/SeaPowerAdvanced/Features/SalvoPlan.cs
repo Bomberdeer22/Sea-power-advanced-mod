@@ -19,7 +19,7 @@ namespace SeaPowerAdvanced.Features;
 /// <list type="bullet">
 /// <item>reads the contacts this task force has spotted (<c>ObjectBase._spottedObjects</c>);</item>
 /// <item>holds every ship but the leader at the "hold fire" weapon status
-///   (<c>SetWeaponStatus(WeaponStatus, bool)</c>, with the enum value chosen from its own names);</item>
+///   (<c>SetWeaponStatus</c>, resolved at runtime by <see cref="WeaponStatusControl"/>);</item>
 /// <item>releases each ship in sequence, a fixed interval apart.</item>
 /// </list>
 ///
@@ -30,8 +30,6 @@ internal static class SalvoPlan
 {
     private static readonly List<ObjectBase> Held = new();
 
-    private static WeaponStatus? holdValue;
-    private static WeaponStatus? freeValue;
     private static bool resolved;
 
     /// <summary>Staggers the task force's launches over the next few seconds, one ship at a time.</summary>
@@ -53,7 +51,7 @@ internal static class SalvoPlan
             return 0;
         }
 
-        if (holdValue == null)
+        if (!WeaponStatusControl.Available || WeaponStatusControl.Pick(false) == null)
         {
             report = "this game build has no 'hold fire' weapon status this mod can set";
             return 0;
@@ -71,11 +69,11 @@ internal static class SalvoPlan
             if (i == 0)
             {
                 record.AwaitingSalvoSlot = false;
-                SetStatus(ship, freeValue);
+                SetStatus(ship, true);
                 continue;
             }
 
-            if (!SetStatus(ship, holdValue)) continue;
+            if (!SetStatus(ship, false)) continue;
 
             record.AwaitingSalvoSlot = true;
             record.SalvoReleaseAt = now + spacing * i;
@@ -95,7 +93,7 @@ internal static class SalvoPlan
 
         foreach (ObjectBase ship in new List<ObjectBase>(Held))
         {
-            if (SetStatus(ship, freeValue))
+            if (SetStatus(ship, true))
             {
                 UnitState.Of(ship).AwaitingSalvoSlot = false;
                 freed++;
@@ -129,7 +127,7 @@ internal static class SalvoPlan
                 UnitRecord record = UnitState.Of(ship);
                 if (now < record.SalvoReleaseAt) continue;
 
-                if (SetStatus(ship, freeValue))
+                if (SetStatus(ship, true))
                 {
                     record.AwaitingSalvoSlot = false;
                     Held.Remove(ship);
@@ -145,54 +143,31 @@ internal static class SalvoPlan
     }
 
     /// <summary>
-    /// Picks the hold-fire and free-fire values out of the game's own <c>WeaponStatus</c> enum, by
-    /// name. Reading the names at runtime means a patch that renames or reorders them cannot make
-    /// the mod set an unintended state.
+    /// Confirms the game exposes a weapons status at all. The enum itself is never named in this
+    /// file - see <see cref="WeaponStatusControl"/>, which takes the type from the method signature
+    /// after a build failed on the assumption that it lived in the imported namespace.
     /// </summary>
     private static void ResolveStatuses()
     {
         if (resolved) return;
         resolved = true;
 
-        try
+        if (!WeaponStatusControl.Available)
         {
-            foreach (string name in Enum.GetNames(typeof(WeaponStatus)))
-            {
-                string lower = name.ToLowerInvariant();
-
-                if (holdValue == null && (lower.Contains("hold") || lower.Contains("tight")
-                                          || lower.Contains("safe") || lower.Contains("cease")))
-                {
-                    holdValue = (WeaponStatus)Enum.Parse(typeof(WeaponStatus), name);
-                }
-
-                if (freeValue == null && (lower.Contains("free") || lower.Contains("open")
-                                          || lower.Contains("engage")))
-                {
-                    freeValue = (WeaponStatus)Enum.Parse(typeof(WeaponStatus), name);
-                }
-            }
-
-            ModLog.Info("Salvo plan: weapon statuses resolved - hold=" + holdValue + " free=" + freeValue
-                        + " (from " + string.Join(", ", Enum.GetNames(typeof(WeaponStatus))) + ")");
+            ModLog.Warn("Salvo plan: this build exposes no settable weapons status, so ships cannot be held");
+            return;
         }
-        catch (Exception error)
-        {
-            ModLog.Error("Salvo plan could not read the WeaponStatus enum", error);
-        }
+
+        ModLog.Info("Salvo plan: weapons status resolved - hold=" + WeaponStatusControl.Pick(false)
+                    + " free=" + WeaponStatusControl.Pick(true)
+                    + " (from " + WeaponStatusControl.Names + ")");
     }
 
-    private static bool SetStatus(ObjectBase unit, WeaponStatus? status)
+    /// <summary>Applies a posture: true for free to fire, false for hold.</summary>
+    private static bool SetStatus(ObjectBase unit, bool aggressive)
     {
-        if (status == null) return false;
-        if (holdValue == null && freeValue == null) return false;
-
-        try
-        {
-            unit.SetWeaponStatus(status.Value, true);
-            return true;
-        }
-        catch (Exception) { return false; }
+        if (unit == null) return false;
+        return WeaponStatusControl.Set(unit, aggressive);
     }
 
     private static string Name(ObjectBase unit)

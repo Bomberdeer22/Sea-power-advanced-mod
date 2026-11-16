@@ -63,17 +63,22 @@ That is the whole step. It:
 2. finds your game folder by itself (Steam registry, then the usual library locations),
 3. **installs BepInEx and the Anchor Chain preloader into the game** if they are not there yet
    (about 650 KB),
-4. compiles the mod against **your** `Seapower-Scripts.dll`,
-5. copies it into `BepInEx\plugins\SeaPowerAdvanced\`.
+4. checks the source for the two mistakes that produce `CS0246` — a symbol whose namespace is not
+   imported, and a reference to a type that no longer exists (skipped if you have no Python: the
+   build does not need it),
+5. compiles the mod against **your** `Seapower-Scripts.dll`,
+6. copies it into `BepInEx\plugins\SeaPowerAdvanced\`.
 
 Expected output ends with:
 
 ```
-[3/5] Checking BepInEx in the game folder...
+[3/6] Checking BepInEx in the game folder...
       already installed - nothing to do.
-[4/5] Building the mod...
+[4/6] Checking the source before building...
+      clean: 43 file(s), no missing namespaces, UnitRecord consistent
+[5/6] Building the mod...
       build succeeded.
-[5/5] Packaging...
+[6/6] Packaging...
       package ready: ...\dist\SeaPowerAdvanced
 [install] Copying into the game...
        copied to C:\Program Files (x86)\Steam\steamapps\common\Sea Power\BepInEx\plugins\SeaPowerAdvanced
@@ -82,7 +87,7 @@ Expected output ends with:
 On a PC where the first run has to install BepInEx, step 3 of the list reads instead:
 
 ```
-[3/5] Checking BepInEx in the game folder...
+[3/6] Checking BepInEx in the game folder...
       not installed yet - fetching it into the game folder.
       fetching https://github.com/SeaPower-Modders/AnchorChain/releases/latest/download/ACPreloader.zip
       extracting into the game folder...
@@ -95,6 +100,11 @@ It **pauses** when it finishes, so the window stays open. Two files are written 
 |---|---|
 | `build-log.txt` | Which steps ran, and the result of each. Survives the window closing. |
 | `build-output.txt` | The compiler's full output. This is the file to send if the build fails. |
+| `check-source.txt` | Step 4's findings. A problem here is a warning: the build still runs, and the compiler stays the judge. |
+
+Step 4 can be run on its own at any time by double-clicking **`check-source.cmd`** — it takes about
+a second, writes `check-source.txt`, and pauses. Use it after editing any `.cs` file instead of
+waiting two minutes to be told a `using` is missing.
 
 `build.cmd` uses **no PowerShell at all** — it downloads with `curl` and unpacks with `tar`, both of
 which are part of Windows 10 and 11. That matters on a machine where PowerShell is restricted: the
@@ -159,14 +169,14 @@ Two things to look at.
 **1. BepInEx's plugin list**, near the top of `BepInEx\LogOutput.log`. It must say:
 
 ```
-[Info   :   BepInEx] Loading [Sea Power Advanced 0.8.0]
+[Info   :   BepInEx] Loading [Sea Power Advanced 0.8.1]
 ```
 
 **2. The mod's own log**, `BepInEx\plugins\SeaPowerAdvanced\seapoweradvanced.log`. This file only
 exists if the code actually ran, which makes "did it load?" unambiguous:
 
 ```
-================ Sea Power Advanced 0.8.0 ================
+================ Sea Power Advanced 0.8.1 ================
 Entry point:  BepInEx plugin
 Settings: enabled=True includeGuns=False allowEnemyUnits=False showWhenNoMounts=True
 Patched MapUnitViewModel.GetContextMenuItems.

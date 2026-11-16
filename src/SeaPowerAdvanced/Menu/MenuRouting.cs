@@ -4,6 +4,8 @@ using System.Linq;
 using System.Runtime.CompilerServices;
 using System.Text;
 using SeaPower;
+using SeapowerUI.ViewModels;
+using UniRx;
 
 namespace SeaPowerAdvanced.Menu;
 
