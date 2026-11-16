@@ -214,31 +214,61 @@ look like a search fan would be telling you something that is not true.
 If the cones do not appear, `ecm-cone.txt` in the mod folder says which of the two projection routes
 was tried and what the camera was - that file is the thing to send.
 
-## 2e. Getting civilian traffic to work — `mission editor`
+## 2e. Civilian traffic — `mission editor`, panel on `F8`
 
-If the panel's **Spawn traffic** does nothing, **`traffic-report.txt`** in the mod folder now says
-which link is missing. The feature needs five things, and the file tests each one:
+Press **F8** in the mission editor. The panel is small, draggable, and can be collapsed to its title
+bar with the ▲ button, so it never has to sit over the map.
 
-| Line | What it means if it says `--` |
-|---|---|
-| mission editor open | No mission is open in the editor; the panel cannot do anything |
-| editor state manager | The editor reports no interaction state manager, so the zone tool cannot draw |
-| editor drawing layer | The map reports no drawing layer, so the polygon has nowhere to go |
-| unit database | The game's unit database was not readable, so there are no civilian classes |
-| civilian classes | Nothing in this install is flagged civilian, so a lane has nothing to spawn |
-| neutral taskforce | Civilian traffic needs a side to belong to; load a mission first |
-| civilian route list | The mod could not find where this build keeps its routes - **send this line** |
+```
+┌ Civilian traffic                                     ▲  × ┐
+│ Zone: map area, ~18 400 nm²                               │
+│ [Draw zone] [Map area] [Clear zone] [Check setup]         │
+│ Ship lanes (units alive at once)                          │
+│   min [-] 2 [+]      max [-] 6 [+]                        │
+│ Aircraft lanes (units alive at once)                      │
+│   min [-] 0 [+]      max [-] 2 [+]                        │
+│ [Spawn traffic in this zone]              [Remove]        │
+│ Classes: 23 ship class(es), 9 aircraft class(es) [Reload] │
+│ ┌───────────────────────────────────────────────────────┐ │
+│ │ [14:22:31] Added 2 ship lane(s) ... to MissionEdito... │ │
+│ │ [14:22:10] Zone from the map: 14 unit(s) placed ...    │ │
+│ └───────────────────────────────────────────────────────┘ │
+```
 
-The route list is now **looked for rather than assumed**. It used to require
-`MissionManager._civilianRoutes`, which in the mission editor is very likely null, because the manager
-is what runs a mission and the editor is holding the one being edited. The mod now searches the
-mission manager, then the editor's view model, then the mission it is editing, and writes down every
-place it looked.
+### Two ways to make a zone
 
-Also fixed: the panel used to return silently when it could not draw, so "it does not work" left
-nothing in the log. It now logs the reason once and writes it into `traffic-report.txt`. The F8 key is
-read from the GUI event as well as from Unity's `Input` class, so it works on builds that use the new
-Input System only.
+| Button | What it does | When to use it |
+|---|---|---|
+| **Draw zone** | Hands the mouse to the game's own polygon tool. Left-click points, middle-click or **Finish** to end | When you want a specific stretch of sea |
+| **Map area** | Builds a zone from the sea the mission's units are already in: their bounding box plus 30% | When drawing does not work, or you just want traffic where the action is |
+
+The zone line always says which of the two is in use and how big it is. If neither exists,
+**Spawn traffic** says so instead of doing nothing.
+
+### What was wrong, and what was rebuilt
+
+| Fault | Why it made the feature look dead | What it does now |
+|---|---|---|
+| The panel was a `GUILayout` window whose height was whatever the content measured | In a game that also draws its own UI, it collapsed, reflowed, or drew at a size that made no sense | Absolute rectangles, one fixed size, scaled from the screen height so it is the same size at 720p and 4K |
+| Four text fields | Typing into IMGUI inside a fullscreen game fights the game's own input for focus | **No text fields at all.** Every number is **-** / **+** |
+| The result was one line, overwritten by the next click | You could not see what had happened | A visible log of the last six results, in the window, newest first |
+| Nothing was drawn outside the editor, silently | "It does not work" with no evidence | One short notice that says to open the mission editor |
+| The route list had to be a `List<CivilianRoute>` exactly | A mission holding any other collection type - including the observable collection the game's own view models use - was refused with "not a list of routes the mod can write to". This is very likely why nothing ever spawned | Any `IList` is accepted, added to through `IList.Add`, and the **count is read back** so a list that swallows the add is reported as such |
+| A route needed all forty of `CivilianRoute`'s private fields, or it was thrown away | One renamed optional field - a diagnostic counter, a loadout list - discarded every route, and the only clue was a "Problems: no field ..." tail | **Four essential fields**, everything else best-effort. The ones this build lacks are named in `traffic-report.txt` instead of failing the route |
+| `Globals._neutralTaskforce` had to be non-null before anything happened | In the editor it often is null, so the feature refused before it started | The taskforce is looked for, and if none is found the route is still created and the report says so |
+| Nothing checked whether the routes actually landed | "Added 2 lanes" could be printed while the list never changed | The report now reads **"The list now holds N route(s)"**, and zero added is reported with the reason |
+
+### If it still does nothing
+
+Press **Check setup**. `traffic-report.txt` in the mod folder lists every prerequisite with an `ok`
+or `--` mark and the exact type of the list that was found:
+
+```
+  --   civilian route list   no civilian route list found (see traffic-report.txt)
+  ok   civilian route list   MissionEditorViewModel.Mission._civilianRoutes (0 route(s)) [TrulyObservableCollection<CivilianRoute>]
+```
+
+That file, plus the panel's own log line, is everything needed to say which link is missing.
 
 ## 2f. Using it with the multiplayer mod
 

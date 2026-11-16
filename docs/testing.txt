@@ -8,7 +8,7 @@ TEST PLAN
 Run this once per game version, and after any change to HatchControl,
 HatchMenu, TrafficGenerator or RouteFactory.
 
-Version under test: 0.13.1. Mod id io.github.bomberdeer22.seapoweradvanced.
+Version under test: 0.14.0. Mod id io.github.bomberdeer22.seapoweradvanced.
 
 Read the log, do not guess. Everything below is confirmed by two files:
 
@@ -45,11 +45,11 @@ stop and send SeaPowerAdvanced-diagnose.txt (from diagnose.cmd).
 
 In LogOutput.log, BepInEx's own banner should appear:
 
-  * [ ] Loading [Sea Power Advanced 0.13.1]
+  * [ ] Loading [Sea Power Advanced 0.14.0]
 
 Then the mod's own startup lines:
 
-  * [ ] Sea Power Advanced: ================ Sea Power Advanced 0.13.1
+  * [ ] Sea Power Advanced: ================ Sea Power Advanced 0.14.0
     ================
   * [ ] Sea Power Advanced: Entry point:  BepInEx plugin
   * [ ] Sea Power Advanced: Settings: enabled=True includeGuns=False ...
@@ -238,40 +238,54 @@ Aircraft as ECM targets
 7. CIVILIAN TRAFFIC (MISSION EDITOR)
 ------------------------------------
 
-This is the feature that has never run, so expect to find something here.
-Press F8, then Check setup: traffic-report.txt in the mod folder now lists
-every prerequisite with an ok/-- mark, so a failure points at one link instead
-of the whole feature.
+The panel was rebuilt, so test the panel first and the traffic second.
 
-  * [ ] Open the mission editor on a new mission
-  * [ ] Log reads Mission editor detected; the civilian traffic panel is
-    available.
-  * [ ] Press F8 -> a Civilian traffic window appears; drag it by the title
-    bar
-  * [ ] Classes: line shows non-zero counts, and the log reads Civilian
-    catalogue: N civilian vessel class(es), M civilian aircraft class(es).
-    (0/0 means nothing in this install is flagged civilian  -  send the log)
-  * [ ] Press Draw zone, left-click 4-6 points around open sea, then Finish
-    (or middle-click). Log reads Zone tool: polygon mode started. ...
-  * [ ] The Zone: line shows the point count and an area in nm2
-  * [ ] Set min/max ships to 2/4, planes to 0/0, press Spawn traffic
-  * [ ] Log reads Civilian traffic: Added N ship lane(s) (up to 4 vessel(s) at
-    a time) and 0 aircraft lane(s) ...
-  * [ ] Save the mission, then play it: the ships appear inside the drawn
-    area, not outside it
+The panel
+
+  * [ ] Open the mission editor on a mission, press F8
+  * [ ] A window appears at a readable size on your display, with a title bar,
+    a Zone line, two rows with - and + buttons, two big buttons and a log box
+  * [ ] It drags by its title bar; ▲ collapses it to one bar; × closes it; F8
+    reopens it
+  * [ ] Press F8 in the main menu and in a mission: instead of nothing, a
+    short notice says to open the mission editor, with Close and Check setup
+  * [ ] No text field anywhere - the numbers only move with the buttons
+
+Getting a zone without drawing
+
+  * [ ] Place (or already have) a few ships in the mission, press Map area
+  * [ ] The Zone line reads map area, ~N nm2 and the log says how many units
+    it used
+  * [ ] With no units placed at all, Map area says so and leaves the zone
+    empty
+
+Spawning
+
+  * [ ] Set ships to min 2 / max 4, planes 0 / 0, press Spawn traffic in this
+    zone
+  * [ ] The log's newest line is the full result; it must contain The list now
+    holds N route(s)
+  * [ ] If it says Nothing was added ..., the same sentence names the reason -
+    send it verbatim
+  * [ ] Save the mission, then play it: the ships appear inside the zone, not
+    outside it
   * [ ] They keep coming back after finishing their run (_maxUnits is a
     concurrency cap, not a total)
-  * [ ] Remove generated takes them back out; log reads removed N generated
-    route(s).
+  * [ ] Remove takes them back out and the log says how many
+  * [ ] Repeat with planes set to 1 / 2 and ships 0 / 0
 
-Then repeat with planes set to 1/2 and ships 0/0.
+Drawing, if you want it
 
-  * [ ] Draw a zone that crosses land: units should stay off the land, or
-    report what they did
-  * [ ] Draw a tiny zone (a few km): the panel should refuse it, not spawn one
-    unit on top of another
-  * [ ] Reload the saved mission: does the traffic survive the round trip
-    through the mission file?
+  * [ ] Draw zone -> left-click 4-6 points -> middle-click (or Finish): the
+    Zone line shows the point count and an area
+  * [ ] A zone with fewer than three points, or one too small, is refused with
+    a sentence, not silently
+
+When it fails
+
+  * [ ] Press Check setup: traffic-report.txt lists every prerequisite ok/--
+    and the type of the route list it found
+  * [ ] Send that file plus the panel's newest log line
 
 8. DISABLE
 ----------

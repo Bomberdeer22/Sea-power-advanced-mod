@@ -141,6 +141,70 @@ internal static class RouteContainers
     }
 
     /// <summary>
+    /// What kind of list this is, for the report. The type matters: the old generator required a
+    /// <c>List&lt;CivilianRoute&gt;</c> exactly and gave up on anything else, which is how a mission
+    /// holding an observable collection - the type the game's own view models use - produced
+    /// "not a list of routes the mod can write to" and no traffic at all.
+    /// </summary>
+    internal static string Describe(IList list)
+    {
+        try
+        {
+            Type type = list.GetType();
+            string element = "?";
+
+            if (type.IsGenericType && type.GetGenericArguments().Length == 1)
+                element = type.GetGenericArguments()[0].Name;
+
+            return type.Name + "<" + element + "> (" + list.Count + " item(s))";
+        }
+        catch (Exception) { return "unknown list"; }
+    }
+
+    /// <summary>
+    /// Adds one route through <see cref="IList"/>, which is the only thing every collection type the
+    /// game might use has in common. Returns the problem text, or an empty string on success.
+    ///
+    /// The count is read before and after: a collection that silently swallows the add - an
+    /// observable collection bound to a filtered view, a list whose owner rebuilds it - would
+    /// otherwise look like a success and produce no traffic.
+    /// </summary>
+    internal static string Add(IList list, CivilianRoute route)
+    {
+        int before;
+
+        try { before = list.Count; }
+        catch (Exception error) { return "cannot read the list: " + error.Message; }
+
+        try
+        {
+            list.Add(route);
+        }
+        catch (Exception error)
+        {
+            return "Add failed: " + error.GetType().Name + ": " + error.Message;
+        }
+
+        try
+        {
+            return list.Count > before ? "" : "the list accepted the route but did not grow";
+        }
+        catch (Exception) { return "added, but the count could not be read back"; }
+    }
+
+    /// <summary>Removes one route through <see cref="IList"/>, for the same reason as <see cref="Add"/>.</summary>
+    internal static bool Remove(IList list, CivilianRoute route)
+    {
+        try
+        {
+            int before = list.Count;
+            list.Remove(route);
+            return list.Count < before;
+        }
+        catch (Exception) { return false; }
+    }
+
+    /// <summary>
     /// Whether the list can actually be added to. A fixed-size or read-only list would throw on Add,
     /// and reporting that here is clearer than an exception in the middle of a spawn.
     /// </summary>

@@ -174,14 +174,14 @@ Two things to look at.
 **1. BepInEx's plugin list**, near the top of `BepInEx\LogOutput.log`. It must say:
 
 ```
-[Info   :   BepInEx] Loading [Sea Power Advanced 0.13.1]
+[Info   :   BepInEx] Loading [Sea Power Advanced 0.14.0]
 ```
 
 **2. The mod's own log**, `BepInEx\plugins\SeaPowerAdvanced\seapoweradvanced.log`. This file only
 exists if the code actually ran, which makes "did it load?" unambiguous:
 
 ```
-================ Sea Power Advanced 0.13.1 ================
+================ Sea Power Advanced 0.14.0 ================
 Entry point:  BepInEx plugin
 Settings: enabled=True includeGuns=False allowEnemyUnits=False showWhenNoMounts=True
 Patched MapUnitViewModel.GetContextMenuItems.

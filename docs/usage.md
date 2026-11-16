@@ -146,12 +146,22 @@ This one lives in the **mission editor**, not in a running mission.
 ## The shape of the workflow
 
 1. Open the mission editor (new mission or an existing one).
-2. Press **F8** — the *Civilian traffic* panel appears. F8 again hides it.
-3. **Draw zone**, then click points on the map.
-4. **Finish** (or middle-click, which is the game's own way to leave the polygon tool).
-5. Type how many ships and how many planes you want, at minimum and maximum.
-6. **Spawn traffic**.
-7. **Save the mission.** That is what makes them part of the mission.
+2. Press **F8** — the *Civilian traffic* panel appears. F8 again hides it; **Hide** collapses it to a
+   single bar so it can sit out of the way.
+3. Make a zone, either way:
+   * **Draw zone**, then click points on the map, then **Finish** (or middle-click, the game's own
+     way to leave the polygon tool), or
+   * **Map area** — builds a zone from the sea the mission's own units are already in. No drawing,
+     no mouse handover, nothing to go wrong.
+4. Set how many ships and how many planes you want, at minimum and maximum, with the **-** and **+**
+   buttons. There are no text fields: typing into the game fights its own input.
+5. **Spawn traffic in this zone**.
+6. **Save the mission.** That is what makes them part of the mission.
+
+The panel keeps a **visible log** of the last six things it did, newest first. The line after a spawn
+is the whole result - how many lanes went in, and **how many routes the mission's list now holds**.
+If nothing went in, that line says why. **Check setup** writes `traffic-report.txt`, which marks
+every prerequisite `ok` or `--` and names the type of the route list it found.
 
 ## Drawing the zone
 
@@ -165,7 +175,7 @@ press **Draw zone** again to start a new shape.
 
 ## The four numbers
 
-| Field | Meaning |
+| Stepper | Meaning |
 |---|---|
 | Ships min / max | Civilian **vessels** that will be alive in the zone at any moment. The mod rolls a number in the range each time you press *Spawn traffic*. |
 | Planes min / max | The same for civilian **aircraft**. Set max to 0 to skip a type. |
@@ -215,7 +225,10 @@ the game's usual civilian penalty — that is the game's rule, not the mod's.
 | What you see | What it means |
 |---|---|
 | No panel in the mission editor | Check `BepInEx\plugins\SeaPowerAdvanced\seapoweradvanced.log` for `Civilian traffic panel ready`. If the line is missing the mod did not load; if it is there, the panel may have been toggled off — set `CivilianTraffic/ShowPanel` to `true`. |
-| F8 does nothing | The game may be set to the new Input System only. Change `CivilianTraffic/ToggleKey`, or set `ShowPanel` in the config. |
+| F8 does nothing | The key is read from the GUI event as well as from `Input`, so this should not happen; if it does, change `CivilianTraffic/ToggleKey` or start with `ShowPanel` in the config. |
+| Panel says "Open a mission in the mission editor" | It is telling you where it works, rather than not appearing at all. |
+| **Draw zone** does nothing | Use **Map area** instead - it needs none of the editor's drawing machinery. |
+| Spawn adds nothing | The log line says why, and **Check setup** writes `traffic-report.txt` with the route list's exact type. |
 | "No civilian vessel classes" | The unit database was not ready yet. Press **Refresh** once a mission is loaded. |
 | "The mission manager is not running yet" | Load a mission first — the panel needs the mission that the routes will belong to. |
 | "That zone is too small" | The clicks were nearly collinear; draw a wider area. |

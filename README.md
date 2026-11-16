@@ -4,7 +4,7 @@ An advanced mod for **Sea Power: Naval Combat in the Missile Age**, built as an
 [Anchor Chain](https://github.com/SeaPower-Modders/AnchorChain) code mod and loadable as a plain
 BepInEx plugin.
 
-**Version 0.13.1** — fourteen advanced features, plus hatch control and civilian traffic.
+**Version 0.14.0** — fourteen advanced features, plus hatch control and civilian traffic.
 
 ### 1. Manual hatch control
 
@@ -72,23 +72,27 @@ folder records which side of the session this machine is on and every rule that 
 
 ### 2. Civilian traffic zones (mission editor)
 
-If **Spawn traffic** does nothing, press **Check setup** in the panel: it writes
-`traffic-report.txt`, which marks every prerequisite the feature needs as ok or -- and names the one
-that is missing.
+Press **F8** in the mission editor. The panel has **no text fields** - every number is a **-** / **+**
+button - and a visible log of the last six things it did, so you can see the result in game instead
+of hunting for a file.
 
-Press **F8** in the mission editor for a small panel: draw a polygon on the map, type **min/max
-ships** and **min/max planes**, press **Spawn traffic**. The mod creates real civilian routes in
-that area, each lane drawing from your install's own civilian unit classes for variety, and they
-are saved with the mission.
+Make a zone one of two ways: **Draw zone** uses the game's own polygon tool, or **Map area** builds
+one from the sea your mission's units are already in. Then set **min/max ships** and **min/max
+planes** and press **Spawn traffic**. The mod creates real civilian routes, each lane drawing from
+your install's own civilian classes for variety, and they are saved with the mission.
 
 ```
-Civilian traffic
-  Zone: 6 points  ~14 800 nm²      [Draw zone]
-  Ships (vessels, alive at once)    min [2]  max [6]
-  Planes (aircraft, alive at once)  min [0]  max [2]
-  [Spawn traffic]  [Remove generated]
-  Classes: 23 ship class(es), 9 aircraft class(es)   [Refresh]
+Civilian traffic                                   ▲  ×
+Zone: map area, ~18 400 nm²
+[Draw zone] [Map area] [Clear zone] [Check setup]
+Ship lanes      min [-] 2 [+]   max [-] 6 [+]
+Aircraft lanes  min [-] 0 [+]   max [-] 2 [+]
+[Spawn traffic in this zone]            [Remove]
+[14:22:31] Added 2 ship lane(s) ... The list now holds 6 route(s).
 ```
+
+If nothing is added, the log line says why, and **Check setup** writes `traffic-report.txt`: every
+prerequisite marked `ok`/`--`, plus the exact type of the route list it found.
 
 How it works, and the verified mission-file format:
 [docs/civilian-traffic.md](docs/civilian-traffic.md). Hatch API:
@@ -135,7 +139,7 @@ or a PowerShell window that closes itself).
 Prefer PowerShell? `tools\build-portable.ps1 -Install` does the same job when it is permitted.
 
 The DLL goes into `BepInEx\plugins\SeaPowerAdvanced\`, so **BepInEx loads it directly** — there is
-no mod-manager checkbox on this route. BepInEx's log then shows `Loading [Sea Power Advanced 0.13.1]`,
+no mod-manager checkbox on this route. BepInEx's log then shows `Loading [Sea Power Advanced 0.14.0]`,
 and the mod writes its own `seapoweradvanced.log` next to the DLL.
 
 ## Use it

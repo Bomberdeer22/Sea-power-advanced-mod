@@ -142,7 +142,15 @@ internal static class TrafficDiagnostics
 
     private static string TaskforceState()
     {
-        try { return RouteFactory.HasTaskforce ? "present" : "no neutral taskforce yet"; }
+        try
+        {
+            bool found = RouteFactory.ResolveTaskforce(out string source) != null;
+
+            // A null taskforce does not stop a route being created any more - it is reported, and
+            // the route is written anyway - but it is still the reason traffic would not appear, so
+            // it keeps its own line.
+            return found ? source : "none found - traffic may not spawn (routes are still created)";
+        }
         catch (Exception error) { return "threw " + error.GetType().Name; }
     }
 
@@ -153,9 +161,14 @@ internal static class TrafficDiagnostics
             IList? list = RouteContainers.Find(out string description);
             if (list == null) return description;
 
+            // The type matters: the old generator demanded List<CivilianRoute> exactly, which a
+            // mission holding an observable collection is not. Naming it here is what makes that
+            // visible instead of looking like an empty list.
+            string kind = RouteContainers.Describe(list);
+
             return RouteContainers.CanAdd(list, out string why)
-                ? description
-                : description + " - " + why;
+                ? description + " [" + kind + "]"
+                : description + " [" + kind + "] - " + why;
         }
         catch (Exception error)
         {

@@ -128,3 +128,26 @@ while you draw it and after you finish.
 
 Routes created by the mod are remembered in the panel, so **Remove generated** can take them
 back out of the list again while the editor session lasts.
+
+
+## What changed in 0.14.0
+
+Four faults made the generator refuse everything, each of which produced a different-looking
+symptom and none of which said so in the panel:
+
+1. **`container as List<CivilianRoute>`.** The mission may hold any `IList`; the observable
+   collection type the game's view models use is not a `List<T>`. Additions now go through
+   `IList.Add` and the count is read back.
+2. **All-or-nothing field writes.** `RouteFactory` required every one of ~40 private fields. Now
+   four are essential (`_waypoints`, `_unitsType`, `_allowedUnits`, `_maxUnits`) and the rest are
+   best-effort, with the missing names recorded.
+3. **`Globals._neutralTaskforce != null` as a precondition.** Now looked for, and its absence is
+   reported without stopping the route.
+4. **No verification.** "Added N lanes" was printed whether or not the list changed. The report now
+   states the list's size after the add.
+
+`Civilian/MapArea.cs` builds a zone from the bounding box of the mission's placed units (plus 30%),
+so the feature no longer depends on the editor's polygon interaction state at all.
+
+`UI/TrafficPanel.cs` was rewritten: absolute rectangles instead of GUILayout, scaled from the screen
+height, no text fields, a visible log, collapsible, and a notice when opened outside the editor.

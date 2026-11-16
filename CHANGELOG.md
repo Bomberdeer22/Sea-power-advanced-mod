@@ -1,5 +1,50 @@
 # Changelog
 
+## 0.14.0 — civilian traffic rebuilt: panel, and the reasons it never spawned
+
+### The panel
+
+- **Absolute layout, not GUILayout.** A layout window measures its content, and in a game that draws
+  its own UI that is how a panel ends up collapsed, reflowed or half off-screen. Every control now
+  has a fixed rectangle.
+- **Scaled from the screen height**, so it is the same physical size at 720p and 4K instead of tiny
+  or enormous. Clamped 0.8x-2.2x.
+- **No text fields.** Four of them fought the game for keyboard focus; every number is now a - / +
+  button.
+- **A visible log.** The last six results, newest first, in the window. Previously the result was one
+  line that the next click overwrote and everything else went to a file.
+- **Collapsible** to a title bar, draggable, and closable - it never has to cover the map.
+- **Says why it is not working.** Opened outside the mission editor it draws a short notice with the
+  reason instead of nothing at all.
+
+### Why it never spawned - four separate faults
+
+1. **The route list had to be a `List<CivilianRoute>` exactly.** Any other collection - including the
+   observable collection the game's own view models use - was refused with *"not a list of routes the
+   mod can write to"*. Traffic is now added through `IList.Add`, which every collection type has, and
+   the count is **read back** afterwards so a list that swallows the add is reported rather than
+   believed.
+2. **A route needed all forty of `CivilianRoute`'s private fields.** One renamed optional field threw
+   the whole route away and the only clue was a "Problems: no field ..." tail. Now **four fields are
+   essential** (waypoints, unit type, allowed units, concurrency cap) and everything else is
+   best-effort; the fields this build lacks are named in `traffic-report.txt`.
+3. **`Globals._neutralTaskforce` had to be non-null to begin.** In the editor it often is not. The
+   taskforce is now looked for (including other neutral taskforces in `Globals`), and if none is
+   found the route is still created and the report says so.
+4. **Nothing verified the result.** The report now states the list's size after the add - *"The list
+   now holds N route(s)"* - and a zero-route attempt reports the reason instead of a count of what was
+   attempted.
+
+### A zone without drawing one
+
+**Map area** builds a zone from the bounding box of the mission's placed units plus 30%. Drawing a
+polygon depends on the editor's interaction state, drawing layer and a clean mouse handover - three
+things this mod does not own - so when any of them misbehaves the whole feature used to look dead
+with no way past it. Now there is a second route that needs none of them.
+
+`traffic-report.txt` also names the **type** of the route list (`[TrulyObservableCollection<CivilianRoute>]`),
+because the old failure was a type mismatch that looked like an empty list.
+
 ## 0.13.1 — one scope error, and a check that will catch the next one
 
 `OffensiveEcm.cs(407)`: `error CS0103: The name 'reach' does not exist in the current context`.

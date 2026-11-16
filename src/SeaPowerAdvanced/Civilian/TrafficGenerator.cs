@@ -40,51 +40,40 @@ internal static class TrafficGenerator
 
         CivilianCatalogue.Refresh();
 
-        MissionManager? manager = Singleton<MissionManager>.Instance;
-        if (manager == null)
+        // The editor does not run a mission, so a missing MissionManager is not a reason to refuse:
+        // the routes live with whatever is holding the mission being edited. It is logged, not
+        // fatal.
+        try
         {
-            report = "The mission manager is not running yet — open or start a mission first.";
-            return created;
+            if (Singleton<MissionManager>.Instance == null)
+                ModLog.Info("Civilian traffic: no mission manager yet - writing into the mission "
+                            + "editor's own mission instead.");
         }
+        catch (Exception) { }
 
-        if (!RouteFactory.HasTaskforce)
-        {
-            report = "There is no neutral taskforce yet — load a mission first, then try again.";
-            return created;
-        }
-
-        // Where the routes live is looked for rather than assumed: in the mission editor the
-        // mission manager's own list is often null, because the manager is what runs a mission and
-        // the editor is holding the one being edited. See RouteContainers.
+        // Where the routes live is looked for rather than assumed. See RouteContainers.
         System.Collections.IList? container = RouteContainers.Find(out string where);
 
         if (container == null)
         {
             report = "No civilian route list to add to - " + where
-                     + ". Open a mission in the editor and try again; traffic-report.txt says "
-                     + "exactly what was looked for.";
+                     + ". Open a mission in the editor and try again; traffic-report.txt lists "
+                     + "everything that was searched.";
             ModLog.Warn("Civilian traffic: " + report);
             return created;
         }
+
+        string kind = RouteContainers.Describe(container);
 
         if (!RouteContainers.CanAdd(container, out string why))
         {
-            report = "Found the civilian route list (" + where + ") but it cannot be added to: " + why;
+            report = "Found the civilian route list (" + where + ", " + kind
+                     + ") but it cannot be added to: " + why;
             ModLog.Warn("Civilian traffic: " + report);
             return created;
         }
 
-        ModLog.Info("Civilian traffic: adding routes to " + where);
-
-        List<CivilianRoute>? routes = container as List<CivilianRoute>;
-
-        if (routes == null)
-        {
-            report = "The civilian route list (" + where + ") is not a list of routes the mod can "
-                     + "write to.";
-            ModLog.Warn("Civilian traffic: " + report);
-            return created;
-        }
+        ModLog.Info("Civilian traffic: adding routes to " + where + " [" + kind + "]");
 
         int minShips = Clamp(request.MinShips);
         int maxShips = Clamp(request.MaxShips);
@@ -98,25 +87,46 @@ internal static class TrafficGenerator
         int planeCount = Roll(minPlanes, maxPlanes);
 
         List<string> problems = new();
-        int nextIndex = NextSectionIndex(routes);
+        int nextIndex = NextSectionIndex(container);
 
         int shipRoutes = shipCount > 0
             ? BuildRoutes(zone, request, ObjectBase.ObjectType.Vessel, "ship", CivilianCatalogue.Ships, shipCount,
-                          routes, created, ref nextIndex, problems)
+                          container, created, ref nextIndex, problems)
             : 0;
 
         int planeRoutes = planeCount > 0
             ? BuildRoutes(zone, request, ObjectBase.ObjectType.Aircraft, "aircraft", CivilianCatalogue.Planes, planeCount,
-                          routes, created, ref nextIndex, problems)
+                          container, created, ref nextIndex, problems)
             : 0;
 
         foreach (CivilianRoute route in created) Generated.Add(route);
 
+        int total = 0;
+        try { total = container.Count; } catch (Exception) { }
+
+        // The sentence has to be about what happened, not what was attempted. Zero routes in means
+        // the reason is in `problems`, and the panel shows that line verbatim.
+        if (created.Count == 0)
+        {
+            report = "Nothing was added to " + where + " [" + kind + "]: "
+                     + (problems.Count > 0 ? string.Join("; ", problems)
+                        : "no civilian classes were available for the counts given ("
+                          + shipCount + " ship(s), " + planeCount + " aircraft)")
+                     + ". traffic-report.txt has the full checklist.";
+            ModLog.Warn("Civilian traffic: " + report);
+            return created;
+        }
+
         // _maxUnits is a concurrency limit, not a total: the route keeps topping up as units finish
         // their course, so the zone keeps flowing instead of emptying out.
-        report = "Added " + shipRoutes + " ship lane(s) (up to " + shipCount + " vessel(s) at a time) and "
-                 + planeRoutes + " aircraft lane(s) (up to " + planeCount + " aircraft at a time) to "
-                 + where + ". Save the mission to keep them.";
+        report = "Added " + shipRoutes + " ship lane(s) (up to " + shipCount
+                 + " vessel(s) at a time) and " + planeRoutes + " aircraft lane(s) (up to "
+                 + planeCount + " aircraft at a time) to " + where + " [" + kind
+                 + "]. The list now holds " + total + " route(s). Save the mission to keep them.";
+
+        if (RouteFactory.Skipped.Count > 0)
+            report += " Optional fields this build does not have: "
+                      + string.Join(", ", RouteFactory.Skipped) + ".";
 
         if (shipCount > 0 && CivilianCatalogue.Ships.Count == 0) report += " No civilian vessel classes found.";
         if (planeCount > 0 && CivilianCatalogue.Planes.Count == 0) report += " No civilian aircraft classes found.";
@@ -134,13 +144,12 @@ internal static class TrafficGenerator
         int removed = 0;
 
         System.Collections.IList? container = RouteContainers.Find(out _);
-        List<CivilianRoute>? routes = container as List<CivilianRoute>;
 
-        if (routes != null)
+        if (container != null)
         {
             foreach (CivilianRoute route in Generated)
             {
-                if (routes.Remove(route)) removed++;
+                if (RouteContainers.Remove(container, route)) removed++;
             }
         }
 
@@ -156,7 +165,7 @@ internal static class TrafficGenerator
         string label,
         IReadOnlyList<string> catalogue,
         int unitCount,
-        List<CivilianRoute> destination,
+        System.Collections.IList destination,
         List<CivilianRoute> created,
         ref int nextIndex,
         List<string> problems)
@@ -203,7 +212,16 @@ internal static class TrafficGenerator
             }
 
             nextIndex++;
-            destination.Add(route);
+
+            string added = RouteContainers.Add(destination, route);
+            if (added.Length != 0)
+            {
+                // The route object was built correctly but the mission would not take it: that is a
+                // different failure from a bad field, and it names the list.
+                problems.Add(section + " could not be stored: " + added);
+                continue;
+            }
+
             created.Add(route);
             createdRoutes++;
         }
@@ -234,12 +252,14 @@ internal static class TrafficGenerator
     /// Route sections have to stay dense and in list order, because the loader rebuilds the names
     /// as CivilianRoute1, CivilianRoute2, … for however many the mission declares.
     /// </summary>
-    private static int NextSectionIndex(List<CivilianRoute> routes)
+    private static int NextSectionIndex(System.Collections.IList routes)
     {
         int highest = 0;
 
-        foreach (CivilianRoute route in routes)
+        foreach (object? item in routes)
         {
+            if (item is not CivilianRoute route) continue;
+
             string? section = RouteFactory.ReadString(route, "_section");
             if (string.IsNullOrEmpty(section)) continue;
 
