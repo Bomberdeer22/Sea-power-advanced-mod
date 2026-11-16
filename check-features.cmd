@@ -62,15 +62,36 @@ if errorlevel 1 goto :failed
 if not exist "%REPORT%" goto :failed
 
 echo.
-echo ==================================================================
-echo  Done. Send this file back:
-echo    %REPORT%
+echo Collecting the exact member signatures behind the verdicts...
+>> "%LOG%" echo.
+>> "%LOG%" echo [member dump]
+set "DUMP=%HERE%member-dump.txt"
+> "%DUMP%" echo Sea Power Advanced - member dump
+set "TYPES=SeaPower.ObjectBase SeaPower.Ship SeaPower.WeaponSystem SeapowerUI.ViewModels.ObjectBaseViewModel SensorData AircraftStates.MissileEvasion SeaPower.GameMain"
+for %%T in (%TYPES%) do call :dump_type "%%T"
+echo       wrote %DUMP%
+
 echo.
-echo  It says, feature by feature, whether Sea Power supports it.
+echo ==================================================================
+echo  Done. Send these two files back:
+echo    %REPORT%
+echo    %DUMP%
+echo.
+echo  The report says which features are supported; the dump has the
+echo  exact field and method signatures needed to write them.
 echo  Everything above was also saved to:
 echo    %LOG%
 echo ==================================================================
 goto :done
+
+:dump_type
+>> "%DUMP%" echo.
+>> "%DUMP%" echo ============================================================================
+>> "%DUMP%" echo TYPE %~1
+>> "%DUMP%" echo ============================================================================
+"%PYTHON%" "%ANALYZE%" member %~1 >> "%DUMP%" 2>&1
+if errorlevel 1 >> "%DUMP%" echo   ^(not found under that name - skipped^)
+exit /b 0
 
 :failed
 echo.

@@ -2,6 +2,31 @@
 
 The twelve requested features, triaged against what is actually knowable before code is written.
 
+## First real run against a game install (2026-10-31)
+
+`Seapower-Scripts.dll` 4577 types / 50589 methods. The tool said READY 10, PARTIAL 2, BLOCKED 0.
+That headline is **too generous**, and the printed examples are what show it: several `ok` lines are
+name collisions, not capabilities. Triage by hand:
+
+| Feature | Reported | Reality from the examples | Why |
+|---|---|---|---|
+| Sprint-and-drift ASW | READY | **READY** | `ObjectBase::TowedSonarsSetActive`, `SensorData::CavitationNoise`, `CavitationForbidden`, `SimpleEngine::throttle` — all simulation members, all named for exactly what the feature needs. |
+| Helo search patterns | READY | **READY** | `ObjectBase::setWaypointTask` is already verified from Feature 2; `Ship::LaunchPlatforms`, `ScriptMode::Launch`. Only the sonobuoy line is junk (`AIDebugMapSymbols::FRIENDLY_BOUY_*` is a debug overlay enum). |
+| Chaff and hard rudder | READY | **PARTIAL** | `Ship::decoySystems` and `AircraftStates.MissileEvasion::_countermeasureLaunchInterval` are real and excellent. "A hard turn can be ordered" matched only `MapControl.MapBase::set_Heading` and `ErrorEllipseViewModel::set_Heading` — map graphics, not course orders. |
+| Degraded local control | READY | **PARTIAL** | `CiwsDisciplineState`, `CiwsFit`, `CiwsMountSpec` are real. "A mount can be disabled independently" matched only UI damage badges. |
+| Salvo deconfliction | READY | **PARTIAL** | `InputHandler.OnUpdate -> WeaponSystemGun::fire` is real proof a gun can be fired from code; `ObjectBase::_datalinkTierResolved` is real. Ammo/ready evidence is closure fields and a flight-deck label. |
+| Cold cruise vs battle stations | READY | **PARTIAL** | `SetUnitWeaponStatusTask::WeaponStatus` looks like the real readiness state. `ScriptRuntime::_readying` needs checking. |
+| Threat-axis screen | READY | **PARTIAL** | `Formation::Stations` real; "a course can be ordered" is map-graphic headings again. |
+| Radar blink cycling | READY | **UNKNOWN** | Sensors exist (`SensorData`, `SensorSystem`). But "an emitter can be switched on and off" matched a shader hotkey and the debug console. The real answer is probably an `ObjectBase` method next to `TowedSonarsSetActive`. |
+| Auto-ARM shutoff | READY | **UNKNOWN** | `GameMain::rebuildIncomingWeapons` / `_profIncomingWeapons` is genuinely useful. But "anti-radiation missiles exist" matched `ScriptRuntime::get_Armed`, `Ship::ArmorType` and `_armorPen` — the letters "Arm", nothing more. |
+| Commercial signature spoofing | PARTIAL | **PARTIAL** | Honest. `SensorData::RCS` and `SimpleObjectParameters::set_Signature` are real; emission-profile swapping is genuinely absent. |
+| Underway replenishment | READY | **UNLIKELY** | `AmmoGroupType::FuelTank` and `WeaponSystem::AssociatedMagazine` are real. "Fuel can be transferred between ships" matched **campaign screens**, not replenishment at sea. |
+| Battle stations fatigue | PARTIAL | **PARTIAL** | Honest. Crew skill is modelled; general quarters is genuinely missing. |
+
+**Lessons baked into the tool:** evidence found only in `SeapowerUI`/`MapControl`/`Noesis` is now
+reported as `weak` and caps the verdict at PARTIAL, because a control on a screen is not a
+capability. Blanket "it is all viable" was never true; the tool now says so.
+
 **To check these against your own install:** double-click `check-features.cmd` in the project
 folder. It writes `feature-readiness.txt`, which answers each feature with `READY`, `PARTIAL` or
 `BLOCKED` against your `Seapower-Scripts.dll` and shows the member names it matched. That file is

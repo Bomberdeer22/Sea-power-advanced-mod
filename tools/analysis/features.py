@@ -194,6 +194,21 @@ FEATURES = [
 ]
 
 
+# Types that are the game's interface, not its simulation. Evidence found only here says a button
+# exists for something, not that the behaviour can be driven from code. On a real assembly these
+# dominate the false positives: "an emitter can be switched on and off" matched a console-toggle
+# key binding and a shader effect, neither of which is an emitter.
+UI_TYPE = re.compile(r"^(SeapowerUI|MapControl|Noesis|UnityEngine|Unity|Writerside)\."
+                     r"|^(OrbitCamera|FullscreenShaderToggleCycle|CreatureManager)$")
+
+# Compiler-generated holders carry the names of the code around them.
+GENERATED = re.compile(r"^<|b__|^get_|^set_$")
+
+
+def _is_ui(declaring: str) -> bool:
+    return bool(UI_TYPE.search(declaring))
+
+
 def _compile(pattern: str):
     if not pattern:
         return None
@@ -239,6 +254,8 @@ class Probe:
                     found.append(name)
                     if len(found) >= MAX_EXAMPLES:
                         break
+            if found and all(_is_ui(name) for name in found):
+                return {**item, "found": True, "examples": found, "weak": True, "note": ""}
 
         elif item["kind"] == "callsite":
             if not self.callsites:
@@ -268,19 +285,32 @@ class Probe:
                 if len(found) >= MAX_EXAMPLES:
                     break
 
-        return {**item, "found": bool(found), "examples": found, "note": ""}
+        # Weak evidence: everything found lives in the UI layer. On its own that proves a control
+        # exists ("the game has a button for this"), not that the behaviour is reachable from code.
+        weak = False
+        if found:
+            weak = all(_is_ui(example.split("::")[0].split(" -> ")[0]) for example in found)
+
+        return {**item, "found": bool(found), "examples": found, "weak": weak, "note": ""}
 
 
 def _verdict(checks: list[dict]) -> str:
     required = [c for c in checks if c["required"] and c["found"] is not None]
     if not required:
         return "UNKNOWN"
+
     missing = [c for c in required if not c["found"]]
-    if not missing:
-        return "READY"
     if len(missing) == len(required):
         return "BLOCKED"
-    return "PARTIAL"
+
+    # Every capability has *some* name behind it, but if any of them was only found in the UI
+    # layer then the feature is not proven reachable from code. Calling that READY is how a
+    # button on a screen becomes a month of work chasing something that cannot be driven.
+    if not missing and any(c.get("weak") for c in required):
+        return "PARTIAL"
+    if missing:
+        return "PARTIAL"
+    return "READY"
 
 
 def format_report(assembly: Assembly, results: list[dict]) -> str:
@@ -295,14 +325,17 @@ def format_report(assembly: Assembly, results: list[dict]) -> str:
     add(f"file       {info['path']}")
     add(f"types      {info['types']}   methods {info['methods']}")
     add("")
-    add("READY    every required capability found")
-    add("PARTIAL  some found: possible with a workaround")
+    add("READY    every required capability found in the simulation")
+    add("PARTIAL  some missing, or only found in the UI layer (see 'weak')")
     add("BLOCKED  a required capability is missing")
     add("")
     add("'expectation' is my guess before the check, so a surprise is visible as a surprise.")
     add("Evidence is matched on member NAMES, so the examples are printed: read them before")
     add("trusting a verdict. A name that looks plausible but belongs to unrelated code is a")
     add("property of this kind of search, not a promise about the feature.")
+    add("")
+    add("'weak' means the only members matching were in the UI layer (SeapowerUI, MapControl,")
+    add("Noesis). That proves a button exists, not that the behaviour can be driven from code.")
     add("")
 
     counts = {"READY": 0, "PARTIAL": 0, "BLOCKED": 0, "UNKNOWN": 0}
@@ -323,6 +356,8 @@ def format_report(assembly: Assembly, results: list[dict]) -> str:
             for check in result["checks"]:
                 if check["found"] is None:
                     mark = "  --  "
+                elif check["found"] and check.get("weak"):
+                    mark = " weak "
                 elif check["found"]:
                     mark = "  ok  "
                 else:
@@ -330,6 +365,9 @@ def format_report(assembly: Assembly, results: list[dict]) -> str:
                 add(f"            {mark} {check['description']}")
                 for example in check["examples"]:
                     add(f"                   {example}")
+                if check["found"] and check.get("weak"):
+                    add("                   ^ found only in the UI layer: a control for this")
+                    add("                     exists, but it is not proven reachable from code")
 
     add("")
     add("What next: send this file back. A PARTIAL verdict lists exactly which capability was missing,")
