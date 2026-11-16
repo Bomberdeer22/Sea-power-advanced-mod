@@ -1,5 +1,6 @@
 using System;
 using HarmonyLib;
+using SeaPowerAdvanced.Interop;
 using SeaPowerAdvanced.Menu;
 using SeaPowerAdvanced.UI;
 
@@ -65,6 +66,12 @@ internal static class Boot
                 ModLog.Info("Disabled in the mod manager; no patches installed.");
                 return;
             }
+
+            // Find out what this build of the game actually exposes, before anything tries to use
+            // it. Reflection, so a renamed or non-public member is a logged miss, not a crash.
+            Capabilities.Discover();
+            CapabilityReport.Write();
+            ModLog.Info("Game interface: " + CapabilityReport.Summary());
 
             harmony = new Harmony(ModInfo.Id);
             HatchMenu.Install(harmony);

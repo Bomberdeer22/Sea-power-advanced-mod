@@ -309,6 +309,10 @@ Route B  -  if you already have the .NET SDK
       Purpose: Double-click: checks which planned features this build of the
         game can support.
 
+  docs/capability-layer.md
+      Purpose: Why "missing" usually means misnamed, and how the mod finds
+        levers at runtime.
+
   docs/usage.md
       Purpose: How to use the mod once it is installed.
 
@@ -381,6 +385,10 @@ LAYOUT
       Civilian/TrafficGenerator.cs   rolls counts, splits them into lanes, adds the routes
       Civilian/ZoneTool.cs           drives the game's own map polygon tool
       UI/TrafficPanel.cs             the IMGUI panel (F8 in the mission editor)
+      Interop/Capabilities.cs        finds the game's emitter/throttle/decoy levers by reflection
+      Interop/MemberProbe.cs         name + signature lookup, so a rename degrades instead of breaking
+      Interop/UnitState.cs           per-unit state for what the game never modelled (fatigue, GQ)
+      Interop/CapabilityReport.cs    writes capabilities.txt: what this game build exposes
       ModInfo.cs, ModLog.cs     identity and logging
 
 ROADMAP
