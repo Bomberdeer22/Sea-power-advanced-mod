@@ -558,7 +558,7 @@ internal static class OffensiveJam
         return stopped;
     }
 
-    private static MemberInfo? Teardown(Type type)
+    private static MethodInfo? Teardown(Type type)
     {
         foreach (MethodInfo method in type.GetMethods(BindingFlags.Instance | BindingFlags.Public
                                                      | BindingFlags.NonPublic))

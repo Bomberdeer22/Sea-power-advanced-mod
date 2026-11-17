@@ -599,6 +599,22 @@ internal static class FleetMenu
                      + "identified or not.");
     }
 
+    /// <summary>Any of our units carrying a jammer, whether or not it is in range of a particular
+    /// contact. Used only to tell "no jammer in the fleet" apart from "none near enough".</summary>
+    private static ObjectBase? AnyJammer()
+    {
+        foreach (ObjectBase ship in FleetTicker.Tracked())
+        {
+            try
+            {
+                if (OffensiveJam.HasEcm(ship)) return ship;
+            }
+            catch (Exception) { }
+        }
+
+        return null;
+    }
+
     private static string ContactName(ObjectBase contact)
     {
         try { return contact.DisplayNameShort; }

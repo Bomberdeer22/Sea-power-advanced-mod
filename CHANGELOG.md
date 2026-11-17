@@ -1,5 +1,24 @@
 # Changelog
 
+## 0.16.1 — build fix
+
+Three compiler errors in 0.16.0, all mine:
+
+- `FleetMenu.cs`: the `AnyJammer()` helper that tells "no jammer in the fleet" apart from "none near
+  enough" was referenced but never written - an edit script aborted before it reached that step.
+  Added.
+- `OffensiveJam.cs`: the teardown finder returned `MemberInfo?` while both call sites expect
+  `MethodInfo?` (CS0266). It only ever returns a method, so it is typed `MethodInfo?` now.
+
+Both gates clean again: `check-source.py` 52 files, tree-sitter 0 syntax problems. No behaviour change
+from 0.16.0.
+
+**The check that would have caught it.** `tools/check-source.py` now also flags a method called by
+name that nothing in the project declares - the `AnyJammer` failure exactly (CS0103). It reads like
+every other call, so no name check, brace count or scope check noticed it; asking "does any file
+declare this?" does. Verified by deleting the helper again: the checker reports
+`FleetMenu.cs:103: AnyJammer() is called but nothing in the project declares it (CS0103)`.
+
 ## 0.16.0 — offensive ECM actually jams, and works on unidentified contacts
 
 Three things were wrong, and they had one root cause: the mod was looking for ECM and for contacts in

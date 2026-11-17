@@ -333,7 +333,8 @@ src/SeaPowerAdvanced/
   ModInfo.cs, ModLog.cs     identity and logging
 
 tools/
-  check-source.py           pre-flight check: missing usings, missing types, UnitRecord members
+  check-source.py           pre-flight check: missing usings, missing types, UnitRecord members,
+                            out-of-scope locals, calls to methods nothing declares
   md2txt.py                 writes the .txt twins of the documentation
 ```
 

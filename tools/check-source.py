@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Catch the compiler errors that have actually broken this project's builds.
 
-Five kinds, every one of which has cost a round trip through a real machine:
+Six kinds, every one of which has cost a round trip through a real machine:
 
 1. A symbol is used but the namespace that declares it is not imported. CS0246, in a file that
    looks completely fine.
@@ -13,6 +13,8 @@ Five kinds, every one of which has cost a round trip through a real machine:
 4. A member is called on a mod type and that member no longer exists -
    "Capabilities does not contain a definition for ParametersOf". CS0117.
 5. An accessor is called by name, unit.get_ThreatningMissile(). CS0571, every time.
+6. A method is called by name that nothing in the project declares - a helper that was referenced
+   from one place and never written. CS0103, and it reads exactly like the calls around it.
 
 The script never needs the game's DLLs, which is the point: it runs anywhere, so it can be checked
 before handing a build to somebody else.
@@ -337,6 +339,86 @@ def scope_problems(files) -> list[str]:
     return problems
 
 
+# ---------------------------------------------------------------------------------------------
+# A method called by name that nothing in the project declares.
+#
+# This exists because of a build failure nothing else here could see:
+#
+#     FleetMenu.cs(107,40): error CS0103: The name 'AnyJammer' does not exist in the current context
+#
+# The helper was referenced from InstallContact and never written - an edit script had aborted
+# before the step that added it. Every other check passed: the name is camelCased like a method,
+# takes no arguments, and reads exactly like the calls around it. The tell is that no file declares
+# it, which is what this asks.
+#
+# Only BARE calls are checked (`Foo(`), and only where the name starts with a capital and is not
+# preceded by a type word, so declarations, constructors and dotted calls are all left alone. A
+# small allowlist covers the members a Unity component inherits, which by definition are declared
+# in an assembly this script cannot read.
+# ---------------------------------------------------------------------------------------------
+
+BARE_CALL = re.compile(r"(?<![\w.])([A-Z]\w*)\s*(?:<[^<>();]*>)?\s*\(")
+
+# Members every MonoBehaviour/Component has, plus the ones BepInEx adds. Declared outside this
+# project, so "nothing declares it" is true and harmless.
+INHERITED = {
+    "Awake", "Start", "Update", "LateUpdate", "FixedUpdate", "OnEnable", "OnDisable", "OnDestroy",
+    "OnGUI", "OnApplicationQuit", "StartCoroutine", "StopCoroutine", "StopAllCoroutines",
+    "Invoke", "InvokeRepeating", "CancelInvoke", "IsInvoking", "GetComponent", "GetComponents",
+    "GetComponentInChildren", "GetComponentsInChildren", "GetComponentInParent", "TryGetComponent",
+    "AddComponent", "Instantiate", "Destroy", "DestroyImmediate", "DontDestroyOnLoad",
+    "FindFirstObjectByType", "FindAnyObjectByType", "FindObjectsByType", "FindObjectsOfTypeAll",
+    "CompareTag", "SendMessage", "BroadcastMessage", "Equals", "GetHashCode", "ToString",
+    "ReferenceEquals", "MemberwiseClone",
+    "GetInstanceID", "Print", "LogInfo", "LogWarning", "LogError", "LogDebug", "LogMessage",
+}
+
+
+def undeclared_call_problems(files) -> list[str]:
+    problems: list[str] = []
+
+    declared_methods: set[str] = set()
+    codes: dict[pathlib.Path, str] = {}
+
+    for path in files:
+        code = strip_noise(path.read_text(encoding="utf-8"))
+        codes[path] = code
+
+        # Declarations: a name immediately before a parameter list, with a type word in front of
+        # it. The type word is what tells `bool AnyJammer()` from a call to it.
+        for match in BARE_CALL.finditer(code):
+            before = code[max(0, match.start() - 40):match.start()]
+            if re.search(r"[\w>\]?]\s+$", before):
+                declared_methods.add(match.group(1))
+
+    declared_methods.update(DECL.findall("\n".join(codes.values())))
+
+    for path, code in codes.items():
+        for match in BARE_CALL.finditer(code):
+            name = match.group(1)
+
+            before = code[max(0, match.start() - 40):match.start()]
+            # `bool AnyJammer(` - a declaration, not a use.
+            if re.search(r"[\w>\]?]\s+$", before):
+                continue
+            # `new Something(` - a constructor.
+            if before.rstrip().endswith("new"):
+                continue
+            # `[ACPlugin(...)]` - an attribute, which is a type from another assembly by design.
+            if before.rstrip().endswith("["):
+                continue
+
+            if name in declared_methods or name in INHERITED or name in KEYWORDS:
+                continue
+
+            line = code.count("\n", 0, match.start()) + 1
+            problems.append(
+                f"{path.relative_to(ROOT)}:{line}: {name}() is called but nothing in the project "
+                f"declares it (CS0103)")
+
+    return problems
+
+
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--fix", action="store_true", help="add missing using directives")
@@ -477,10 +559,11 @@ def main() -> int:
                     f"UnitState.cs: UnitRecord.{member} is never read - it is written and forgotten")
 
     problems.extend(scope_problems(files))
+    problems.extend(undeclared_call_problems(files))
 
     if not problems:
         print(f"clean: {len(files)} file(s), no missing namespaces, UnitRecord consistent, "
-              f"no out-of-scope locals")
+              f"no out-of-scope locals, no undeclared calls")
         return 0
 
     print()
