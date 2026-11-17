@@ -11,6 +11,11 @@ rem    * a symbol used in a file whose namespace is not imported   (CS0246)
 rem    * a mod type referenced but no longer declared anywhere      (CS0246)
 rem    * a UnitRecord member read by a feature but not declared     (CS1061)
 rem
+rem  Then tools\check-batch.py looks at the .cmd files themselves, where no
+rem  compiler exists at all: a goto to a label that is not there, a ( ) block
+rem  left open, %VAR% read inside the same block that sets it, and a
+rem  for /f that would read its quoted path as a string and loop zero times.
+rem
 rem  It is a pre-flight check, not a compiler. Its map of the game's own
 rem  namespaces is a list of names seen in the game's assemblies, so it can be
 rem  wrong in both directions. When it disagrees with the compiler, the compiler
@@ -46,6 +51,21 @@ if not exist "%SCRIPT%" goto no_script
 %PY% "%SCRIPT%" %*
 set "RC=%ERRORLEVEL%"
 
+echo.
+echo ------------------------------------------------------------
+echo  Batch files
+echo ------------------------------------------------------------
+if not exist "%ROOT%\tools\check-batch.py" goto no_batch_check
+%PY% "%ROOT%\tools\check-batch.py" > "%ROOT%\check-batch.txt" 2>&1
+set "BRC=!ERRORLEVEL!"
+type "%ROOT%\check-batch.txt"
+if not "!BRC!"=="0" if "!RC!"=="0" set "RC=1"
+goto batch_check_done
+
+:no_batch_check
+echo  tools\check-batch.py is not in this folder - skipped.
+
+:batch_check_done
 echo.
 echo ============================================================
 if "%RC%"=="0" echo  PASS - nothing missing that this check can see.

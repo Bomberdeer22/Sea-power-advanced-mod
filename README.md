@@ -111,6 +111,11 @@ or a PowerShell window that closes itself).
 
 Prefer PowerShell? `tools\build-portable.ps1 -Install` does the same job when it is permitted.
 
+**Updating** an installation that is already in the game folder is `update.cmd`: it reads the version
+that is there, does only what that version still needs, and writes down every decision in
+`update.txt`. **Uninstalling** is `uninstall.cmd`, which keeps a copy of everything it removes.
+Both are described in [docs/updating.md](docs/updating.md).
+
 The DLL goes into `BepInEx\plugins\SeaPowerAdvanced\`, so **BepInEx loads it directly** — there is
 no mod-manager checkbox on this route. BepInEx's log then shows `Loading [Sea Power Advanced 0.15.1]`,
 and the mod writes its own `seapoweradvanced.log` next to the DLL.
@@ -336,7 +341,21 @@ src/SeaPowerAdvanced/
 tools/
   check-source.py           pre-flight check: missing usings, missing types, UnitRecord members,
                             out-of-scope locals, calls to methods nothing declares
+  check-batch.py            the same idea for the .cmd files: unresolvable labels, unclosed ( )
+                            blocks, `%VAR%` read inside the block that set it, a for /f that would
+                            silently read its quoted path as a string
   md2txt.py                 writes the .txt twins of the documentation
+```
+
+Outside `src/` and `tools/`, the scripts a player double-clicks:
+
+```
+build.cmd        find the game, fetch a compiler, build, install   (first install)
+update.cmd       read the installed version, apply what the changelog says changed, rebuild
+uninstall.cmd    remove the mod, keeping a backup in uninstalled\
+diagnose.cmd     one file with everything needed to answer "why does it not work"
+check-source.cmd the C# and .cmd checks, without building
+check-features.cmd  what the game's own assembly can support
 ```
 
 ## Roadmap

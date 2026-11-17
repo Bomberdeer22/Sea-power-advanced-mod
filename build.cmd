@@ -9,6 +9,15 @@ rem  Usage:
 rem     build.cmd             build and install into the game  (default)
 rem     build.cmd dist        build only, into dist\SeaPowerAdvanced
 rem     build.cmd install     build and install into the game
+rem     build.cmd nopause     with any of the above: no "press any key"
+rem
+rem  nopause exists for update.cmd, which runs this file for the compile and
+rem  then carries on with its own report; a person runs build.cmd directly and
+rem  gets the pause.
+rem
+rem  Every install writes version.txt next to the DLL, so "which version is in
+rem  the game folder?" is answered by a file instead of a guess. update.cmd
+rem  reads it.
 rem
 rem  Needs nothing pre-installed. It fetches, with curl and tar (both shipped
 rem  with Windows 10/11, neither a script, so the PowerShell execution policy
@@ -41,8 +50,18 @@ set "BUILDLOG=%ROOT%\build-output.txt"
 set "CHECKLOG=%ROOT%\check-source.txt"
 
 rem Default action when double-clicked: install. That is what people want.
+rem Arguments may arrive in any order, because update.cmd calls this file.
 set "ACTION=install"
+set "NOPAUSE="
+:build_args
+if "%~1"=="" goto build_args_done
 if /i "%~1"=="dist" set "ACTION=dist"
+if /i "%~1"=="install" set "ACTION=install"
+if /i "%~1"=="nopause" set "NOPAUSE=1"
+shift
+goto build_args
+
+:build_args_done
 
 > "%LOG%" echo Sea Power Advanced - build log
 >> "%LOG%" echo started %DATE% %TIME%
@@ -71,11 +90,12 @@ if not "%RC%"=="0" echo  Everything is saved in: %LOG%
 echo ============================================================
 >> "%LOG%" echo.
 >> "%LOG%" echo finished with code %RC% at %DATE% %TIME%
+if defined NOPAUSE goto build_no_pause
 echo.
 echo Press any key to close this window.
 pause >nul
-endlocal
-exit /b
+:build_no_pause
+endlocal & exit /b %RC%
 
 
 rem ===========================================================================
@@ -506,8 +526,30 @@ if not exist "%DLL%" goto package_missing
 if not exist "%DIST%" mkdir "%DIST%"
 copy /y "%DLL%" "%DIST%" >nul
 copy /y "%ROOT%\mod\_info.ini" "%DIST%" >nul
+
+rem version.txt: the one thing that makes "which build is installed?" answerable
+rem from the game folder. Read from ModInfo.cs, which is what the assembly says
+rem about itself, so it cannot drift from the DLL.
+call :write_version "%DIST%"
 echo       package ready: %DIST%
 >> "%LOG%" echo       package ready
+exit /b 0
+
+rem  %1 = the folder to put version.txt in
+:write_version
+if not exist "%~1" exit /b 0
+set "VER="
+for /f "tokens=2 delims==" %%v in ('findstr /c:"const string Version" "%ROOT%\src\SeaPowerAdvanced\ModInfo.cs" 2^>nul') do if not defined VER set "VER=%%v"
+if not defined VER set "VER=unknown"
+set "VER=!VER:;=!"
+set VER=%VER:"=%
+for /f "tokens=1" %%w in ("%VER%") do set "VER=%%w"
+if not defined VER set "VER=unknown"
+> "%~1\version.txt" echo !VER!
+>> "%~1\version.txt" echo Sea Power Advanced
+>> "%~1\version.txt" echo built %DATE% %TIME%
+>> "%LOG%" echo       version.txt !VER! in %~1
+echo       version     !VER!
 exit /b 0
 
 :package_missing
@@ -531,6 +573,7 @@ if not exist "%TARGET%" goto install_nofolder
 copy /y "%DIST%\SeaPowerAdvanced.dll" "%TARGET%" >nul 2>&1
 if not exist "%TARGET%\SeaPowerAdvanced.dll" goto install_denied
 copy /y "%DIST%\_info.ini" "%TARGET%" >nul 2>&1
+copy /y "%DIST%\version.txt" "%TARGET%" >nul 2>&1
 echo        copied to %TARGET%
 >> "%LOG%" echo        copied to %TARGET%
 

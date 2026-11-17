@@ -30,8 +30,11 @@ tools/analysis/analysis-error.txt
 build-log.txt
 build-output.txt
 check-source.txt
+check-batch.txt
 dotnet-sdk.zip
 acpreloader.zip
+
+# Reports the mod writes into the mod folder, and copies kept here for diagnosis
 menu-report.txt
 ecm-report.txt
 offensive-ecm.txt
@@ -39,3 +42,8 @@ ecm-dive.txt
 ecm-cone.txt
 multiplayer.txt
 capabilities.txt
+
+# Written by update.cmd and uninstall.cmd, and the backups they keep
+update.txt
+uninstall-report.txt
+uninstalled/

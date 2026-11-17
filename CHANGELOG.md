@@ -1,5 +1,47 @@
 # Changelog
 
+## Unreleased - updating and uninstalling, in the other direction
+
+Two files that are the opposite of `build.cmd`, written while 0.19.0 is being tested. **No mod code
+changed**: the DLL is still 0.19.0, so the dive can be tested with these sitting next to it.
+
+**`build.cmd` assumes it is starting from nothing.** That is right for a first install and wasteful
+after that, and it says nothing useful about a version that is already in the game folder.
+`update.cmd` asks the only question that matters - *what is installed, and what does that version
+still need?* - and the changelog is the list of answers:
+
+- **Which version is installed** is read from `version.txt` in the mod folder (new, written by
+  `build.cmd` on every install), then the mod's own log banner, then BepInEx's `Loading [Sea Power
+  Advanced x.y.z]` line, then "unknown", which is treated as 0.1.0 and checked against everything.
+- **Only the changes that apply are made.** Pre-0.5.0 copies are moved out of `StreamingAssets`
+  (two copies load twice); the DLL and `_info.ini` are replaced; the settings file is **never
+  rewritten** - it is only read, to report that `JamRangeNm = 40`, `JamAirRangeNm = 90` or
+  `EcmDiveNm = 2` are still in it, because the mod moves exactly those old defaults itself at load
+  and a batch script echoing BepInEx's `##` description blocks back through cmd.exe is how a config
+  file gets destroyed.
+- **Everything is written down** in `update.txt`: the folder, the version and *which source said so*,
+  the decision, each migration marked `APPLY` / `WOULD REMOVE` / `ok` / `NOTE`, what the jump adds,
+  and the version in the game folder afterwards. It is copied into the mod folder as well.
+- **`update.cmd selftest`** checks the version comparison against twelve cases with known answers
+  (`0.9.0` older than `0.10.0`, `0.5` equal to `0.5.0`, `1.2` not a version). Those two routines
+  decide everything else, and a wrong answer to either is silent.
+
+**`uninstall.cmd`** removes the mod folder, any pre-0.5.0 `StreamingAssets` copy, and - only with
+`clean` - the settings file. Everything is copied to `uninstalled\` first, so a mistake is a copy
+back. It refuses to run while Sea Power is open, says **LEFT BEHIND** and lists the files rather than
+claiming a success it did not have, and leaves `BepInEx`, `winhttp.dll` and `doorstop_config.ini`
+alone because other mods need them.
+
+- `build.cmd` writes `version.txt` next to the DLL and accepts `nopause`, so `update.cmd` can run it
+  for the compile instead of there being two compilers to keep in step.
+- `tools\check-batch.py` is the same idea as `check-source.py` for batch files, because these are
+  written where no cmd.exe can be run: unresolved `goto`/`call` labels, a block left open, `%VAR%`
+  read inside the block that set it, and `for /f ... in ("C:\path")` without `usebackq`, which
+  silently reads the path as a string and loops zero times.
+- `docs/updating.md` and its `.txt` twin: the release-by-release table, the version sources, what
+  `update.txt` contains, how to roll back, and the limits - it updates an installation it can find,
+  it rebuilds from *this* folder, and `nobuild` exists for a machine with no game assemblies.
+
 ## 0.19.0 — the missile is flown into the sea, not deleted
 
 The player's report was two things at once, and both were right.

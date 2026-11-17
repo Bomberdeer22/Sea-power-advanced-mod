@@ -160,6 +160,12 @@ goto :old_copy_check
 :plugin_present
 >> "%LOG%" echo   plugins\SeaPowerAdvanced : present
 dir /b "!GAME!\BepInEx\plugins\SeaPowerAdvanced" >> "%LOG%" 2>nul
+if not exist "!GAME!\BepInEx\plugins\SeaPowerAdvanced\version.txt" goto :plugin_version_none
+>> "%LOG%" echo   installed version       : present
+type "!GAME!\BepInEx\plugins\SeaPowerAdvanced\version.txt" >> "%LOG%" 2>nul
+goto :old_copy_check
+:plugin_version_none
+>> "%LOG%" echo   installed version       : no version.txt - installed before build.cmd wrote one
 
 :old_copy_check
 if not exist "!GAME!\Sea Power_Data\StreamingAssets\SeaPowerAdvanced" goto :old_copy_none
@@ -250,9 +256,20 @@ REM ===========================================================================
 set "MODDIR=%HERE%"
 if defined GAME if exist "!GAME!\BepInEx\plugins\SeaPowerAdvanced" set "MODDIR=!GAME!\BepInEx\plugins\SeaPowerAdvanced"
 >> "%LOG%" echo folder: !MODDIR!
-for %%F in (capabilities.txt ecm-report.txt ecm-cone.txt offensive-ecm.txt ecm-dive.txt multiplayer.txt menu-report.txt seapoweradvanced.log hatch-report.txt) do call :show_report "%%F"
+for %%F in (version.txt update.txt capabilities.txt ecm-report.txt ecm-cone.txt offensive-ecm.txt ecm-dive.txt multiplayer.txt menu-report.txt seapoweradvanced.log hatch-report.txt) do call :show_report "%%F"
+rem  update.txt and uninstall-report.txt are also written next to the scripts; show
+rem  them from there when the mod folder does not have a copy.
+for %%F in (update.txt uninstall-report.txt check-batch.txt) do call :show_report_here "%%F"
 echo  - mod reports
 exit /b
+
+:show_report_here
+if exist "!MODDIR!\%~1" exit /b 0
+if not exist "%HERE%%~1" exit /b 0
+>> "%LOG%" echo --- %~1 (next to the scripts) ---
+type "%HERE%%~1" >> "%LOG%" 2>nul
+>> "%LOG%" echo.
+exit /b 0
 
 :show_report
 if not exist "!MODDIR!\%~1" (

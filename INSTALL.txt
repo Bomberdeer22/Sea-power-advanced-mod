@@ -251,23 +251,46 @@ Useful to know:
 
 ------------------------------------------------------------------------------
 
-UPDATING OR REBUILDING
-----------------------
+UPDATING
+--------
 
-    build.cmd
+Double-click update.cmd. It reads the version that is already in the game
+folder, compares it with the version in this folder, and does only what that
+version still needs  -  the changes are listed release by release in
+docs/updating.md, taken from CHANGELOG.md.
 
-then fully restart the game. Close Sea Power before rebuilding, or the DLL is
-locked.
+Everything it decides is written to update.txt, including which of the three
+places told it which version was installed. update.cmd check says what it
+would do and changes nothing; update.cmd selftest checks the version
+arithmetic on your PC without touching the game.
+
+Close Sea Power first  -  a loaded DLL cannot be replaced. What gets replaced
+is copied to uninstalled\ before it is overwritten, so a bad update is a copy
+back, not a rebuild.
+
+build.cmd still works and still installs from scratch; it is the right file
+for a first install, and for a folder that has never been here before.
 
 UNINSTALLING
 ------------
+
+Double-click uninstall.cmd. It removes the mod from the game folder, keeps a
+copy of everything it removed in uninstalled\, and leaves BepInEx, winhttp.dll
+and doorstop_config.ini alone because other mods need them.
+
+    uninstall.cmd           remove the mod, keep the settings file
+    uninstall.cmd check     say what would be removed, change nothing
+    uninstall.cmd clean     remove the settings file as well
+
+By hand, that is the same thing:
 
   1. Delete BepInEx\plugins\SeaPowerAdvanced\.
   2. If an older release was installed into Sea
      Power_Data\StreamingAssets\SeaPowerAdvanced\, delete that folder too  -
      leaving it means the mod loads twice.
-  3. Optional cleanup: delete .dotnet\, dist\ and
-     BepInEx\config\io.github.bomberdeer22.seapoweradvanced.cfg.
+  3. Optional: delete
+     BepInEx\config\io.github.bomberdeer22.seapoweradvanced.cfg to forget your
+     settings, and .dotnet\ and dist\ if you are done building.
 
 To remove Anchor Chain itself, unsubscribe on Steam and delete winhttp.dll,
 doorstop_config.ini and the BepInEx folder from the game directory.
