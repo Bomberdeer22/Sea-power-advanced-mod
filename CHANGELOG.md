@@ -1,5 +1,35 @@
 # Changelog
 
+## 0.17.1 — the ECM cones can actually be drawn
+
+The cones reported that they could not work. The cause was structural: the overlay needs to turn a
+game position into a screen position, and it had two routes, neither of which this build offers.
+There is no `GeoPosition`→`Vector3` helper to find, and the game's units are **ECS entities**, not
+scene objects - so no unit has a Unity transform to project either.
+
+The third route is the one the game itself uses, and it is now the first one tried: the world is laid
+out in tiles of 0.2 degrees at 330.71396 world units each, offset by the tile the map is centred on
+(`Globals._currentCenterTile`). That mapping is linear and exact, so a jammer's position lands where
+the game draws the jammer.
+
+Also in this build:
+
+- **The camera is chosen by evidence, not by tag.** `Camera.main` is a tag, and a game with a UI
+  camera will happily hand back the wrong one. The candidates are scored on whether a point at the
+  world origin - where the map is centred - actually lands on screen. A camera that has been
+  destroyed by a mission change is looked for again instead of switching the overlay off for good.
+- **`ecm-cone.txt` now answers the question directly:** the centre tile, where `lat/lon 0,0` lands in
+  world space, where that projects to on a screen of known size, the chosen camera, and every camera
+  in the scene. That is what to send if a beam is in the wrong place - a different fault from a beam
+  that never appears.
+- **The on-screen note names the file properly:** `ecm-cone.txt` in the mod folder, beside
+  `seapoweradvanced.log`, with the one-line reason in brackets.
+
+From the ECM report a real install sent back, the jammer's own member names are now known and used:
+`isOffensiveEcmSystemAvailable()` decides whether a hull carries ECM at all, `IsOffensivelyJamming`
+answers whether it is transmitting, and `CeaseOffensiveJamming()` is the teardown - called on the unit
+before the sensor-level fallbacks. `offensive-ecm.txt` lists which of those the build exposes.
+
 ## 0.17.0 — the missile shield
 
 The one feature that does not play by the simulation's rules, built as one and labelled as one.

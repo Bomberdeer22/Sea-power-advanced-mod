@@ -274,8 +274,59 @@ internal static class OffensiveJam
                || name.IndexOf("Jam", StringComparison.OrdinalIgnoreCase) >= 0;
     }
 
-    /// <summary>Does this unit carry a jammer the game can point?</summary>
-    internal static bool HasEcm(ObjectBase? unit) => Systems(unit).Count > 0;
+    /// <summary>
+    /// Does this unit carry a jammer the game can point?
+    ///
+    /// The unit answers for itself first: <c>isOffensiveEcmSystemAvailable()</c> and
+    /// <c>HasSelfScreeningJammer</c> are the game's own tests, and they are the ones its AI and its
+    /// weapons panel use. Only when neither is readable does the sensor list get walked.
+    /// </summary>
+    internal static bool HasEcm(ObjectBase? unit)
+    {
+        if (unit == null) return false;
+
+        bool? available = Flag(unit, "isOffensiveEcmSystemAvailable", "IsOffensiveEcmSystemAvailable");
+        if (available == true) return true;
+
+        bool? fitted = Flag(unit, "HasSelfScreeningJammer", "HasNoiseJammerSystem");
+        if (fitted.HasValue) return fitted.Value;
+
+        return Systems(unit).Count > 0;
+    }
+
+    /// <summary>
+    /// A boolean the unit reports, asked through a method or a property: the game exposes some of
+    /// these as <c>isSomething()</c> and some as a member with a backing field.
+    /// </summary>
+    private static bool? Flag(ObjectBase unit, params string[] names)
+    {
+        foreach (string name in names)
+        {
+            try
+            {
+                MemberInfo? member = MemberProbe.Value(unit.GetType(), name);
+
+                if (member is MethodInfo method && method.GetParameters().Length == 0
+                    && method.ReturnType == typeof(bool))
+                {
+                    object? result = method.Invoke(unit, null);
+                    if (result is bool answer) return answer;
+                    continue;
+                }
+
+                if (member == null) continue;
+
+                object? value = MemberProbe.Read(member, unit);
+                if (value is bool flag) return flag;
+
+                bool? reactive = MemberProbe.ReadReactiveBool(member, unit);
+                if (reactive.HasValue) return reactive.Value;
+            }
+            catch (Exception) { }
+        }
+
+        return null;
+    }
 
     /// <summary>A machine-readable line for the menu and the report.</summary>
     internal static string Summary()
@@ -335,9 +386,20 @@ internal static class OffensiveJam
         return "idle";
     }
 
-    /// <summary>True when any set on the unit is transmitting, at anything.</summary>
+    /// <summary>
+    /// True when the unit is transmitting, at anything.
+    ///
+    /// <c>IsOffensivelyJamming</c> is the game's own answer, and it is the one the report from a
+    /// live install names, so it is asked first; the sensor-level check is the fallback for a build
+    /// that does not expose it.
+    /// </summary>
     internal static bool IsTransmitting(ObjectBase? unit)
     {
+        if (unit == null) return false;
+
+        bool? jamming = Flag(unit, "IsOffensivelyJamming", "isOffensivelyJamming");
+        if (jamming.HasValue) return jamming.Value;
+
         foreach (Set set in Systems(unit))
         {
             if (IsJamming(set)) return true;
@@ -512,13 +574,30 @@ internal static class OffensiveJam
         Discover();
 
         List<Set> sets = Systems(unit);
-        if (sets.Count == 0)
-        {
-            note = "no jammer to stop";
-            return false;
-        }
 
         bool stopped = false;
+
+        // The game's own teardown on the unit, which is the name this build actually uses
+        // (CeaseOffensiveJamming). It takes the set off every victim's list on its way out, which
+        // nothing at the sensor level is guaranteed to do.
+        foreach (string name in new[] { "CeaseOffensiveJamming", "ceaseOffensiveJamming",
+                                        "CeaseOffensiveJammingOfThisObject" })
+        {
+            try
+            {
+                MethodInfo? unitTeardown = MemberProbe.Method(unit.GetType(), 0, name);
+                if (unitTeardown == null) continue;
+
+                unitTeardown.Invoke(unit, null);
+                stopped = true;
+                break;
+            }
+            catch (Exception error)
+            {
+                ModLog.Warn("Offensive ECM: " + name + "() refused on " + Name(unit) + " - "
+                            + error.GetType().Name);
+            }
+        }
 
         foreach (Set set in sets)
         {
@@ -554,7 +633,11 @@ internal static class OffensiveJam
             }
         }
 
-        note = stopped ? "jammer stopped on " + Name(unit) : "the jammer did not respond";
+        note = stopped
+            ? "jammer stopped on " + Name(unit)
+            : sets.Count == 0
+                ? "no jammer found on " + Name(unit) + " to stop"
+                : "the jammer did not respond";
         return stopped;
     }
 
@@ -655,6 +738,20 @@ internal static class OffensiveJam
             text.AppendLine("  jam value          " + (jamValue?.ToString() ?? "<not found>"));
             text.AppendLine("  sensor list        " + (sensorField != null
                 ? sensorField.DeclaringType?.Name + "." + sensorField.Name : "<not found>"));
+            text.AppendLine();
+            text.AppendLine("Unit-level ECM members this build exposes");
+            text.AppendLine("----------------------------------------");
+            foreach (string name in new[]
+                     {
+                         "isOffensiveEcmSystemAvailable", "IsOffensivelyJamming",
+                         "CeaseOffensiveJamming", "_jamBearings", "_ECMSystemsTryingToJamMe",
+                         "EngageWithECM", "NumberOfFreeJamChannels", "HasSelfScreeningJammer",
+                     })
+            {
+                bool present = MemberProbe.Value(typeof(ObjectBase), name) != null;
+                text.AppendLine("  " + (present ? "ok  " : "--  ") + name);
+            }
+
             text.AppendLine();
             text.AppendLine("A jammer is a sensor system, not a member of the unit: it lives in the");
             text.AppendLine("unit's parameter block. Anything scanning the unit type for a member");

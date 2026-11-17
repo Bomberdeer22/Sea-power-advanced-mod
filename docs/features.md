@@ -220,13 +220,16 @@ look like a search fan would be telling you something that is not true.
 
 | How it is drawn | IMGUI, like the rest of the overlay - no assets, no XAML |
 |---|---|
-| Where the ends come from | `Interop/MapProjection.cs`: the game's own `GeoPosition`-to-world conversion if one exists, otherwise the unit's Unity transform, projected through the active camera |
+| Where the ends come from | `Interop/MapProjection.cs`, in order: **the map's own arithmetic** (0.2° tiles at 330.71396 world units, offset by `Globals._currentCenterTile`) - exact, and the only route that works here because this build's units are ECS data with no Unity transform; then any `GeoPosition`→`Vector3` method the game exposes; then a Unity transform on the unit. The result is projected through the map camera |
 | If neither exists | nothing is drawn, one line appears at the bottom of the screen saying so, and `ecm-cone.txt` records exactly what was looked for. A cone in the wrong place would be worse than none |
 | Setting | `Features/ShowEcmCone`, default true |
 | Follows the selected unit | the game's own selection member if the mod can find one, otherwise the unit whose right-click menu you opened last |
 
-If the cones do not appear, `ecm-cone.txt` in the mod folder says which of the two projection routes
-was tried and what the camera was - that file is the thing to send.
+If the cones do not appear, **`ecm-cone.txt`** in the mod folder is the file to send - not
+`ecm-report.txt`. It records the centre tile the map arithmetic used, where `lat/lon 0,0` lands in
+world space, where that projects to on a screen of known size, which camera was chosen and what other
+cameras were available. A beam in the wrong place and a beam that never appears have different causes,
+and those four numbers tell them apart.
 
 ## 2e. Using it with the multiplayer mod
 

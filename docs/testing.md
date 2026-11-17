@@ -203,6 +203,20 @@ Full description of each: [features.md](features.md). Right-click one of your sh
 - [ ] In a session as a **client**: the entry refuses with the host-simulates-weapons message
 - [ ] A busy sky with many missiles does not flood the log - at most a handful of lines per ship
 
+## 7c. The ECM cones (if they did not draw)
+
+- [ ] **An enemy contact → Jam with ECM**: a **long narrow cyan beam** runs from your jammer to the
+      contact and stops there
+- [ ] Press **hold its sensors down too**: the same beam goes brighter and thicker and reads
+      `ECM JAMMING` at the far end
+- [ ] Lock a different contact: the beam follows the new target, not the old one
+- [ ] Select a ship carrying a jammer with nothing locked: a small cyan box marks it, labelled
+      `ECM ready`
+- [ ] If **no beam appears**, the bottom of the screen names the reason and points at
+      **`ecm-cone.txt`** - send that file, not `ecm-report.txt`
+- [ ] `ecm-cone.txt` shows `centre tile`, a `lat/lon 0,0 ->` world position, where that projects to,
+      and the camera it chose
+
 ## 8. Disable
 
 - [ ] Up the `General/Enabled` toggle in

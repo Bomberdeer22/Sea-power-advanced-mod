@@ -238,9 +238,9 @@ public sealed class EcmConeOverlay : MonoBehaviour
     {
         Color previous = GUI.color;
         GUI.color = new Color(1f, 0.85f, 0.4f, 0.9f);
-        GUI.Label(new Rect(12f, Screen.height - 34f, 900f, 20f),
-                  "Sea Power Advanced: ECM cones cannot be drawn - " + MapProjection.Report
-                  + ". See ecm-cone.txt.");
+        GUI.Label(new Rect(12f, Screen.height - 34f, 1100f, 20f),
+                  "Sea Power Advanced: ECM cones cannot be drawn - see ecm-cone.txt in the mod "
+                  + "folder, beside seapoweradvanced.log (" + MapProjection.Report + ")");
         GUI.color = previous;
 
         if (!reported)
@@ -265,14 +265,27 @@ public sealed class EcmConeOverlay : MonoBehaviour
             text.AppendLine("----------");
             text.AppendLine("  " + MapProjection.Report);
             text.AppendLine();
+            foreach (string line in MapProjection.Diagnose()) text.AppendLine("  " + line);
+            text.AppendLine();
             text.AppendLine("The overlay draws a long, narrow beam from a jammer to the missile or ship");
             text.AppendLine("it is holding. It needs to turn a game position into a screen position, in");
             text.AppendLine("one of two ways: a method in the game that converts a GeoPosition to its");
             text.AppendLine("world space, or a Unity transform on the unit. If neither is available the");
             text.AppendLine("overlay draws nothing rather than putting a cone in the wrong place.");
             text.AppendLine();
-            text.AppendLine("If this file says the cones cannot be drawn, the two member names needed");
-            text.AppendLine("are a GeoPosition -> Vector3 conversion, and the map camera. Send this file.");
+            text.AppendLine("How the mod gets there");
+            text.AppendLine("----------------------");
+            text.AppendLine("  1. the map's own arithmetic - 0.2 degree tiles, 330.71396 world units");
+            text.AppendLine("     each, offset by Globals._currentCenterTile. Exact, and the only route");
+            text.AppendLine("     that works on this build, because its units are ECS data and have no");
+            text.AppendLine("     Unity transform;");
+            text.AppendLine("  2. any method in the game that converts a GeoPosition to a Vector3;");
+            text.AppendLine("  3. a Unity transform on the unit, if one ever exists.");
+            text.AppendLine();
+            text.AppendLine("Then a camera projects world to screen. If the beams are in the wrong place,");
+            text.AppendLine("the camera line above is the one to look at first - the grid line tells you");
+            text.AppendLine("whether the arithmetic ran at all, and the numbers beside the beams say where");
+            text.AppendLine("it thinks they are.");
 
             string path = ModFolders.WriteText("ecm-cone.txt", text.ToString());
             ModLog.Info("ECM cone report written to " + path);
