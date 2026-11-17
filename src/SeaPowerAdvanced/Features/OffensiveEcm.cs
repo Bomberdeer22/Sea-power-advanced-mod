@@ -64,6 +64,7 @@ internal static class OffensiveEcm
     }
 
     private static readonly Dictionary<ObjectBase, Hold> Held = new();
+    private static bool pictureReported;
     private static readonly Dictionary<ObjectBase, Mode> Modes = new();
 
     /// <summary>
@@ -123,10 +124,11 @@ internal static class OffensiveEcm
             return true;
         }
 
-        report = EcmControl.Available
-            ? "signature lock armed. Runs on EMCON - no radar, nothing radiated by this ship. "
-              + "Pick a contact to lock."
-            : "signature lock selected, but this build exposes no ECM to drive - see ecm-report.txt";
+        report = OffensiveJam.Available
+            ? "focused mode armed. Runs on EMCON - this ship radiates no radar of its own. Pick a "
+              + "contact: the game's own jam order does the jamming, identified or not."
+            : "focused mode selected, but this build exposes no jam order the mod can name - see "
+              + "offensive-ecm.txt";
         return true;
     }
 
@@ -155,6 +157,31 @@ internal static class OffensiveEcm
 
         var seen = new HashSet<ObjectBase>();
 
+        // The picture first. This is the map: every foreign track the player's side holds, whether
+        // or not anybody has identified it. The old list scan below is kept only as a fallback for a
+        // build whose plotting table this mod cannot read.
+        List<ContactPicture.Contact> picture = Picture();
+
+        foreach (ContactPicture.Contact entry in picture)
+        {
+            try
+            {
+                ObjectBase contact = entry.Unit;
+
+                if (contact == null || contact.IsDestroyed) continue;
+                if (ReferenceEquals(contact, ship)) continue;
+                if (!seen.Add(contact)) continue;
+
+                double range = ThreatAxis.Distance(own, contact.getGeoPosition());
+                if (range > Reach(contact)) continue;
+
+                contacts.Add(contact);
+            }
+            catch (Exception) { }
+        }
+
+        if (contacts.Count > 0) { Sort(contacts, own); return contacts; }
+
         foreach (ObjectBase contact in Candidates(ship))
         {
             try
@@ -172,14 +199,42 @@ internal static class OffensiveEcm
             catch (Exception) { }
         }
 
-        contacts.Sort((a, b) =>
-        {
-            double ra = SafeRange(own, a);
-            double rb = SafeRange(own, b);
-            return ra.CompareTo(rb);
-        });
-
+        Sort(contacts, own);
         return contacts;
+    }
+
+    private static void Sort(List<ObjectBase> contacts, GeoPosition own)
+    {
+        contacts.Sort((a, b) => SafeRange(own, a).CompareTo(SafeRange(own, b)));
+    }
+
+    /// <summary>
+    /// The player's contact picture, with what it says about identification. Read once per menu
+    /// build and shared, so a list of eight entries does not walk the plotting table eight times.
+    /// </summary>
+    private static List<ContactPicture.Contact> Picture()
+    {
+        try
+        {
+            List<ContactPicture.Contact> picture = ContactPicture.Hostiles();
+
+            // Once per session, record what the picture actually was - a mission with no jammable
+            // contact can then be told apart from a mission whose picture this build would not give
+            // up, which is the difference between "nothing in range" and "the mod cannot see".
+            if (!pictureReported && picture.Count > 0)
+            {
+                pictureReported = true;
+                ContactPicture.WriteReport(picture);
+            }
+
+            return picture;
+        }
+        catch (Exception error)
+        {
+            ModLog.Warn("Offensive ECM: the contact picture could not be read - "
+                        + error.GetType().Name);
+            return new List<ContactPicture.Contact>();
+        }
     }
 
     private static IEnumerable<ObjectBase> Candidates(ObjectBase ship)
@@ -272,11 +327,19 @@ internal static class OffensiveEcm
         return members;
     }
 
-    /// <summary>The contact lists this build actually uses, for the report.</summary>
+    /// <summary>The contact sources this build actually uses, for the report.</summary>
     internal static string Sources(ObjectBase? ship)
     {
-        if (ship is null) return "none";
+        string picture = ContactPicture.Sources();
+        if (ship is null) return picture;
 
+        return picture + " | unit lists: " + UnitSources(ship);
+    }
+
+    /// <summary>The unit-level lists, kept because a build that holds contacts on the unit rather
+    /// than on the task force would still be read by the fallback path.</summary>
+    private static string UnitSources(ObjectBase ship)
+    {
         // A local, so the compiler can see the reference is real: Unity's own == overload is not a
         // null test as far as flow analysis is concerned.
         Type type = ship.GetType();
@@ -299,11 +362,14 @@ internal static class OffensiveEcm
     // --- the lock --------------------------------------------------------------------------------
 
     /// <summary>
-    /// Reads the target's sensor fit and, if that read succeeds, holds it blind.
+    /// Locks a contact and points the ship's jammer at it through the game's own jam order.
     ///
-    /// The read comes first and on its own: a jammer that has not identified what the other ship is
-    /// radiating with has nothing to aim at. That is the honest basis for calling this a lock rather
-    /// than a switch.
+    /// The lock is the game's jam, not a flag of the mod's: the order goes in, the game selects the
+    /// set, and its radar model works on the target from that moment. The sensor read that follows
+    /// is information and, later, the second half of the feature - holding the target's individual
+    /// sets down as well - but it is <b>not</b> a condition. A contact nobody has identified is
+    /// jammed on its bearing, and refusing to lock it because its fit could not be read was the bug
+    /// that made unidentified contacts unusable.
     /// </summary>
     internal static bool Lock(ObjectBase ship, ObjectBase target, out string report)
     {
@@ -313,13 +379,14 @@ internal static class OffensiveEcm
             return false;
         }
 
-        if (!EcmControl.Available)
+        if (!OffensiveJam.Available)
         {
-            report = "this build exposes no ECM to drive - ecm-report.txt lists what the scan found";
+            report = "this build exposes no jam order the mod can name - offensive-ecm.txt lists "
+                     + "what was found";
             return false;
         }
 
-        if (!UnitFit.HasEcm(ship))
+        if (!OffensiveJam.HasEcm(ship))
         {
             report = Name(ship) + " carries no ECM, so it cannot jam anything";
             return false;
@@ -336,19 +403,15 @@ internal static class OffensiveEcm
             return false;
         }
 
-        // 1. The read. No read, no lock.
+        // 1. The read. It is information, not a gate: a contact nobody has identified can still be
+        //    jammed, and refusing the lock because its fit cannot be read was exactly what made
+        //    unidentified contacts unusable. What the read adds is the second half - holding its
+        //    individual sets down as well as jamming it.
         List<SensorSet.Reading> signatures = SensorSet.Read(target);
         string signature = SensorSet.SignatureOf(target);
+        bool? identified = ContactPicture.Identified(target);
 
-        if (signatures.Count == 0)
-        {
-            report = "could not read " + Name(target) + "'s sensor fit - no lock";
-            return false;
-        }
-
-        // 2. The lock itself: hold the track and aim the beam. Nothing is transmitted yet - that is
-        //    a separate order, so a lock never jams by accident and the player decides when the set
-        //    actually radiates.
+        // 2. The lock itself: hold the track and point the jammer.
         Modes[ship] = Mode.SignatureLock;
         Held[ship] = new Hold
         {
@@ -362,8 +425,14 @@ internal static class OffensiveEcm
         report = "locked on " + Name(target)
                  + (UnitFit.IsAir(target) ? " (airborne)" : "")
                  + " (" + (int)range + " nm, hull " + signature + "). "
-                 + "Read " + SensorSet.Describe(signatures) + ". The beam is on the map; use "
-                 + "'Jam now' to transmit.";
+                 + (identified == false
+                        ? "Not identified - a bearing jam reaches it all the same. "
+                        : "")
+                 + (signatures.Count > 0
+                        ? "Read " + SensorSet.Describe(signatures) + ". "
+                        : "Its sensor fit could not be read, so the jam works on the game's own "
+                          + "radar model alone. ")
+                 + "The game's jam is live; 'hold its sensors down' adds the second half.";
 
         if (UnitFit.IsAir(target))
         {
@@ -378,10 +447,20 @@ internal static class OffensiveEcm
                       + " down from here.";
         }
 
+        // Point the jammer now. The lock's whole purpose is that the game's own ECM is working on
+        // this contact: leaving that to a second click is how the feature looked broken.
+        Hold created = Held[ship];
+        bool aimed = AimTheJammer(ship, created, out string aimedNote);
+
+        report += aimed
+            ? " The jammer is pointed: " + aimedNote + "."
+            : " The jammer would not take the order: " + aimedNote + ".";
+
         ModLog.Info("Offensive ECM: " + Name(ship) + " " + report);
 
         WriteReport(ship, target, signature, signatures,
-                    new List<SensorSet.Reading>(), "lock only - not transmitting");
+                    new List<SensorSet.Reading>(),
+                    aimed ? "lock - game jam order issued" : "lock only - the order was refused");
         return true;
     }
 
@@ -432,7 +511,7 @@ internal static class OffensiveEcm
         {
             try
             {
-                if (!UnitFit.HasEcm(ship)) continue;
+                if (!OffensiveJam.HasEcm(ship)) continue;
 
                 double range = SafeRange(Position(ship), contact);
                 if (range > reach || range >= bestRange) continue;
@@ -447,8 +526,12 @@ internal static class OffensiveEcm
     }
 
     /// <summary>
-    /// Starts transmitting on the held lock: the target's sensors are switched off and held down
-    /// from here. This is the manual step - the lock on its own only aims the beam.
+    /// The second half of the lock: the target's own sensors are switched off and held down from
+    /// here, on top of the jam the lock already started.
+    ///
+    /// It needs the contact to be identified. There is nothing to hold down on a track nobody has
+    /// named - the mod will not name a stranger's sensor fit for them - so an unidentified contact
+    /// gets the game's own jam and this order declines, in words, rather than pretending.
     /// </summary>
     internal static bool JamNow(ObjectBase ship, out string report)
     {
@@ -462,42 +545,111 @@ internal static class OffensiveEcm
 
         if (hold.Jamming)
         {
-            report = "already jamming " + Name(hold.Target);
+            report = "already holding " + Name(hold.Target) + " down";
             return true;
+        }
+
+        if (ContactPicture.Identified(hold.Target) == false)
+        {
+            report = Name(hold.Target) + " is not identified, so there is nothing to hold down - "
+                     + "the game's jam on it is already working, and that does not need a name";
+            return false;
         }
 
         hold.Jamming = true;
         hold.NextAssertAt = Time.unscaledTime + AssertSeconds;
         hold.Reported = false;
 
-        // In a session the target is simulated by the other machine, so switching its sensors off
-        // here would reach a replica and nothing else. The game's own jam order is the route the
-        // multiplayer mod forwards to whoever is simulating it - and there the game's ECM model
-        // decides the effect, not this mod's assertion loop.
-        if (Multiplayer.IsClient)
+        // The jam itself: the game's own order, so the game's own ECM model decides the effect -
+        // range, the cone, the degraded radar picture, and in a session the host that runs it.
+        // A contact nobody has identified is jammed on its bearing, which is the form the game
+        // offers for exactly that case.
+        bool aimed = AimTheJammer(ship, hold, out string order);
+
+        if (!aimed)
         {
-            bool sent = Multiplayer.Jam(ship, hold.Target, out string order);
-
-            report = "jamming " + Name(hold.Target) + ": " + order
-                     + ". The target is simulated by the host, so the mod cannot hold its switches "
-                     + "down from here - the game's own ECM decides the effect.";
-            if (!sent) hold.Jamming = false;
-
-            ModLog.Info("Offensive ECM: " + Name(ship) + " " + report);
-            Multiplayer.Note(report);
-            return sent;
+            hold.Jamming = false;
+            report = "the jammer would not take the order on " + Name(hold.Target) + ": " + order;
+            ModLog.Warn("Offensive ECM: " + report);
+            return false;
         }
 
-        List<SensorSet.Reading> readings = SensorSet.Silence(hold.Target);
-        EcmControl.Engage(ship, hold.Target, false, out string jam);
+        // The second half, and only where it is real: a target whose sensor fit can be read has its
+        // sets held down as well. A client cannot do that - the target is simulated by the host -
+        // so the game's own jam is the whole effect there, which is what the report says.
+        string extra;
 
-        bool blind = SensorSet.FullyBlind(readings);
-        report = "jamming " + Name(hold.Target) + " on EMCON: "
-                 + (blind ? "every sensor off" : "NOT all sensors off - " + Stubborn(readings))
-                 + " | " + jam;
+        if (Multiplayer.IsClient)
+        {
+            extra = "the target is simulated by the host, so the game's own ECM decides the effect";
+            Multiplayer.Note("jamming " + Name(hold.Target) + " from " + Name(ship));
+        }
+        else
+        {
+            List<SensorSet.Reading> readings = SensorSet.Silence(hold.Target);
+            EcmControl.Engage(ship, hold.Target, false, out string legacy);
+
+            extra = readings.Count > 0
+                ? (SensorSet.FullyBlind(readings)
+                    ? "every sensor off"
+                    : "NOT all sensors off - " + Stubborn(readings))
+                : "no sensor fit readable, so the game's radar model alone";
+
+            if (legacy.Length > 0) extra += " | " + legacy;
+        }
+
+        report = "jamming " + Name(hold.Target) + " on EMCON: " + order + "; " + extra;
 
         ModLog.Info("Offensive ECM: " + Name(ship) + " " + report);
         return true;
+    }
+
+    /// <summary>
+    /// Points the ship's jammer at the held contact through the game's own order.
+    ///
+    /// One form is preferred over the other by what the picture knows: a contact the game has
+    /// identified is jammed as a unit, because then the game can follow it as it moves; anything
+    /// else is jammed on its bearing, which is the honest order for a track nobody has named. Both
+    /// are the game's own and both are forwarded by the multiplayer mod.
+    /// </summary>
+    private static bool AimTheJammer(ObjectBase ship, Hold hold, out string note)
+    {
+        note = "";
+
+        ObjectBase? target = hold.Target;
+        if (target == null)
+        {
+            note = "the track is empty";
+            return false;
+        }
+
+        bool? identified = ContactPicture.Identified(target);
+
+        if (identified == false)
+        {
+            // Unidentified: the bearing form. The position is the plotted one, which is what the
+            // player's side actually has - not the target's true position.
+            GeoPosition bearing = Position(target);
+
+            if (OffensiveJam.PointAt(ship, bearing, out string bearingNote))
+            {
+                note = "bearing jam at " + (int)SafeRange(Position(ship), target) + " nm ("
+                       + bearingNote + ")";
+                return true;
+            }
+
+            // No bearing form on this build: fall back to the unit form rather than not jamming.
+            note = bearingNote;
+        }
+
+        if (OffensiveJam.PointAt(ship, target, out string unitNote))
+        {
+            note = (identified == false ? "unit jam (no bearing form): " : "") + unitNote;
+            return true;
+        }
+
+        note = note.Length > 0 ? note + " / " + unitNote : unitNote;
+        return false;
     }
 
     /// <summary>Stops transmitting but keeps the lock and the beam, so it can be resumed.</summary>
@@ -511,20 +663,38 @@ internal static class OffensiveEcm
             return false;
         }
 
+        // Only the second half is stopped here. The game's own jam belongs to the lock and keeps
+        // running - "release" is the order that takes it down.
         hold.Jamming = false;
         EcmControl.StandDown(ship, out _);
 
         report = Multiplayer.IsClient
-            ? "stopped here; the lock is still held. The jam itself is the host's task - the "
-              + "multiplayer mod has no stop-jamming order, so it runs until that task ends."
-            : "stopped jamming " + Name(hold.Target) + "; the lock is still held";
+            ? "stopped holding " + Name(hold.Target) + " down here; the lock and the game's jam "
+              + "stay, and the host's sim is the one that ran them"
+            : "stopped holding " + Name(hold.Target) + " down; the game's jam and the lock stay";
         ModLog.Info("Offensive ECM: " + Name(ship) + " " + report);
         return true;
     }
 
-    /// <summary>Whether this ship is transmitting right now (as opposed to merely locked on).</summary>
-    internal static bool IsJamming(ObjectBase? ship) =>
+    /// <summary>
+    /// Whether the second half is on: the target's own sets are being held down. Distinct from
+    /// <see cref="IsJamming"/>, which is the game's own jam order and runs from the moment the lock
+    /// is taken.
+    /// </summary>
+    internal static bool IsHolding(ObjectBase? ship) =>
         ship != null && Held.TryGetValue(ship, out Hold hold) && hold.Jamming;
+
+    /// <summary>
+    /// Whether this ship is transmitting right now. The game's own jammer state is the answer when
+    /// there is one - the mod's own flag only records whether the suppression half was ordered.
+    /// </summary>
+    internal static bool IsJamming(ObjectBase? ship)
+    {
+        if (ship == null) return false;
+        if (OffensiveJam.IsTransmitting(ship)) return true;
+
+        return Held.TryGetValue(ship, out Hold hold) && hold.Jamming;
+    }
 
     /// <summary>The beams the map overlay draws for the offensive set.</summary>
     internal static List<EcmBeam> Beams()
@@ -534,7 +704,11 @@ internal static class OffensiveEcm
         foreach (KeyValuePair<ObjectBase, Hold> entry in Held)
         {
             if (entry.Key == null || entry.Value.Target == null) continue;
-            beams.Add(new EcmBeam(entry.Key, entry.Value.Target, entry.Value.Jamming, true));
+
+            // The beam is live when the game's own jam is: that is what the radar calculator and
+            // every ESM set in range actually sees.
+            bool live = entry.Value.Jamming || OffensiveJam.IsTransmitting(entry.Key);
+            beams.Add(new EcmBeam(entry.Key, entry.Value.Target, live, true));
         }
 
         return beams;
@@ -553,6 +727,7 @@ internal static class OffensiveEcm
         // Nothing to restore on the radar front: this mode never switched it on. Offensive jamming
         // runs on EMCON - silent, radiating nothing - which is the point of using ECM over radar.
         EcmControl.StandDown(ship, out _);
+        OffensiveJam.Cease(ship, out _);
 
         report = Multiplayer.IsClient
             ? "released " + target + " here; the host's jam task is its own, so it ends there"
@@ -625,34 +800,54 @@ internal static class OffensiveEcm
                     continue;
                 }
 
-                // Locked but silent: the beam is on the map, nothing is being transmitted, and the
-                // target's own crew is free to use its sensors. That is the point of the two-step
-                // order.
-                if (!hold.Jamming) continue;
-
-                // A client holds no switches on the host's ships: the jam travels as an order, and
-                // re-asserting locally would only write to a replica that is overwritten each frame.
-                if (Multiplayer.IsClient)
-                {
-                    if (hold.Reported) continue;
-
-                    hold.Reported = true;
-                    ModLog.Info("Offensive ECM: " + Name(ship) + " holding " + Name(target) + " ("
-                                + (int)range + " nm) - jam order sent to the host");
-                    continue;
-                }
-
                 if (now < hold.NextAssertAt) continue;
                 hold.NextAssertAt = now + AssertSeconds;
                 hold.Assertions++;
 
-                // Re-assert the jammer itself as well as the suppression: the target's crew can
-                // switch a set back on between assertions, and the game can reset our own set.
+                // The jam has to survive being replaced under it: the target's crew, its AI, or a
+                // later order can all clear the assignment. So the game's own state is read back
+                // and the order is only re-issued when the assignment has actually gone - not ten
+                // times a second into the multiplayer mod's order forwarding.
+                bool identified = ContactPicture.Identified(target) != false;
+                bool stillAimed = identified
+                    ? OffensiveJam.IsJammingAt(ship, target)
+                    : OffensiveJam.IsTransmitting(ship);
+
+                if (!stillAimed)
+                {
+                    AimTheJammer(ship, hold, out string reissued);
+
+                    if (!hold.Reported || hold.LastReport != "re-issued")
+                    {
+                        hold.Reported = true;
+                        hold.LastReport = "re-issued";
+                        ModLog.Info("Offensive ECM: " + Name(ship) + " re-issued the jam on "
+                                    + Name(target) + " (" + (int)range + " nm) - " + reissued);
+                    }
+                }
+
+                // The beam is kept pointed whether or not the suppression half has been ordered:
+                // the game's own jam is what makes the ECM real, and it is the lock's whole job.
+                // Locked but silent still means the sets are not being held down - that is the
+                // second, deliberate order.
+                if (!hold.Jamming) continue;
+
+                // A client holds no switches on the host's ships: the jam travels as an order, and
+                // writing a replica's sensors would be overwritten on the next frame.
+                if (Multiplayer.IsClient) continue;
+
+                // The second half: hold the target's own sets down, which the order does not do.
+                // Only for a contact the picture has identified - a track nobody has named gets the
+                // game's own jam and nothing more.
+                if (!identified) continue;
+
                 EcmControl.Engage(ship, target, false, out _);
                 List<SensorSet.Reading> readings = SensorSet.Silence(target);
 
                 bool blind = SensorSet.FullyBlind(readings);
-                string summary = SensorSet.Describe(readings);
+                string summary = readings.Count > 0
+                    ? SensorSet.Describe(readings)
+                    : "no sensor fit readable";
 
                 if (!hold.Reported || summary != hold.LastReport)
                 {
@@ -685,25 +880,34 @@ internal static class OffensiveEcm
         if (Held.TryGetValue(unit, out Hold hold) && hold.Target != null)
         {
             double range = SafeRange(Position(unit), hold.Target);
-            return (hold.Jamming ? "jamming " : "locked on ") + Name(hold.Target)
-                   + " (" + (int)range + " nm)";
+            return (hold.Jamming ? "holding " : "locked on ") + Name(hold.Target)
+                   + " (" + (int)range + " nm, game: " + OffensiveJam.Status(unit) + ")";
         }
 
-        return "signature lock, no target yet";
+        return "signature lock, no lock taken yet";
     }
 
-    /// <summary>How many contacts are within reach, and how many of those are in the air.</summary>
+    /// <summary>
+    /// How many contacts are within reach, how many of those are in the air, and how many have not
+    /// been identified - the last one because the feature works on them and the menu should say so
+    /// rather than leave the player looking for a name that is not there.
+    /// </summary>
     internal static string ContactSummary(ObjectBase ship)
     {
         List<ObjectBase> contacts = Contacts(ship);
 
         int air = 0;
+        int unnamed = 0;
+
         foreach (ObjectBase contact in contacts)
         {
             if (UnitFit.IsAir(contact)) air++;
+            if (ContactPicture.Identified(contact) == false) unnamed++;
         }
 
-        return contacts.Count + " contact(s) in range" + (air > 0 ? ", " + air + " in the air" : "");
+        return contacts.Count + " contact(s) in range"
+               + (air > 0 ? ", " + air + " in the air" : "")
+               + (unnamed > 0 ? ", " + unnamed + " unidentified" : "");
     }
 
     /// <summary>

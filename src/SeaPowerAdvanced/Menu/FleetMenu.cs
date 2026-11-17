@@ -82,10 +82,44 @@ internal static class FleetMenu
 
         try
         {
-            if (!EcmControl.Available) return 0;
+            // The gate is the jammer itself, not the old name scan: a build that has a jam order and
+            // a ship carrying a set can jam, and that is the only thing that matters here. The old
+            // gate looked for ECM members on the unit type, found none, and returned before it added
+            // anything - which is why the contact menu had no entry at all.
+            if (!OffensiveJam.Available)
+            {
+                // Rare, and worth saying out loud: this build has no jam order the mod can name, so
+                // there is nothing to offer. The file names what was looked for.
+                var missing = Disabled("ECM: this build exposes no jam order",
+                    "offensive-ecm.txt in the mod folder records what was searched for.");
+
+                MenuRouting.Place(roots, live, missing, Array.Empty<string>());
+                MenuRouting.Placements.Add(missing.Label + "  ->  top level");
+                return 1;
+            }
 
             ObjectBase? jammer = OffensiveEcm.BestJammerFor(contact);
-            if (jammer == null) return 0;
+
+            if (jammer == null)
+            {
+                // A jammer exists in the fleet but none is near enough: say so, once, rather than
+                // adding nothing and leaving the player wondering whether the feature is installed.
+                ObjectBase? anywhere = AnyJammer();
+
+                if (anywhere == null) return 0;
+
+                int reach = (int)OffensiveEcm.Reach(contact);
+
+                var tooFar = Disabled(
+                    "ECM: no jammer within " + reach + " nm",
+                    "The nearest ship of ours carrying ECM is further away than the jammer reaches "
+                    + "against " + UnitFit.Kind(contact) + " (offensive-ecm.txt names what the mod "
+                    + "found).");
+
+                MenuRouting.Place(roots, live, tooFar, Array.Empty<string>());
+                MenuRouting.Placements.Add(tooFar.Label + "  ->  top level");
+                return 1;
+            }
 
             int range = -1;
             try
@@ -95,18 +129,24 @@ internal static class FleetMenu
             catch (Exception) { }
 
             string kind = UnitFit.Kind(contact);
+            bool? identified = ContactPicture.Identified(contact);
 
             string label = range >= 0
-                ? "Lock with ECM (" + ContactName(jammer) + ", " + range + " nm, " + kind + ")"
-                : "Lock with ECM";
+                ? "Jam with ECM (" + ContactName(jammer) + ", " + range + " nm, " + kind + ")"
+                : "Jam with ECM";
 
             var item = new ContextMenuItem(
                 label: label,
                 items: null,
-                command: new DelegateCommand(_ => Report(contact, "lock with ECM",
+                command: new DelegateCommand(_ => Report(contact, "jam with ECM",
                     OffensiveEcm.LockOnContact(contact, out string r), r)),
-                tooltip: "Point " + ContactName(jammer) + "'s jammer at this " + kind + " and read "
-                         + "its sensor fit. The beam appears on the map; jamming is a second order."
+                tooltip: "Point " + ContactName(jammer) + "'s jammer at this " + kind
+                         + " through the game's own jam order, so the game's ECM does the work."
+                         + (identified == false
+                            ? " It is not identified, so it is jammed on its bearing - the order the "
+                              + "game provides for exactly that case. It does not have to be "
+                              + "identified first."
+                            : "")
                          + (UnitFit.IsAir(contact)
                             ? " An aircraft is reached at the air range - both ends are high above "
                               + "the radio horizon."
@@ -126,21 +166,44 @@ internal static class FleetMenu
 
             if (locked)
             {
-                bool jamming = OffensiveEcm.IsJamming(jammer);
+                bool holding = OffensiveEcm.IsHolding(jammer);
 
-                var transmit = new ContextMenuItem(
-                    label: jamming ? "Stop jamming this contact" : "Jam this contact now",
+                bool named = ContactPicture.Identified(contact) != false;
+
+                var transmit = named ? new ContextMenuItem(
+                    label: holding
+                        ? "Offensive ECM: hold its sensors down - on, click to stop"
+                        : "Offensive ECM: hold its sensors down",
                     items: null,
                     command: new DelegateCommand(_ => Report(contact,
-                        jamming ? "stop jamming" : "jam now",
-                        jamming ? OffensiveEcm.StopJam(jammer, out string s2)
+                        holding ? "stop holding" : "hold down",
+                        holding ? OffensiveEcm.StopJam(jammer, out string s2)
                                 : OffensiveEcm.JamNow(jammer, out s2), s2)),
-                    tooltip: jamming
-                        ? "Stops transmitting; the lock and the beam stay."
-                        : "Switch this contact's sensors off and hold them down until stopped.");
+                    tooltip: holding
+                        ? "Stops holding the contact's individual sets down. The game's own jam "
+                          + "order stays, so the jam itself continues."
+                        : "The game's jam is already working on it. This adds the second half: "
+                          + "switch the contact's own sensors off and keep them off. Needs the "
+                          + "contact to be identified, because there is nothing to hold down on a "
+                          + "track nobody has named.")
+                    : Disabled("Offensive ECM: hold its sensors down - needs it identified",
+                        "An unidentified contact is jammed on its bearing, which is the game's own "
+                        + "jam and is already running. Its sensor fit cannot be held down until the "
+                        + "picture knows whose it is.");
 
                 MenuRouting.Place(roots, live, transmit, Array.Empty<string>());
                 MenuRouting.Placements.Add(transmit.Label + "  ->  top level");
+                added++;
+
+                var release = new ContextMenuItem(
+                    label: "Release the ECM lock",
+                    items: null,
+                    command: new DelegateCommand(_ => Report(contact, "release ECM lock",
+                        OffensiveEcm.Release(jammer, out string s3), s3)),
+                    tooltip: "Stops the jam through the game's own teardown and lets go of the track.");
+
+                MenuRouting.Place(roots, live, release, Array.Empty<string>());
+                MenuRouting.Placements.Add(release.Label + "  ->  top level");
                 added++;
             }
 
@@ -298,39 +361,48 @@ internal static class FleetMenu
             // Offensive ECM stays on offer in a session: the jam travels to the host as the game's
             // own jam order, so the host runs it with the game's own ECM.
             Add(OffensiveEcm.ModeOf(unit) == OffensiveEcm.Mode.SignatureLock
-                ? Action("Offensive ECM: signature lock - click for standard",
-                    "Hands the jammer back to the game's own behaviour and releases any lock.",
+                ? Action("Offensive ECM: focused - click for standard",
+                    "Releases the lock and hands the jammer back to the game's own behaviour.",
                     () => Report(unit, "offensive ECM",
                         OffensiveEcm.SetMode(unit, OffensiveEcm.Mode.Standard, out string r), r))
-                : Action("Offensive ECM: standard - click for signature lock",
-                    "Runs on EMCON: this ship radiates nothing. Signature lock reads one contact's "
-                    + "sensor fit - a ship's families or an aircraft's radar - and holds every one "
-                    + "of them switched off.",
+                : Action("Offensive ECM: standard - click for focused",
+                    "Focused runs on EMCON: the ship radiates nothing of its own. No radar is"
+                    + " switched on for a jam.",
                     () => Report(unit, "offensive ECM",
                         OffensiveEcm.SetMode(unit, OffensiveEcm.Mode.SignatureLock, out string r), r)),
                 MenuRouting.Sensors);
 
-            if (OffensiveEcm.ModeOf(unit) == OffensiveEcm.Mode.SignatureLock)
+            // The lock list is on offer whatever the mode says. Hiding it behind the mode toggle was
+            // half of why the menu looked broken: the toggle changed a label and nothing else
+            // happened, because there was no way to pick a contact. Taking a lock also switches the
+            // mode, so the toggle catches up on its own.
+            Add(OffensiveLockMenu(unit), MenuRouting.Sensors);
+
+            if (OffensiveEcm.IsLocked(unit))
             {
-                Add(OffensiveLockMenu(unit), MenuRouting.Sensors);
+                // Two halves, and the menu says which one it is offering. The game's own jam order
+                // is already running from the lock; this second half holds the target's own sets
+                // down as well.
+                bool lockNamed = ContactPicture.Identified(OffensiveEcm.TargetOf(unit)) != false;
 
-                // The lock only aims the beam. Transmitting is a separate, deliberate order, and it
-                // only appears once there is a lock to transmit on.
-                if (OffensiveEcm.IsLocked(unit))
-                {
-                    Add(OffensiveEcm.IsJamming(unit)
-                        ? Action("Jamming: on - click to stop transmitting",
-                            "Stops the jam. The lock and the beam stay, so it can be resumed.",
-                            () => Report(unit, "stop jamming", OffensiveEcm.StopJam(unit, out string r), r))
-                        : Action("Jam now - transmit on the lock",
-                            "Switches the target's sensors off and holds them down until stopped.",
-                            () => Report(unit, "jam now", OffensiveEcm.JamNow(unit, out string r), r)),
-                        MenuRouting.Sensors);
-                }
-
-                Add(Disabled("Offensive ECM: " + OffensiveEcm.Describe(unit),
-                    "What the focused jammer is doing right now."), MenuRouting.Sensors);
+                Add(OffensiveEcm.IsHolding(unit)
+                    ? Action("Offensive ECM: holding its sensors down - click to stop",
+                        "Stops holding the contact's sets down. The game's own jam continues.",
+                        () => Report(unit, "stop holding", OffensiveEcm.StopJam(unit, out string r), r))
+                    : lockNamed
+                        ? Action("Offensive ECM: hold its sensors down too",
+                            "Switches the contact's own sensors off and keeps them off, on top of "
+                            + "the game's jam.",
+                            () => Report(unit, "hold down", OffensiveEcm.JamNow(unit, out string r), r))
+                        : Disabled("Offensive ECM: hold its sensors down - needs it identified",
+                            "The game's jam is already running on this contact. Its own sensor fit "
+                            + "can only be held down once the picture knows whose it is."),
+                    MenuRouting.Sensors);
             }
+
+            Add(Disabled("Offensive ECM: " + OffensiveEcm.Describe(unit),
+                "What the focused jammer is doing right now - its own state and the game's."),
+                MenuRouting.Sensors);
         }
 
         if (UnitFit.IsSurfaceHull(unit))
@@ -492,14 +564,19 @@ internal static class FleetMenu
             offered++;
 
             bool air = UnitFit.IsAir(contact);
+            bool? identified = ContactPicture.Identified(contact);
+            string unknown = identified == false ? "unidentified, " : "";
 
-            items.Add(Action("Lock " + ContactName(contact) + " - " + UnitFit.Kind(contact)
+            items.Add(Action("Jam " + ContactName(contact) + " - " + unknown + UnitFit.Kind(contact)
                              + " (" + ContactRange(unit, contact) + " nm)",
-                air
-                    ? "Read the aircraft's radar fit and hold its radar down. Reached further than "
-                      + "a ship because both ends are high above the radio horizon."
-                    : "Read this contact's sensor fit, then hold every sensor it has switched off.",
-                () => Report(unit, "offensive lock",
+                "Points this ship's jammer at the contact through the game's own jam order and "
+                + "keeps it pointed. It does not have to be identified: an unidentified track is "
+                + "jammed on its bearing, which is the order the game provides for that case."
+                + (air
+                    ? " An aircraft is reached at the air range - both ends are high above the "
+                      + "radio horizon."
+                    : ""),
+                () => Report(unit, "offensive jam",
                     OffensiveEcm.Lock(unit, contact, out string r), r)));
         }
 
@@ -508,17 +585,18 @@ internal static class FleetMenu
             items.Add(Disabled("No hostile contact within " + (int)ModSettings.JamRangeNm + " nm",
                 "The task force's picture has to hold the contact before the jammer can be pointed "
                 + "at it - the mod does not invent targets. Aircraft are reached out to "
-                + (int)ModSettings.JamAirRangeNm + " nm."));
+                + (int)ModSettings.JamAirRangeNm + " nm. offensive-ecm.txt says how many contacts "
+                + "the picture held."));
         }
 
-        items.Add(Action("Release the lock", "Stops holding the target's sensors down.",
+        items.Add(Action("Release the lock", "Stops the jam through the game's own teardown.",
             () => Report(unit, "offensive release", OffensiveEcm.Release(unit, out string r), r)));
 
         return new ContextMenuItem(
             label: "Offensive ECM lock (" + OffensiveEcm.ContactSummary(unit) + ")",
             items: new TrulyObservableCollection<ContextMenuItem>(items),
-            tooltip: "Point this ship's jammer at one contact - ship, submarine or aircraft - and "
-                     + "keep it blind.");
+            tooltip: "Point this ship's jammer at one contact - ship, submarine or aircraft - "
+                     + "identified or not.");
     }
 
     private static string ContactName(ObjectBase contact)

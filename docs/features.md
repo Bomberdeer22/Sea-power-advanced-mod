@@ -104,7 +104,7 @@ The mod only offers an option to a unit that can carry it out:
 | Active sonar, towed array | hulls that report the fit, or where the game does not report one |
 | Helicopter search patterns | hulls with a flight deck or hangar, or surface hulls where the game does not say |
 | Replenish alongside | surface hulls |
-| **Lock with ECM** on a contact | hostile and neutral contacts, when one of your ships with ECM is in range. Nothing else is added to a contact's menu |
+| **Jam with ECM** on a contact | hostile and neutral contacts, identified or not, when one of your ships carries a jammer. If a jammer exists in the fleet but none is close enough, the contact menu says so instead of silently adding nothing |
 
 | Setting | What it does |
 |---|---|
@@ -123,17 +123,18 @@ The game's own ECM behaviour. The mod does not touch the set, does not radiate f
 back to this the moment you pick it - which also releases any lock it was holding. If you never open
 this menu, nothing about your jamming changes.
 
-### Signature lock
+### Focused (the mode that does something)
 
 Two ways in, and both end in the same place:
 
-- **Right-click the enemy contact itself → Lock with ECM.** That is the only entry the mod adds to a
+- **Right-click the enemy contact itself → Jam with ECM.** That is the only entry the mod adds to a
   contact's menu; the game's own identification entries (mark hostile/neutral, request identify) are
-  untouched. The mod picks whichever of your ships with ECM is nearest and inside range, and names it
-  in the label, so you do not have to work out which hull carries the jammer. If nothing of yours is
-  in range, the entry is not added at all.
+  untouched. The mod picks whichever of your ships carries a jammer is nearest and inside range, and
+  names it in the label, so you do not have to work out which hull carries the set. **The contact does
+  not have to be identified first.**
 - **Right-click your own ship → Sensors → Offensive ECM lock** and pick a contact from the list (the
-  contacts the *task force* holds, nearest first, max 40 nm for ships and 90 nm for aircraft).
+  contacts the *task force* holds, nearest first, max 40 nm for ships and 90 nm for aircraft). The
+  list is there whatever the mode toggle says - picking a contact is what switches the mode.
 
 ### Aircraft and helicopters
 
@@ -152,36 +153,49 @@ otherwise:
   up between assertions like anyone else's.
 - its **receiver cannot be jammed off at all** - a passive set has nothing to switch down - so the
   report says that instead of claiming a clean sweep.
-- the entry names the type: `Lock E-2C Hawkeye - aircraft (68 nm)`.
+- the entry names the type and whether it has been identified:
+  `Jam E-2C Hawkeye - aircraft (68 nm)` or `Jam Skunk 14 - unidentified, aircraft (68 nm)`.
 
-The contact picture is now the **force's**, not one ship's: an aircraft a picket detected can be
-jammed by whichever ship has the set nearest it. The contact lists themselves are **looked for** -
-any member on a unit whose name says it holds contacts, threats, tracks or detections - because an
-air plot is not always kept where the surface one is. `offensive-ecm.txt` records which lists were
-read, so the next build can be exact.
+### Where the contacts come from
 
-Either way the mod then:
+The picture is the **player's side's**, read from the two places the game actually keeps it:
 
-1. **reads that contact's sensor fit** - which radar families it has and whether each is up, whether
-   it has a towed array or active sonar, whether it is running ESM or its own jammer, and what its
-   hull signature reads as. This read is the lock: a jammer that has not identified what the other
-   ship is radiating with has nothing to aim at. **Locking does not transmit.** The beam appears on
-   the map and the target carries on as it was.
-2. **`Jam now - transmit on the lock`** is a second, manual order. Only then are every one of those
-   families switched off on that contact, and only that contact.
-3. **holds them down** - re-asserted ten times a second while transmitting, because the target's crew
-   can switch a set back on in between. Sustained suppression, not a one-off toggle.
-4. **`Jamming: on - click to stop transmitting`** stops the jam and keeps the lock, so it can be
-   resumed. Nothing is put back on the radar front, because this mode never touched it.
+| Source | What it is |
+|---|---|
+| `Taskforce.PlottingTable.LocalVehicles` | the map itself: every foreign track this machine holds, keyed by the object behind it. **A track in here may be completely unidentified and is still a contact** |
+| `Taskforce._spottedObjects` | what the side's sensors have reported, which can include a contact before the table has given it a number |
+
+Nothing is invented, and identification is never a filter: the count that is read is
+"foreign contacts held", not "identified contacts". `offensive-ecm.txt` records which of the two was
+read and how many contacts were in each state, so "nothing was offered" can be told apart from "the
+mod could not see the picture".
+
+### What the lock actually does
+
+1. **Issues the game's own jam order** - `setOrder(Order.Type.Jam, target, displayOrderText)` for a
+   contact the picture has identified, or the bearing form of the same order for one it has not. This
+   is the order the weapons panel issues when a player points a pod at something, so the game's own
+   ECM does the work: it selects the set, records the order, and registers the assignment where its
+   radar model reads it.
+2. **That is the jam.** The game's radar calculator now treats the target as jammed; the cone on the
+   map is live, and in a session the multiplayer mod forwards the same order to the host.
+3. **`Offensive ECM: hold its sensors down too`** is the second, deliberate order, and it is the
+   *extra* half: instead of only degrading what the target sees, the mod switches the target's own
+   radar families, sonar and towed array off and keeps them off, re-asserted ten times a second.
+   This half needs the contact to be identified - there is nothing to hold down on a track nobody has
+   named - and it is offered only when the picture says the contact is identified.
+4. **`stop`** stops that second half and leaves the game's jam running;
+   **`Release the ECM lock`** takes the jam down through the game's own teardown
+   (`ceaseOffensiveJam`), which is the only thing that also removes the set from every victim's list.
 5. **stands the lock down** when the target is sunk, runs beyond range, you release it, or you go
    back to standard.
 
-| Drives | The target's own switches: `DisableAllRadars()`, `DisableAirSearchRadars`, `DisableSurfaceSearchRadars`, `TowedSonarsSetActive(false)`, `DisableActiveSonars`, plus any ESM / jammer switch it exposes |
+| Drives | The game's own jam order (`setOrder(Order.Type.Jam, ...)`, unit and bearing forms), and - for the second half - the target's own switches: `DisableAllRadars()`, `DisableAirSearchRadars`, `DisableSurfaceSearchRadars`, `TowedSonarsSetActive(false)`, `DisableActiveSonars`, plus any ESM / jammer switch it exposes |
 |---|---|
 | Reads | Its radiator state (`IsAirSearchRadarsOn`, `IsSurfaceSearchRadarsOn`), its sensor fit (`HasTowedSonar`, `HasActiveSonar`), its hull signature from its parameter block |
 | Range | `Features/JamRangeNm`, default 40 nm against ships; `Features/JamAirRangeNm`, default 90 nm against aircraft |
 | Cost | **None in emissions.** This mode runs on EMCON: it never switches the attacking ship's radar on, so the jammer gives away nothing while it works. (The defensive feature does need air search - it is locking onto a missile, not a contact.) |
-| Result you will see | *every sensor off*, or *NOT all sensors off - <sensor> would not switch off on this build*. The second is not a bug in the lock: it means the game gives no way to reach that one sensor family, so it is still working. The menu names it and `offensive-ecm.txt` lists it as `STILL`. The mod does not edit the target's picture to hide that. |
+| Result you will see | The game's jam, immediately, from the lock. Then, if the second half is ordered: *every sensor off*, or *NOT all sensors off - <sensor> would not switch off on this build*. The second is not a bug in the lock: it means the game gives no way to reach that one sensor family, so it is still working. The menu names it and `offensive-ecm.txt` lists it as `STILL`. The mod does not edit the target's picture to hide that. On an unidentified contact there is no second half to order, and the menu says so rather than offering a button that cannot do anything. |
 | Honest limit | The effect lasts as long as the lock is held. It is not a permanent state change to the other ship's data, and it stops the moment the lock is released - which is why the mod re-asserts rather than setting it once. |
 
 `offensive-ecm.txt` in the mod folder records every lock, appended rather than overwritten: which
@@ -196,8 +210,8 @@ A jammer is directional and a menu cannot show you which way it is pointing, so 
 
 | State | What you see |
 |---|---|
-| Offensive set, locked, not transmitting | a long, narrow cyan beam from the jammer to the ship it is locked on, thin and dim |
-| Offensive set, jamming | the same beam, bright and thicker, with `ECM JAMMING` on the far end |
+| Offensive set, locked, game jam running | a long, narrow cyan beam from the jammer to the contact it is locked on, bright - the game's own jam is live |
+| Offensive set with the sensors held down | the same beam, with `ECM JAMMING` on the far end; that is the second half working |
 | Defensive set, engaged | an amber beam to the missile it is tracking, with a marker on the missile |
 | A ship with ECM selected, nothing aimed | a small cyan box on the ship and `ECM ready` |
 
@@ -230,7 +244,7 @@ Three of the multiplayer mod's rules matter here:
 |---|---|
 | It throttles radar switches to one per ship per radar group per 10 seconds, and a throttled switch does not move locally either | **Radar blink** raises its half-cycle to 12 seconds in a session, whatever `BlinkSeconds` says. A six second blink would lose every second flip and leave the radar stuck |
 | The client does not decide its own emissions - the host's radar picture is re-imposed every frame | **Radar blink** checks each flip four seconds later. If the switch did not take, the blink **stops itself and says so** rather than pretending. **Auto-ARM** and **defensive ECM** are not offered on a client at all, and the menu says why |
-| Jamming is an order the host runs, not a member write | **Offensive ECM** on a client sends the game's own jam order, which the multiplayer mod forwards. The signature lock's switch-off assertion is not attempted from a client: the target is simulated on the host, so there is nothing there to switch off |
+| Jamming is an order the host runs, not a member write | **Offensive ECM** issues the game's own jam order on the host and on a client alike, which is exactly what the multiplayer mod forwards. The switch-off half is not attempted from a client: the target is simulated on the host, so there is nothing there to switch off |
 
 What still works everywhere:
 

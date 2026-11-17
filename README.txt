@@ -40,7 +40,8 @@ where a player would look for it, rather than in one long submenu:
     Orders                      Weapon hatches (feature 1)
     Sensors                     radars, air/surface search only, active sonar, towed array,
                                 EMCON profiles, radar blink, auto-ARM, defensive ECM,
-                                offensive ECM (two modes), commercial disguise
+                                offensive ECM (two modes, works on unidentified contacts), commercial
+                                disguise
     Engage                      deconflict the salvo, release everyone
     Rules of engagement         action stations / cold cruise, crew fatigue status
     Formation                   sprint and drift (this ship or the whole force),
@@ -403,7 +404,9 @@ LAYOUT
       Features/MerchantDisguise.cs   reduced emissions and a civilian-looking signature
       Features/Replenishment.cs      ammunition from a supply ship alongside
       Features/DefensiveEcm.cs       automatic defensive jamming of missiles inbound to ship or force
-      Features/OffensiveEcm.cs       two modes: the game's own, or signature lock on one contact
+      Features/OffensiveEcm.cs       two modes: the game's own, or focused jamming of one contact
+      Interop/OffensiveJam.cs        the game's jammer (a sensor system) and its own jam order
+      Interop/ContactPicture.cs      the player's contacts, identified or not (plotting table)
       Features/FleetTicker.cs        the timers behind the timed features (no interface of its own)
       ModInfo.cs, ModLog.cs     identity and logging
     

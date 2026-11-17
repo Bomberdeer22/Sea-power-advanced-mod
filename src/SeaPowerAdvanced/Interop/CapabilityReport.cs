@@ -42,6 +42,12 @@ internal static class CapabilityReport
             text.AppendLine("--------------------------");
             foreach (string line in EcmControl.Describe()) text.AppendLine(line);
             text.AppendLine("  ecm-report.txt lists every member and type the scan found.");
+            text.AppendLine();
+            text.AppendLine("The jammer as the game keeps it (offensive ECM)");
+            text.AppendLine("----------------------------------------------");
+            text.AppendLine("  " + OffensiveJam.Summary());
+            text.AppendLine("  A jammer is a sensor system in the unit's parameter block, not a member");
+            text.AppendLine("  of the unit. offensive-ecm.txt records what was found and what it jammed.");
 
             text.AppendLine();
             text.AppendLine("Context menu sections found in this build");

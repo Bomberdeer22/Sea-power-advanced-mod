@@ -167,21 +167,26 @@ Full description of each: features.md. Right-click one of your ships.
     file, it is the missing piece
   * [ ] Sensors -> ECM: what this build exposes rewrites ecm-report.txt on
     demand
-  * [ ] Sensors -> Offensive ECM: standard - click for signature lock switches
-    mode; the lock submenu then appears and the label becomes Offensive ECM:
-    signature lock
-  * [ ] After locking, a long narrow blue beam runs from the jammer to the
-    contact and stops there - thin while locked; Jam now - transmit on the
-    lock appears and thickens it when pressed; ecm-cone.txt records how
-    positions are projected
+  * [ ] Sensors -> Offensive ECM lock (N contact(s) in range) is there on any
+    ship carrying a jammer, whatever the mode toggle says; the toggle only
+    changes the label
+  * [ ] Lock a contact from that list: a long narrow blue beam runs from the
+    jammer to the contact and stops there, and the beam is live - the game's
+    own jam is already running. Offensive ECM: hold its sensors down too is
+    the second half; ecm-cone.txt records how positions are projected
   * [ ] With a defensive set armed and a missile inbound, an amber beam runs
     to the missile
   * [ ] If no beam appears, the bottom of the screen says why and ecm-cone.txt
     names what was tried
-  * [ ] Offensive ECM lock lists hostile contacts with ranges; picking one
-    logs Offensive ECM: <ship> locked on <target> (N nm, hull <sig>). Read
-    ..., and offensive-ecm.txt appears in the mod folder with a per-sensor
-    verdict table
+  * [ ] Offensive ECM lock lists hostile contacts with ranges and marks the
+    unidentified ones; picking one logs Offensive ECM: <ship> locked on
+    <target> (N nm, hull <sig>) ... The jammer is pointed: ..., and offensive-
+    ecm.txt appears in the mod folder with the contact-picture block and a
+    per-sensor verdict table
+  * [ ] The key check: lock a contact that is not identified. It must work:
+    the log reads bearing jam issued (the game's own bearing form), nothing
+    asks you to identify it first, and offensive-ecm.txt shows the picture
+    with not identified counted
   * [ ] The target's radars go dark and stay dark while the lock is held
     (watch its emissions); the log repeats holding <target> ... blind only
     when the picture changes
@@ -195,8 +200,12 @@ Full description of each: features.md. Right-click one of your ships.
     STILL ... for that family - that line is the one to send, it names the
     member the next build needs
   * [ ] Right-click an enemy contact: the menu shows the game's own
-    identification entries plus Lock with ECM (<ship>, N nm) - and nothing
-    else from this mod
+    identification entries plus Jam with ECM (<ship>, N nm, <kind>) - and,
+    once locked, only hold its sensors down and release the lock as well.
+    Nothing else from this mod
+  * [ ] With no ship of yours close enough, the contact menu says ECM: no
+    jammer within N nm instead of adding nothing - so the feature is visibly
+    installed either way
   * [ ] Right-click one of your submarines: no ECM entries at all
   * [ ] Right-click a ship without a flight deck: no helicopter entries
   * [ ] Readiness -> Action stations shows fatigue climbing; reloads shorten
@@ -219,15 +228,16 @@ Aircraft as ECM targets
   * [ ] Fly a hostile aircraft or helicopter inside ~80 nm of a ship with a
     jammer
   * [ ] That ship -> Sensors -> Offensive ECM lock: the submenu header reads N
-    contact(s) in range, M in the air, and the aircraft is listed as Lock
+    contact(s) in range, M in the air, and the aircraft is listed as Jam
     <name> - aircraft (x nm)
   * [ ] The same entry appears on the aircraft's own right-click menu,
-    labelled Lock with ECM (<ship>, x nm, aircraft)
+    labelled Jam with ECM (<ship>, x nm, aircraft)
   * [ ] Lock it: offensive-ecm.txt gains a block whose target line says
-    (aircraft) and whose contact picture read from: line names the lists that
-    were searched
-  * [ ] Jam now: the log reads either every sensor off or NOT all sensors off
-    - <family> with the aircraft named; the radar on the map goes quiet
+    (aircraft) and whose contact picture read from: line names the plotting
+    table and the spotted objects
+  * [ ] Hold its sensors down too: the log reads either every sensor off or
+    NOT all sensors off - <family> with the aircraft named; the radar on the
+    map goes quiet
   * [ ] Let it fly beyond JamAirRangeNm (90 nm by default): the log reads lost
     the lock on ... out of range and the aircraft's radar comes back
   * [ ] An aircraft beyond 90 nm is not offered - that is the horizon, not a
@@ -266,9 +276,12 @@ multiplayer.txt in the mod folder is the file that answers everything below.
     expected behaviour, not a failure
   * [ ] Sensors -> Auto-ARM shutoff reads not available in multiplayer, and
     Defensive ECM reads the host runs missile defence in multiplayer
-  * [ ] Lock with ECM on an enemy contact, then Jam now: the log reads jam
-    order sent to the host, and the multiplayer mod's own log shows it applied
+  * [ ] Jam with ECM on an enemy contact: the log shows the game's jam order
+    issued on this machine, and the multiplayer mod's own log shows it applied
     the jam on the host
+  * [ ] On a client, hold its sensors down is offered but the report says
+    plainly that the effects are the host's to decide (the target is simulated
+    by the host); no switch-off is claimed
   * [ ] Stop jamming: the message says plainly that the host's jam task is its
     own and runs until it ends
   * [ ] ECM cones still draw on the client, from whatever jamming the host

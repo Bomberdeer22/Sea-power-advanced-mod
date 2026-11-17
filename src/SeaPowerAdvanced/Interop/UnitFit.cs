@@ -49,6 +49,12 @@ internal static class UnitFit
     {
         if (unit == null) return false;
 
+        // The real answer first: the game keeps a jammer as a sensor system in the unit's parameter
+        // block, so a hull that carries one says so itself. Everything below this is the guesswork
+        // that preceded being able to read that, kept only for a build where the sensor list cannot
+        // be reached at all.
+        if (OffensiveJam.HasEcm(unit)) return true;
+
         if (!EcmControl.Available) return false;
         if (IsSubmarine(unit)) return false;
 

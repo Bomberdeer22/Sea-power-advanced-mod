@@ -78,6 +78,11 @@ internal static class Boot
             EcmControl.Discover();
             EcmControl.WriteReport();
 
+            // The jammer itself: a sensor system in the unit's parameter block, plus the game's own
+            // jam order. This is the interface the offensive feature actually drives, so it is
+            // found and written down at startup as well.
+            OffensiveJam.Discover();
+
             // The multiplayer mod, if it is there: which side of the session this machine is on
             // decides what the automatic features are allowed to promise. Written to
             // multiplayer.txt before any menu can be opened.

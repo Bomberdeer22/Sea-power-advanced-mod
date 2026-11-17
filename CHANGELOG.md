@@ -1,5 +1,47 @@
 # Changelog
 
+## 0.16.0 — offensive ECM actually jams, and works on unidentified contacts
+
+Three things were wrong, and they had one root cause: the mod was looking for ECM and for contacts in
+places the game does not keep them.
+
+**A jammer is a sensor system, not a member of the unit.** It lives in the unit's parameter block
+(`_obp._sensorSystems`) as an ECM entry with its own state. The old code scanned the *unit type* for
+members called "ECM" or "jam", found none, and reported that this build had no ECM to drive - so the
+contact menu returned before adding anything, and the lock refused with "this build exposes no ECM to
+drive". `Interop/OffensiveJam.cs` now finds the sensor list on the type the game actually hands over,
+finds the game's own jam orders (the unit form and the bearing form), and drives them.
+
+**A contact picture lives on the task force, not on the unit.** It is
+`PlottingTable.LocalVehicles` - the map - plus `_spottedObjects`. `Interop/ContactPicture.cs` reads
+both. Nothing in it looks at identification to decide whether a contact exists, which is why
+unidentified tracks now appear in the lock list and are marked as such.
+
+**The jam is the game's own order.** `setOrder(Order.Type.Jam, target, displayOrderText)` for an
+identified contact, the bearing form of the same order for one that is not - the order the weapons
+panel issues, the one the game's radar model reads, and the one the multiplayer mod forwards to the
+host. So this is not a mod-side imitation of jamming: it is the game's jamming. Writing
+`_associatedTarget` and `_ECMSystemsTryingToJamMe` by hand is kept only as a fallback for a build
+whose order cannot be found.
+
+The second half of the feature - switching the target's own sensor families off and holding them down
+- is unchanged in behaviour but is now honestly labelled as the extra: it needs the contact
+identified, and the menu offers it only then. An unidentified contact gets the game's jam on its
+bearing, which is what the game provides for exactly that case.
+
+Also:
+
+- The lock list is on offer whatever the mode toggle says. Hiding it behind the toggle was half of
+  why the menu looked broken: the toggle changed a label and there was no way to pick a target.
+- Taking a lock now points the jammer immediately, so a click does something visible.
+- A contact menu with no jammer near enough says **ECM: no jammer within N nm** instead of adding
+  nothing at all.
+- The jam is re-issued only when the game's own state shows the assignment has gone, rather than ten
+  times a second into the multiplayer mod's order forwarding.
+- `offensive-ecm.txt` gains a contact-picture block: which source was read, how many foreign contacts
+  were held, and how many of them were not identified.
+- `capabilities.txt` names the jammer layer and what it found.
+
 ## 0.15.1 — civilian traffic removed
 
 The feature is gone, completely: the panel, the menu section, the route builder, the zone tool, the
