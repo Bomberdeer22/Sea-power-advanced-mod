@@ -66,28 +66,6 @@ internal static class Inbound
         return found;
     }
 
-    /// <summary>
-    /// Removes a weapon from this unit's inbound lists. Used after the missile shield has taken a
-    /// weapon down, so the ship is not left holding a reference to something that no longer exists.
-    /// </summary>
-    internal static void Forget(ObjectBase? unit, object weapon)
-    {
-        if (unit == null || weapon == null) return;
-
-        try { Remove(unit._dangerousMissiles, weapon); }
-        catch (Exception) { }
-
-        try { Remove(unit._incomingWeapons, weapon); }
-        catch (Exception) { }
-    }
-
-    private static void Remove(object? source, object weapon)
-    {
-        if (source is IList list) { list.Remove(weapon); return; }
-
-        // A generic list that is not an IList: rare, and not worth a cast that can throw here.
-    }
-
     /// <summary>True when something is inbound to this unit.</summary>
     internal static bool Any(ObjectBase? unit) => WeaponsAgainst(unit).Count > 0;
 

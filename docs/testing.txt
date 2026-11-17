@@ -245,36 +245,56 @@ Aircraft as ECM targets
   * [ ] A contact 100 nm out is offered, and the beam reaches it - the old 90
     nm limit is gone
 
-7B. THE CLOSE-IN DIVE (DEFENSIVE ECM AT 2 NM)
----------------------------------------------
+7B. POINTING A MISSILE AT THE SEA (DEFENSIVE ECM)
+-------------------------------------------------
 
   * [ ] Arm a ship with a jammer: Sensors -> Defensive ECM: off - click to arm
     automatic jamming
-  * [ ] The entry now reads armed, waiting for a vampire and names what the
-    dive has done
-  * [ ] Fire a missile at that ship and let it close: the log shows Defensive
-    ECM: <ship> put <missile> at N nm in the water - height ...; sank ...
-    once, and the ship is not hit
-  * [ ] The missile is seen to descend into the water over about a second - it
-    does not explode in mid-air, and it does not explode again a moment later
-  * [ ] ecm-dive.txt appears in the mod folder, naming the weapon type's
-    homing member, its height member and the terminal method, plus which route
-    moved it down
-  * [ ] If it vanishes instead of descending, ecm-dive.txt says nothing moved
-    it down - send that file
-  * [ ] ecm-dive.txt lists any Detonate/Explode/SelfDestruct methods as
-    warhead (unused) - they are never called, because a warhead going off
-    beside the ship is not a missile falling in the sea
+  * [ ] The entry reads armed, waiting for a vampire and names what the dive
+    has done
+  * [ ] Fire a missile at that ship and let it cross 10 nm: the log shows
+    Defensive ECM: <ship> is pointing <missile> at N nm at the sea - height
+    ..., once
+  * [ ] Watch it descend over several seconds and go into the water. It must
+    not explode in mid-air, and it must not explode twice
+  * [ ] It then disappears - taken by the sea - the game removed it at the
+    surface. That is the game's own sea impact, not the mod doing anything
+  * [ ] The ship is not hit
+  * [ ] No exception in LogOutput.log - in particular none in
+    GameMain.FixedUpdate. If one appears, set Features/EcmDiveNm to 0,
+    restart, and send ecm-dive.txt: that narrows it to the lock break rather
+    than anything being removed
+  * [ ] ecm-dive.txt names the weapon type's homing member and height member,
+    and the route used
+  * [ ] If the missile ends up sitting on the water and never disappears, ecm-
+    dive.txt says left on the water - send that file. The mod will not destroy
+    it to hide that
+  * [ ] Set EcmDiveNm to 0 and restart: missiles are jammed but never dived
   * [ ] Disarm defensive ECM and repeat: the missile hits as before, so the
     arming is the difference
   * [ ] Fire a gun at the same ship with defensive ECM armed: the shell still
-    hits - that is the stated limit, not a bug
-  * [ ] A missile still well outside 2 nm is jammed but not put down; it dives
-    only when it crosses EcmDiveNm
+    hits - stated limit
   * [ ] In a session as a client: defensive ECM is not offered, with the host-
     simulates-weapons reason
   * [ ] A busy sky with many missiles does not flood the log - a handful of
     lines per ship at most
+
+7C. THE ECM CONES
+-----------------
+
+  * [ ] An enemy contact -> Jam with ECM: a long narrow cyan beam runs from
+    your jammer to the contact and stops there
+  * [ ] Press hold its sensors down too: the same beam goes brighter and
+    thicker and reads ECM JAMMING at the far end
+  * [ ] Lock a different contact: the beam follows the new target, not the old
+    one
+  * [ ] Select a ship carrying a jammer with nothing locked: a small cyan box
+    marks it, labelled ECM ready
+  * [ ] If no beam appears, the bottom of the screen names the reason and
+    points at ecm-cone.txt
+  * send that file, not ecm-report.txt
+  * [ ] ecm-cone.txt shows centre tile, a lat/lon 0,0 -> world position, where
+    that projects to, and the camera it chose
 
 8. DISABLE
 ----------

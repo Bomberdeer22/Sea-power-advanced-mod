@@ -271,41 +271,49 @@ Two limits worth stating plainly, because a player will otherwise read them as b
 2. **Damage, hits and sensor outcomes are the host's.** Nothing here claims a different result from the
    one the authoritative machine reached.
 
-## 2f. The close-in dive — part of defensive ECM
+## 2f. Pointing a jammed missile at the sea — part of defensive ECM
 
-This is what finishes a defensive jam, and it is the only thing in the mod that writes to a weapon
-rather than to a ship.
+This is what finishes a defensive jam. It is also the only place in the mod that touches a weapon
+rather than a ship — and it **never destroys one**.
 
-A sea-skimmer that loses its seeker two miles out does not fly on towards the ship. It loses its
-height reference, stops correcting, and goes into the water. So once an armed ship's jammer has a
-missile inside **`EcmDiveNm` (2 nm by default)**:
+A sea-skimmer whose seeker loses lock loses its height reference, stops correcting, and the sea wins.
+So once an armed ship's jammer has a missile inside **`EcmDiveNm` (10 nm by default)**:
 
-1. **The weapon's own lock is broken** - the member it is homing on is set to `null`, so it can no
-   longer correct what comes next.
-2. **Its height is driven down at 15 m/s**, through its own altitude member if this build has one,
-   otherwise through its transform (weapons *are* scene objects on this build - the multiplayer mod
-   rotates their transforms). It is given at least a second, so the fall is visible rather than the
-   missile vanishing between two frames.
-3. **At the waterline it is taken down quietly** - a method that ends the flight without setting the
-   warhead off (`Expire`, `Abort`, `Terminate`...), or, if this build has none, by removing it at sea
-   level. `ecm-dive.txt` records which of the three routes did the work, and which warhead methods
-   exist and were deliberately **not** called.
+1. **The weapon's own lock is broken** — the member it is homing on is set to `null`, so it cannot
+   correct what comes next.
+2. **Its nose is pointed down and its height walked down gradually** — 12 m/s of descent and about 6°
+   of pitch per second, through its own height member if this build has one, otherwise through its
+   transform. Gradual on purpose: a missile that drops 40 m in one frame reads as a bug.
+3. **The game removes it.** A missile at the waterline is the game's own sea impact — the same thing
+   that happens to a missile that misses a ship. The mod stops touching it at the surface and does
+   not help.
 
-There is nothing to switch on and no separate cheat: it is what **armed defensive ECM** does at close
-range on any hull that carries a jammer. Disarm defensive ECM and it stops with it.
+**10 nm, not 2, and that is about the descent.** The dive has to be gentle to look real, and a
+sea-skimmer closing at 600 knots covers two miles in twelve seconds — not enough time to come down
+gradually and safely. From ten miles it has about a minute.
 
 | Needs | `Defensive ECM: off - click to arm automatic jamming` on that ship, or armed for the whole task force. A hull with no jammer never offers either |
 |---|---|
-| Range | `Features/EcmDiveNm`, 2 nm by default (0.5-10). Inside the terminal defence envelope a jammed seeker has no time to re-acquire |
-| Not covered | **Guns and rockets.** A shell has no lock to break and no seeker to put down, so it is never touched. The label says "missiles" for that reason |
-| Refused on | A multiplayer **client** - weapons are simulated by the host, so a kill written here would be reverted. Defensive ECM is not offered on a client at all |
-| Logged | `Defensive ECM: <ship> put <missile> at 1.2 nm in the water - height 40 m -> 2 m; sank from 1 m (Expire())` - one line per missile, and a missile is put down **once and never touched again**, whatever the outcome |
-| Report | `ecm-dive.txt` - what was read off each weapon type (homing member, height member, terminal method) and which route moved it down |
+| Range | `Features/EcmDiveNm`, **10 nm** by default (0–30). **0 switches the dive off** and leaves the jam alone |
+| Not covered | **Guns and rockets.** A shell has no lock to break and no seeker to point down, so it is never touched |
+| Refused on | A multiplayer **client** — weapons are simulated by the host. Defensive ECM is not offered on a client at all |
+| Logged | `Defensive ECM: <ship> is pointing <missile> at 8.4 nm at the sea - height 40 m -> 28 m`, then once more if the game takes it: `taken by the sea - the game removed it at the surface` |
+| Report | `ecm-dive.txt` — the members read off each weapon type, which route moved it, and the session totals |
 
-If a weapon has **no** readable height member and no transform, it is removed at the end of the three
-seconds instead of visibly diving. That still keeps it off the ship, but the report says
-`nothing moved it down` - and that line, in `ecm-dive.txt`, is the one to send if missiles vanish
-rather than falling.
+### What this deliberately does not do
+
+Nothing here calls `Detonate`, `Explode` or `SelfDestruct`, and nothing here calls `Destroy`. Two
+earlier builds tried both, and the player saw exactly what that produces:
+
+- a warhead going off two miles off the bow, **once per tick**, because the object was not actually
+  removed and the next tick found it again;
+- then, once that was narrowed to a plain `Destroy`, a **`NullReferenceException` inside
+  `GameMain.FixedUpdate`** — the game was still walking a weapon that had been deleted from under it —
+  with the missile left sitting on the water, because the mod had removed the object but nothing else.
+
+If a build turns out not to remove a weapon that reaches the surface, `ecm-dive.txt` says so plainly
+(`left on the water`) instead of papering over it. The fix for that, if one is needed, is a route the
+game already respects — not a bigger hammer.
 
 ## 3. Commercial signature spoofing — `Deception`
 
@@ -416,7 +424,7 @@ more slowly than tiring, so there is a real cost to leaving the fleet closed up 
 | `JamRangeNm` | `150` | Reach of the focused offensive jammer against a ship |
 | `JamAirRangeNm` | `150` | Reach against an aircraft or helicopter |
 | `ShowEcmCone` | `true` | Draw the ECM cones on the map |
-| `EcmDiveNm` | `2` | How close a missile gets before an armed defensive jammer puts it in the water |
+| `EcmDiveNm` | `10` | How far out an armed jammer starts pointing an inbound missile at the sea. **0 = off** |
 
 ## What to send back if something misbehaves
 

@@ -65,13 +65,18 @@ internal static class ModSettings
     internal static float JamAirRangeNm => jamAirRangeNm?.Value ?? 150f;
 
     /// <summary>
-    /// How close a missile gets before a defensive jammer finishes with it and puts it in the water.
+    /// How far out a defensive jammer starts pointing an inbound missile at the sea.
     ///
-    /// Two nautical miles by default. It is the terminal defence envelope: inside it a jammed seeker
-    /// has no time to re-acquire, which is why a jammed sea-skimmer ends up in the sea rather than on
-    /// the ship. Only defensive ECM uses it, and only on hulls that carry a jammer.
+    /// **Ten nautical miles**, and the reason is the descent, not the defence. The missile is flown
+    /// down gradually - a dozen metres a second, nose following - so it looks like a seeker losing
+    /// its reference rather than a model being dragged into the water. At two miles a sea-skimmer
+    /// closing at six hundred knots covers the distance in twelve seconds, which is not enough for a
+    /// gradual descent to finish safely; from ten it has a minute.
+    ///
+    /// Zero switches the dive off and leaves the jam alone. Only defensive ECM uses it, and only on
+    /// hulls that carry a jammer.
     /// </summary>
-    internal static float EcmDiveNm => ecmDiveNm?.Value ?? 2f;
+    internal static float EcmDiveNm => ecmDiveNm?.Value ?? 10f;
 
     /// <summary>Seconds between ships being released in a deconflicted salvo.</summary>
     internal static float SalvoSpacingSeconds => salvoSpacingSeconds?.Value ?? 8f;
@@ -131,12 +136,18 @@ internal static class ModSettings
             if (Math.Abs(jamRangeNm.Value - 40f) < 0.01f) jamRangeNm.Value = 150f;
             if (Math.Abs(jamAirRangeNm.Value - 90f) < 0.01f) jamAirRangeNm.Value = 150f;
 
-            ecmDiveNm = file.Bind("Features", "EcmDiveNm", 2f,
-                "How close a missile gets, in nautical miles, before an armed defensive jammer "
-                + "finishes with it: its lock is broken and its height is driven down until it is in "
-                + "the water (0.5-10). Inside the terminal defence envelope a jammed seeker has no "
-                + "time to re-acquire, which is why the missile goes into the sea rather than onto "
-                + "the ship. Guns and rockets are never affected - they have no lock to break.");
+            ecmDiveNm = file.Bind("Features", "EcmDiveNm", 10f,
+                "How far out, in nautical miles, an armed defensive jammer starts pointing an "
+                + "inbound missile at the sea: its lock is broken, its nose is pitched down and its "
+                + "height is walked down gradually until it is on the water, where the game's own sea "
+                + "impact removes it. 10 by default, because the descent has to be gradual; 0 "
+                + "switches the dive off entirely and leaves the jam alone. Guns and rockets are "
+                + "never affected - they have no lock to break.");
+
+            // A config written before 0.19.0 holds the old two mile figure. That is the exact value
+            // this build no longer wants (the descent cannot finish from two miles), so it is moved;
+            // anything the player chose themselves is left alone.
+            if (Math.Abs(ecmDiveNm.Value - 2f) < 0.01f) ecmDiveNm.Value = 10f;
 
             salvoSpacingSeconds = file.Bind("Features", "SalvoSpacingSeconds", 8f,
                 "Seconds between ships being released to fire in a deconflicted salvo (1-60).");

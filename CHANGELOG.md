@@ -1,5 +1,34 @@
 # Changelog
 
+## 0.19.0 — the missile is flown into the sea, not deleted
+
+The player's report was two things at once, and both were right.
+
+**`NullReferenceException` in `GameMain.FixedUpdate`.** The previous build removed the weapon with
+`Destroy` (and, before that, set its warhead off). Deleting a live weapon out from under the game's
+own update is exactly what that exception looks like, and what was left on screen - a missile sitting
+on the water - was the object the *mod* had dropped while the game carried on without it.
+
+**So the mod no longer touches a weapon's life at all.** It does what the player suggested: it flies
+the missile into the water and lets the game register the impact, which is what already happens to
+every missile that misses a ship.
+
+- The lock is broken, so it cannot correct.
+- Its nose is pitched down (about 6°/s) and its height walked down at 12 m/s - through the weapon's
+  own height member where this build has one, its transform otherwise.
+- At the waterline the mod stops. The game's own sea impact removes it. Nothing calls `Detonate`,
+  `Explode`, `SelfDestruct`, or `Destroy` anywhere in this feature.
+
+**From 10 nm instead of 2.** The descent has to be gradual to look real, and a sea-skimmer closing at
+600 knots covers two miles in twelve seconds - too fast to come down safely. From ten it has about a
+minute, and it cannot reach the ship however slow the descent turns out to be. `Features/EcmDiveNm`
+defaults to **10** now (a stored `2` is moved up on load; anything else you chose is left alone), and
+**0 switches the dive off** and leaves the jam working.
+
+If this build turns out not to remove a weapon that reaches the surface, `ecm-dive.txt` says
+`left on the water` rather than papering over it - and that file now names the two writes to suspect
+if an exception ever appears again.
+
 ## 0.18.3 — the missile goes into the water, once
 
 Two faults, and the second was the visible one.

@@ -49,7 +49,7 @@ internal static class DefensiveEcm
     /// terminal defence envelope a jammed seeker has no time to re-acquire, and a sea-skimmer that
     /// loses its height reference in the last few seconds ends up in the sea rather than on the ship.
     /// </summary>
-    internal static float DiveNm => Mathf.Clamp(ModSettings.EcmDiveNm, 0.5f, 10f);
+    internal static float DiveNm => Mathf.Clamp(ModSettings.EcmDiveNm, 0f, 30f);
 
     internal static bool IsArmed(ObjectBase unit) => unit != null && UnitState.Of(unit).DefensiveEcm;
 
@@ -167,7 +167,6 @@ internal static class DefensiveEcm
                 bool inbound = Inbound.AnyNearby(ship, fleet, FormationNm,
                                                  out object? weapon, out ObjectBase? threatened);
 
-                if (inbound && WeaponDive.Done(weapon)) inbound = false;
 
                 if (inbound)
                 {
@@ -213,16 +212,24 @@ internal static class DefensiveEcm
     }
 
     /// <summary>
-    /// Puts every missile that has closed inside <see cref="DiveNm"/> into the water.
+    /// Points every missile that has closed inside <see cref="DiveNm"/> at the sea.
     ///
-    /// Returns true when one is being dealt with, which is the caller's signal that this ship has
-    /// nothing else to do this tick. Three ticks per missile at most: break its lock, push its
-    /// height down, and put it in the sea.
+    /// It is steered, not killed: the lock is broken and the nose is walked down, far enough out
+    /// that the descent finishes well before the ship, and the game's own sea impact removes the
+    /// weapon - which is what happens to a missile that misses. Nothing here destroys the object and
+    /// nothing sets the warhead off; the previous build did both, and produced an explosion every
+    /// tick and then a NullReferenceException inside the game's own update.
+    ///
+    /// Returns true when a weapon is being brought down, which tells the caller this ship has
+    /// nothing else to do this tick.
     /// </summary>
     private static bool Sink(ObjectBase ship, UnitRecord record)
     {
         bool busy = false;
         float reach = DiveNm;
+
+        // Zero means the dive is switched off: the jam still works, the missile is left alone.
+        if (reach <= 0f) return false;
 
         var weapons = new List<object>();
 
@@ -240,41 +247,62 @@ internal static class DefensiveEcm
         {
             try
             {
-                // A weapon that has already been put down is never touched again. The game's own
-                // inbound list does not always drop a removed weapon on the same frame, and touching
-                // it twice is how an earlier build set the same warhead off every tick.
-                if (WeaponDive.Done(weapon)) continue;
-
-                // A weapon whose range cannot be read is still put down: it is on this ship's own
-                // inbound list, so the game has already decided it is close enough to matter, and
-                // "the number would not read" is the worst possible reason to let one through.
+                // A weapon whose range cannot be read is still brought down: it is on this ship's own
+                // inbound list, so the game has already decided it is close enough to matter.
                 double? range = Inbound.RangeNm(ship, weapon as ObjectBase);
                 if (range.HasValue && range.Value > reach) continue;
 
+                // Has it finished? Either the game removed it at the surface, or it is sitting on
+                // the water and this build does not remove it. One line, one time.
+                if (WeaponDive.Finished(weapon, out string finished))
+                {
+                    if (record.DiveStops < MaxDiveLogs) ModLog.Info("Defensive ECM: " + finished);
+                    continue;
+                }
+
                 string name = Name(weapon, range);
 
-                // 1. Break its lock, so it cannot correct what comes next.
+                // 1. It cannot correct what comes next.
                 WeaponDive.BreakLock(weapon, out _);
 
-                // 2. Push it down. The flag says it is at the waterline (or has run out of time).
-                WeaponDive.PushDown(weapon, out string descent, out bool waterline);
+                // 2. Point it down, gradually, from here.
+                bool diving = WeaponDive.Steer(weapon, out string descent, out bool atSurface);
 
-                if (!waterline) { busy = true; continue; }
+                if (atSurface)
+                {
+                    WeaponDive.AtSurface(weapon);
 
-                // 3. The sea.
-                bool sunk = WeaponDive.Water(weapon, out string splash);
+                    if (WeaponDive.Announce(weapon))
+                    {
+                        record.DiveStops = record.DiveStops + 1;
 
-                if (sunk) Inbound.Forget(ship, weapon);
+                        if (record.DiveStops <= MaxDiveLogs)
+                        {
+                            ModLog.Info("Defensive ECM: " + Name(ship) + " has " + name
+                                        + " on the water - " + (descent.Length > 0
+                                            ? descent + "; " : "")
+                                        + "the game's own sea impact takes it from here");
+                        }
+                    }
 
-                record.DiveStops = record.DiveStops + 1;
+                    busy = true;
+                    continue;
+                }
 
-                // One line per missile, not per tick: the game's lists take a moment to drop it.
-                if (record.DiveStops > MaxDiveLogs) { busy = true; continue; }
+                if (WeaponDive.Announce(weapon))
+                {
+                    record.DiveStops = record.DiveStops + 1;
 
-                ModLog.Info("Defensive ECM: " + Name(ship) + " put " + name + " in the water - "
-                            + (descent.Length > 0 ? descent + "; " : "") + splash);
+                    if (record.DiveStops <= MaxDiveLogs)
+                    {
+                        ModLog.Info("Defensive ECM: " + Name(ship) + " is pointing " + name
+                                    + " at the sea - " + (descent.Length > 0 ? descent
+                                        : "no height the mod can steer; the lock is broken and it "
+                                          + "is no longer correcting"));
+                    }
+                }
 
-                busy = true;
+                busy |= diving;
             }
             catch (Exception error)
             {
