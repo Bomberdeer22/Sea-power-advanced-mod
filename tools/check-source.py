@@ -84,10 +84,10 @@ MOD_TYPES = [
     "Capabilities", "Capability", "CapabilityReport", "MemberProbe", "SensorControl",
     "GameWorld", "UnitState", "UnitRecord", "WeaponStatusControl",
     "WaypointControl", "FlightDeckControl", "Inbound", "EcmControl", "DefensiveEcm", "OffensiveEcm", "SensorSet", "UnitFit", "MapProjection", "Selection",
-    "EcmConeOverlay", "EcmBeam", "TrafficDiagnostics", "RouteContainers", "TrafficRequest",
-    "Multiplayer", "MapArea", "TrafficMenu",
+    "EcmConeOverlay", "EcmBeam",
+    "Multiplayer",
     "HatchMenu", "FleetMenu", "FleetMenuPatch", "MenuRouting", "MenuReport",
-    "HatchBay", "HatchControl", "HatchGroup", "ShipReport", "TrafficPanel",
+    "HatchBay", "HatchControl", "HatchGroup", "ShipReport",
     "FleetTicker", "Blink", "AutoArm", "SalvoPlan", "Breakaway", "Readiness",
     "ThreatAxis", "HeloPatterns", "SearchPattern", "Replenishment", "MerchantDisguise",
     "LocalControl", "SprintDrift",
@@ -129,7 +129,7 @@ DOTNET_TYPES = {
     "MonoBehaviour", "Matrix4x4", "Object", "Rect", "Screen", "Texture2D", "TextureFormat",
     "Time", "Vector2", "Vector3", "Color", "Camera", "Transform", "Quaternion", "Resources",
     "Application", "Debug", "Font", "GUIContent", "GUISkin", "Event", "EventType",
-    "FontStyle", "TextAnchor", "GUIUtility", "ImagePosition",
+    "FontStyle", "TextAnchor",
 }
 
 # A name in a type position that is none of these is reported. Type positions are deliberately a

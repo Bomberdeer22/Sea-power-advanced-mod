@@ -74,7 +74,7 @@ That distinction is the whole reason the two files (`capabilities.txt` from the 
 |---|---|---|
 | Sprint-and-drift ASW | READY (evidence solid) | Buildable: towed sonar switch confirmed, throttle discovered at runtime, `UnitState` holds the phase. |
 | Radar blink cycling | READY, but on junk evidence | Buildable if the radar switch exists under any name; the mod finds it at runtime and puts radars back as it found them. If it does not exist, blink falls back to mod-owned state and is reported as such. |
-| Helo search patterns | READY | Buildable: `setWaypointTask` is already proven by the civilian traffic feature. |
+| Helo search patterns | READY | Buildable: `setWaypointTask` is proven by the game's own call sites. |
 | Chaff and hard rudder | PARTIAL (course ordering) | Chaff reachable (`decoySystems`); heading order is looked up at runtime among four plausible names. |
 | Cold cruise / general quarters | PARTIAL | Unblocked by `UnitState`; the *effect* needs the reload timer. |
 | Battle stations fatigue | PARTIAL | Unblocked as state; effect likewise. |

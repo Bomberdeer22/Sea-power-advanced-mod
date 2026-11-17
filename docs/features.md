@@ -204,7 +204,7 @@ A jammer is directional and a menu cannot show you which way it is pointing, so 
 The beams are deliberately long and narrow - they are bearings, not areas, and a cone wide enough to
 look like a search fan would be telling you something that is not true.
 
-| How it is drawn | IMGUI, the same way the civilian traffic panel is - no assets, no XAML |
+| How it is drawn | IMGUI, like the rest of the overlay - no assets, no XAML |
 |---|---|
 | Where the ends come from | `Interop/MapProjection.cs`: the game's own `GeoPosition`-to-world conversion if one exists, otherwise the unit's Unity transform, projected through the active camera |
 | If neither exists | nothing is drawn, one line appears at the bottom of the screen saying so, and `ecm-cone.txt` records exactly what was looked for. A cone in the wrong place would be worse than none |
@@ -214,75 +214,7 @@ look like a search fan would be telling you something that is not true.
 If the cones do not appear, `ecm-cone.txt` in the mod folder says which of the two projection routes
 was tried and what the camera was - that file is the thing to send.
 
-## 2e. Civilian traffic — `Civilian traffic` in the right-click menu
-
-**Right-click any unit in the mission editor → Civilian traffic.** That is the whole way in: the
-game's own menu, the same one every other feature in this mod lives in, so it works with a mouse and
-looks like the rest of the game.
-
-```
-Civilian traffic  ▸
-    Zone: none - draw one or use the map area
-    Draw a zone on the map
-    Use the map area around your units
-    Clear the zone
-    Ships at a time: 2-6 - click to change
-    Aircraft at a time: 0-2 - click to change
-    Spawn traffic now
-    Remove generated traffic
-    Last: nothing spawned yet this session
-    Check setup - writes traffic-report.txt
-```
-
-Why it is not a floating window any more: the panel drew, but the game's own interface layer
-swallowed the mouse, so **no button in it could be clicked**. Every function is a menu entry now, and
-the two things a menu cannot do are handled rather than left out:
-
-| A menu cannot... | So... |
-|---|---|
-| take typed numbers | the counts **cycle** through presets when clicked: ships `none → 1-2 → 2-4 → 2-6 → 4-10 → 8-20 → 16-40`, aircraft `none → 1-2 → 2-4 → 4-8 → 8-16` |
-| pop up a message | every action reports twice: the game's own on-screen order feedback on the unit you clicked, and the **`Last:`** line at the bottom of the submenu, which is still there next time you open it |
-
-The order of a first run: **Use the map area around your units** (or **Draw a zone on the map**),
-set the two counts, **Spawn traffic now**, then save the mission.
-
-The **F8 panel** still exists if you want it, but nothing depends on it any more.
-
-### Two ways to make a zone
-
-| Entry | What it does | When to use it |
-|---|---|---|
-| **Draw a zone on the map** | Hands the mouse to the game's own polygon tool. Left-click points, then **Finish the zone** (the entry changes to that while drawing) or middle-click | When you want a specific stretch of sea |
-| **Use the map area around your units** | Builds a zone from the sea the mission's units are already in: their bounding box plus 30% | When drawing does not work, or you just want traffic where the action is |
-
-The zone line always says which of the two is in use and how big it is. If neither exists,
-**Spawn traffic** says so instead of doing nothing.
-
-### What was wrong, and what was rebuilt
-
-| Fault | Why it made the feature look dead | What it does now |
-|---|---|---|
-| It was an IMGUI window | The game's own UI layer consumed the mouse, so it drew but **nothing in it could be clicked** | **The game's own right-click menu.** No separate input path to lose |
-| Four text fields | Typing into IMGUI inside a fullscreen game fights the game's own input | Counts cycle through presets on click |
-| The result was one line, overwritten by the next click | You could not see what had happened | On-screen order feedback plus a **`Last:`** line in the submenu |
-| The route list had to be a `List<CivilianRoute>` exactly | A mission holding any other collection type - including the observable collection the game's own view models use - was refused with "not a list of routes the mod can write to". This is very likely why nothing ever spawned | Any `IList` is accepted, added to through `IList.Add`, and the **count is read back** so a list that swallows the add is reported as such |
-| A route needed all forty of `CivilianRoute`'s private fields, or it was thrown away | One renamed optional field - a diagnostic counter, a loadout list - discarded every route, and the only clue was a "Problems: no field ..." tail | **Four essential fields**, everything else best-effort. The ones this build lacks are named in `traffic-report.txt` instead of failing the route |
-| `Globals._neutralTaskforce` had to be non-null before anything happened | In the editor it often is null, so the feature refused before it started | The taskforce is looked for, and if none is found the route is still created and the report says so |
-| Nothing checked whether the routes actually landed | "Added 2 lanes" could be printed while the list never changed | The report now reads **"The list now holds N route(s)"**, and zero added is reported with the reason |
-
-### If it still does nothing
-
-Press **Check setup** (in the submenu, or on the F8 panel). `traffic-report.txt` in the mod folder lists
-every prerequisite with an `ok` or `--` mark and the exact type of the list that was found:
-
-```
-  --   civilian route list   no civilian route list found (see traffic-report.txt)
-  ok   civilian route list   MissionEditorViewModel.Mission._civilianRoutes (0 route(s)) [TrulyObservableCollection<CivilianRoute>]
-```
-
-That file, plus the panel's own log line, is everything needed to say which link is missing.
-
-## 2f. Using it with the multiplayer mod
+## 2e. Using it with the multiplayer mod
 
 The multiplayer mod (`SeapowerMultiplayer`, `com.seapowermultiplayer.plugin`) is supported: the mod
 detects it, works out whether this machine is the host or the client, and changes what it promises

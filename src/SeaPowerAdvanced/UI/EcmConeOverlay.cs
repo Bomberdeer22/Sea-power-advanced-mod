@@ -23,8 +23,8 @@ namespace SeaPowerAdvanced.UI;
 ///   visible before it is used.</item>
 /// </list>
 ///
-/// Everything is drawn in IMGUI, the same way the civilian traffic panel is, because that needs no
-/// assets and no XAML. The two ends of each beam come from <see cref="MapProjection"/>, which finds
+/// Everything is drawn in IMGUI, which needs no assets and no XAML. The two ends of each beam come
+/// from <see cref="MapProjection"/>, which finds
 /// the game's own position conversion or the unit's transform. If neither exists the overlay draws
 /// nothing, says so once in the log and in <c>ecm-cone.txt</c>, and never guesses a screen position.
 /// </summary>

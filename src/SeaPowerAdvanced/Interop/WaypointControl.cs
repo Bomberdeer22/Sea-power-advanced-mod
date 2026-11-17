@@ -30,7 +30,7 @@ internal static class WaypointControl
 
         try
         {
-            // Prefer the three-argument form the civilian route code uses; fall back to any
+            // Prefer the three-argument form the game's own route code uses; fall back to any
             // overload with the same name if this build's shape differs.
             push = MemberProbe.Method(typeof(ObjectBase), 3, "setWaypointTask")
                    ?? MemberProbe.Method(typeof(ObjectBase), null, "setWaypointTask");

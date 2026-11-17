@@ -90,7 +90,6 @@ internal static class Boot
 
             // Its own patch, so a hatch-menu skip cannot take the features with it.
             FleetMenuPatch.Install(harmony);
-            TrafficPanel.Install();
 
             // The map cones: a beam from every jammer to what it is holding.
             EcmConeOverlay.Install();
@@ -100,15 +99,13 @@ internal static class Boot
             FleetTicker.Install();
 
             ModLog.Info("Ready. Right-click a ship > Orders > Weapon hatches.");
-            ModLog.Info("Mission editor: press " + ModSettings.TrafficToggleKey
-                        + " for the Civilian traffic panel.");
             ModLog.Info("Advanced features: " + (ModSettings.FeaturesEnabled ? "on" : "OFF")
                         + " (Features/Enabled). They are added to the right-click menu the first time "
                         + "a menu is opened; menu-report.txt records where each one went.");
         }
         catch (Exception error)
         {
-            ModLog.Error("Startup failed; hatch control and civilian traffic are unavailable", error);
+            ModLog.Error("Startup failed; no menus were patched and no feature will work", error);
             try { harmony?.UnpatchSelf(); }
             catch (Exception rollback) { ModLog.Error("Patch rollback failed", rollback); }
         }

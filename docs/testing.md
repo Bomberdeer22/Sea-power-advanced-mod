@@ -1,9 +1,9 @@
 # Test plan
 
-Run this once per game version, and after any change to `HatchControl`, `HatchMenu`,
-`TrafficGenerator` or `RouteFactory`.
+Run this once per game version, and after any change to `HatchControl`, `HatchMenu` or the
+feature menus.
 
-Version under test: **0.15.0**. Mod id `io.github.bomberdeer22.seapoweradvanced`.
+Version under test: **0.15.1**. Mod id `io.github.bomberdeer22.seapoweradvanced`.
 
 **Read the log, do not guess.** Everything below is confirmed by two files:
 
@@ -35,16 +35,15 @@ If `seapoweradvanced.log` is missing, nothing else in this plan can pass — sto
 
 In `LogOutput.log`, BepInEx's own banner should appear:
 
-- [ ] `Loading [Sea Power Advanced 0.15.0]`
+- [ ] `Loading [Sea Power Advanced 0.15.1]`
 
 Then the mod's own startup lines:
 
-- [ ] `Sea Power Advanced: ================ Sea Power Advanced 0.15.0 ================`
+- [ ] `Sea Power Advanced: ================ Sea Power Advanced 0.15.1 ================`
 - [ ] `Sea Power Advanced: Entry point:  BepInEx plugin`
 - [ ] `Sea Power Advanced: Settings: enabled=True includeGuns=False ...`
 - [ ] `Sea Power Advanced: Patched MapUnitViewModel.GetContextMenuItems.`
 - [ ] `Sea Power Advanced: Context menu patch is live (...)`
-- [ ] `Sea Power Advanced: Civilian traffic panel ready (F8 toggles it inside the mission editor).`
 - [ ] `Sea Power Advanced: Ready. Right-click a ship > Orders > Weapon hatches.`
 - [ ] No `Could not patch`, no `Startup failed`
 
@@ -179,47 +178,6 @@ Full description of each: [features.md](features.md). Right-click one of your sh
       range` and the aircraft's radar comes back
 - [ ] An aircraft beyond 90 nm is **not** offered - that is the horizon, not a bug
 
-## 7. Civilian traffic (mission editor)
-
-The way in is now the game's own menu, because the F8 panel drew but could not be clicked.
-
-**The menu**
-
-- [ ] Open the **mission editor**, place a unit, right-click it
-- [ ] A **Civilian traffic** section is at the top level of that menu, and it opens
-- [ ] Its first entry reads `Zone: none - draw one or use the map area`
-- [ ] The game's log (not the mod's) gains no error; `seapoweradvanced.log` reads
-      `Civilian traffic: the mission editor is open, so the traffic menu is in every unit's
-      right-click menu under 'Civilian traffic'.`
-- [ ] In a **running mission** the section is absent, and the log says why once
-
-**Making a zone without drawing**
-
-- [ ] **Use the map area around your units** → the on-screen feedback names how many units were used,
-      and reopening the menu shows `Zone: map area, ~N nm²`
-
-**Spawning**
-
-- [ ] Click **Ships at a time** twice: the label cycles (`2-6` → `4-10`) and the feedback confirms
-- [ ] **Spawn traffic now**: the on-screen feedback and the `Last:` line both contain
-      **`The list now holds N route(s)`**
-- [ ] If it says `Nothing was added ...`, the same sentence names the reason - send it verbatim
-- [ ] **Save the mission**, then play it: the ships appear inside the zone, not outside it
-- [ ] They keep coming back after finishing their run
-- [ ] **Remove generated traffic** takes them back out
-- [ ] Repeat with aircraft instead of ships
-
-**Drawing, if you want it**
-
-- [ ] **Draw a zone on the map** → click 4–6 points → **Finish the zone**: the `Zone:` line shows the
-      point count and an area
-
-**When it fails**
-
-- [ ] **Check setup - writes traffic-report.txt**: the file lists every prerequisite `ok`/`--` and
-      the exact type of the route list it found
-- [ ] Send that file plus the `Last:` line
-
 ## 8. Disable
 
 - [ ] Up the `General/Enabled` toggle in
@@ -256,8 +214,6 @@ mod folder is the file that answers everything below.
 - **Which numbered checks failed** — just the numbers, that is enough.
 - `seapoweradvanced.log` (mod folder) for anything that failed, and the matching `LogOutput.log` lines.
 - `hatch-report.txt` for anything hatch-related that did not move.
-- For traffic: the ship class and mount for any hatch that did not move, and whether the units
-  appeared in the right place, off the coast, or not at all.
 - In a multiplayer session: `multiplayer.txt`, plus the multiplayer mod's `LogOutput.log` lines for
   the same minute — a refused order is logged on both sides.
 

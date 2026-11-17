@@ -125,9 +125,9 @@ knowing before committing.
 the hull's quiet speed, sprint to catch up, repeat. It needs only speed control and a sonar, both of
 which very likely exist, and it is genuinely how ASW escorts behave.
 
-**10** is close behind, and partly de-risked already: the civilian traffic work showed that
-waypoints can be set on a unit (`setWaypointTask` is called from `CivilianRoute.ApplyRouteWaypoints`
-for every waypoint it applies). What is unverified is the launch half.
+**10** is close behind, and partly de-risked already: waypoints can be set on a unit
+(`setWaypointTask` is called from the game's own `CivilianRoute.ApplyRouteWaypoints` for every
+waypoint it applies). What is unverified is the launch half.
 
 **8** depends on formations being data the mod can write to, rather than an AI behaviour. If
 formations are opaque, the same effect can be approached from the other end — order the picket ship

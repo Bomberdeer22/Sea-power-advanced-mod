@@ -1,5 +1,27 @@
 # Changelog
 
+## 0.15.1 — civilian traffic removed
+
+The feature is gone, completely: the panel, the menu section, the route builder, the zone tool, the
+civilian catalogue, the diagnostics report, its settings, and every document that described it.
+
+It never put traffic into a mission. Three builds went into it - looking for the route list instead of
+assuming it, adding through `IList` instead of demanding a `List<T>`, making the field writes
+best-effort, moving the whole thing into the game's own right-click menu - and it still produced
+nothing. Leaving a feature in the mod that does not work is worse than not having it: it costs the
+player time, and it makes the features that *do* work look doubtful.
+
+**To be explicit about the state it was removed in:** the last build put a working **Civilian traffic**
+section into the game's own context menu, so the buttons could at last be clicked. It was the
+generation that still did not work, not the menu.
+
+What stays: everything else. Hatch control, radar blink, auto-ARM, the three ECM features and their
+cones, disaster-averting chaff, readiness and fatigue, threat axis, sprint-and-drift, helo patterns,
+disguise, replenishment, local control, salvo deconfliction, the multiplayer work.
+
+Removed from the config: the whole `CivilianTraffic` section. An existing `.cfg` keeps the stale keys
+harmlessly; the mod no longer reads them.
+
 ## 0.15.0 — civilian traffic moved into the game's own menu
 
 The panel drew, and nothing in it could be clicked. That is what a full-screen UI layer consuming
