@@ -235,24 +235,31 @@ Two ways in, and both end in the same place:
     hull carries the set. The contact does not have to be identified first.
   * Right-click your own ship -> Sensors -> Offensive ECM lock and pick a
     contact from the list (the contacts the task force holds, nearest first,
-    max 40 nm for ships and 90 nm for aircraft). The list is there whatever
+    max 150 nm for ships and 150 nm for aircraft). The list is there whatever
     the mode toggle says - picking a contact is what switches the mode.
 
 Aircraft and helicopters
 
-Planes can be locked too, and they are the case the range matters for. A
-jammer has to be inside the other radar's horizon, and the radio horizon is
-not the same for a masthead as for a wing:
+Planes can be locked too, and the reach is set separately for them:
 
   Ship or sea-skimming missile
-      Reach: JamRangeNm, 40 nm
-      Why: Both ends are a few metres above the water
+      Reach: JamRangeNm, 150 nm
+      Note: The mod's reach: what it will offer and how far it will hold a
+        lock. Whether the jam bites at that distance is the game's own ECM
+        model deciding
 
   Aircraft or helicopter
-      Reach: JamAirRangeNm, 90 nm
-      Why: A masthead sees 4.5 nm; an aircraft at 15,000 ft sees 65 nm on
-        its own, so the pair see each other at about 70 nm and further for a
-        high patrol
+      Reach: JamAirRangeNm, 150 nm
+      Note: Also 150 nm. In the real world this is the easier of the two - a
+        masthead sees 4.5 nm, an aircraft at 15,000 ft sees 65 nm on its own
+
+Stated plainly, because it is the one place this feature overreaches the
+physics: 150 nm ship-to-ship is well past the radio horizon. The mod will
+point the jammer and hold the order at that range; if the game's radar
+calculator decides the jam does not degrade a set that far away, that is the
+simulation's answer and the menu still shows the lock. What the second half -
+holding the target's own sensors down - does at range is unaffected, because
+it reaches the target's own switches rather than the other radar's receiver.
 
 Jamming an aircraft is not the same as jamming a ship, and the mod says so
 rather than pretending otherwise:
@@ -326,8 +333,9 @@ What the lock actually does
         DisableAllRadars(), DisableAirSearchRadars,
         DisableSurfaceSearchRadars, TowedSonarsSetActive(false),
         DisableActiveSonars, plus any ESM / jammer switch it exposes:
-        Features/JamRangeNm, default 40 nm against ships;
-        Features/JamAirRangeNm, default 90 nm against aircraft
+        Features/JamRangeNm, default 150 nm against ships;
+        Features/JamAirRangeNm, default 150 nm against aircraft. Both go to
+        300
 
   Cost
       The game's own jam order (setOrder(Order.Type.Jam, ...), unit and
@@ -722,13 +730,12 @@ BepInEx/config/io.github.bomberdeer22.seapoweradvanced.cfg, section Features:
       Meaning: Seconds between ships released in a salvo
 
   JamRangeNm
-      Default: 40
+      Default: 150
       Meaning: Reach of the focused offensive jammer against a ship
 
   JamAirRangeNm
-      Default: 90
-      Meaning: Reach against an aircraft or helicopter - both ends are high
-        above the radio horizon
+      Default: 150
+      Meaning: Reach against an aircraft or helicopter
 
   ShowEcmCone
       Default: true

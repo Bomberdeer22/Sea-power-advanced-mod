@@ -133,18 +133,24 @@ Two ways in, and both end in the same place:
   names it in the label, so you do not have to work out which hull carries the set. **The contact does
   not have to be identified first.**
 - **Right-click your own ship → Sensors → Offensive ECM lock** and pick a contact from the list (the
-  contacts the *task force* holds, nearest first, max 40 nm for ships and 90 nm for aircraft). The
+  contacts the *task force* holds, nearest first, max 150 nm for ships and 150 nm for aircraft). The
   list is there whatever the mode toggle says - picking a contact is what switches the mode.
 
 ### Aircraft and helicopters
 
-Planes can be locked too, and they are the case the range matters for. A jammer has to be inside the
-other radar's horizon, and the radio horizon is not the same for a masthead as for a wing:
+Planes can be locked too, and the reach is set separately for them:
 
-| Target | Reach | Why |
+| Target | Reach | Note |
 |---|---|---|
-| Ship or sea-skimming missile | `JamRangeNm`, 40 nm | Both ends are a few metres above the water |
-| Aircraft or helicopter | `JamAirRangeNm`, 90 nm | A masthead sees 4.5 nm; an aircraft at 15,000 ft sees 65 nm **on its own**, so the pair see each other at about 70 nm and further for a high patrol |
+| Ship or sea-skimming missile | `JamRangeNm`, **150 nm** | The mod's reach: what it will offer and how far it will hold a lock. Whether the jam bites at that distance is the game's own ECM model deciding |
+| Aircraft or helicopter | `JamAirRangeNm`, **150 nm** | Also 150 nm. In the real world this is the easier of the two - a masthead sees 4.5 nm, an aircraft at 15,000 ft sees 65 nm on its own |
+
+**Stated plainly, because it is the one place this feature overreaches the physics:** 150 nm
+ship-to-ship is well past the radio horizon. The mod will point the jammer and hold the order at that
+range; if the game's radar calculator decides the jam does not degrade a set that far away, that is
+the simulation's answer and the menu still shows the lock. What the second half - holding the
+target's own sensors down - does at range is unaffected, because it reaches the target's own switches
+rather than the other radar's receiver.
 
 Jamming an aircraft is not the same as jamming a ship, and the mod says so rather than pretending
 otherwise:
@@ -193,7 +199,7 @@ mod could not see the picture".
 | Drives | The game's own jam order (`setOrder(Order.Type.Jam, ...)`, unit and bearing forms), and - for the second half - the target's own switches: `DisableAllRadars()`, `DisableAirSearchRadars`, `DisableSurfaceSearchRadars`, `TowedSonarsSetActive(false)`, `DisableActiveSonars`, plus any ESM / jammer switch it exposes |
 |---|---|
 | Reads | Its radiator state (`IsAirSearchRadarsOn`, `IsSurfaceSearchRadarsOn`), its sensor fit (`HasTowedSonar`, `HasActiveSonar`), its hull signature from its parameter block |
-| Range | `Features/JamRangeNm`, default 40 nm against ships; `Features/JamAirRangeNm`, default 90 nm against aircraft |
+| Range | `Features/JamRangeNm`, default **150 nm** against ships; `Features/JamAirRangeNm`, default **150 nm** against aircraft. Both go to 300 |
 | Cost | **None in emissions.** This mode runs on EMCON: it never switches the attacking ship's radar on, so the jammer gives away nothing while it works. (The defensive feature does need air search - it is locking onto a missile, not a contact.) |
 | Result you will see | The game's jam, immediately, from the lock. Then, if the second half is ordered: *every sensor off*, or *NOT all sensors off - <sensor> would not switch off on this build*. The second is not a bug in the lock: it means the game gives no way to reach that one sensor family, so it is still working. The menu names it and `offensive-ecm.txt` lists it as `STILL`. The mod does not edit the target's picture to hide that. On an unidentified contact there is no second half to order, and the menu says so rather than offering a button that cannot do anything. |
 | Honest limit | The effect lasts as long as the lock is held. It is not a permanent state change to the other ship's data, and it stops the moment the lock is released - which is why the mod re-asserts rather than setting it once. |
@@ -405,8 +411,8 @@ more slowly than tiring, so there is a real cost to leaving the fleet closed up 
 | `Enabled` | `true` | Add the eight submenus at all |
 | `BlinkSeconds` | `6` | Seconds between radar blink flips (raised to 12 in a multiplayer session) |
 | `SalvoSpacingSeconds` | `8` | Seconds between ships released in a salvo |
-| `JamRangeNm` | `40` | Reach of the focused offensive jammer against a ship |
-| `JamAirRangeNm` | `90` | Reach against an aircraft or helicopter - both ends are high above the radio horizon |
+| `JamRangeNm` | `150` | Reach of the focused offensive jammer against a ship |
+| `JamAirRangeNm` | `150` | Reach against an aircraft or helicopter |
 | `ShowEcmCone` | `true` | Draw the ECM cones on the map |
 | `EcmDiveNm` | `2` | How close a missile gets before an armed defensive jammer puts it in the water |
 

@@ -183,9 +183,10 @@ Full description of each: [features.md](features.md). Right-click one of your sh
 - [ ] **Hold its sensors down too**: the log reads either `every sensor off` or
       `NOT all sensors off - <family>` with
       the aircraft named; the radar on the map goes quiet
-- [ ] Let it fly beyond `JamAirRangeNm` (90 nm by default): the log reads `lost the lock on ... out of
+- [ ] Let it fly beyond `JamAirRangeNm` (150 nm by default): the log reads `lost the lock on ... out of
       range` and the aircraft's radar comes back
-- [ ] An aircraft beyond 90 nm is **not** offered - that is the horizon, not a bug
+- [ ] An aircraft beyond 150 nm is **not** offered - that is the reach, not a bug
+- [ ] A contact 100 nm out **is** offered, and the beam reaches it - the old 90 nm limit is gone
 
 ## 7b. The close-in dive (defensive ECM at 2 nm)
 

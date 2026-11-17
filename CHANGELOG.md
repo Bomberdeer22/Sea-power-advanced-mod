@@ -1,5 +1,21 @@
 # Changelog
 
+## 0.18.1 — offensive ECM reaches 150 nm
+
+`JamRangeNm` and `JamAirRangeNm` both default to **150 nm** now, up from 40 and 90, and both go up to
+300. That is the range at which the focused jammer will offer a contact, point at it and hold it.
+
+**A config written before this build is moved with it.** BepInEx keeps whatever is already in the
+`.cfg`, so a player who never edited these would have stayed at 40/90 and concluded nothing had
+changed. On load, a stored value that is *exactly* the old default (40 or 90) is written up to 150;
+any value you chose yourself is left alone. Change the key by hand if you want a different reach.
+
+**The honest note, in the docs as well as here:** 150 nm ship-to-ship is well past the radio horizon.
+The mod will point the jammer and hold the order at that range; if the game's own radar calculator
+decides the jam does not degrade a set that far away, that is the simulation's answer. The second
+half of the feature - holding the target's own sensors down - is unaffected by physics at range,
+because it reaches the target's switches rather than the other radar's receiver.
+
 ## 0.18.0 — the shield is gone; the jammer puts missiles in the water instead
 
 The missile shield is **removed**. It was an invulnerability switch wearing a feature's clothes: every

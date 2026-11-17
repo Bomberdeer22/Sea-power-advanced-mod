@@ -74,7 +74,7 @@ internal static class OffensiveEcm
     private const float AssertSeconds = 0.1f;
 
     /// <summary>How far the focused jammer reaches against a ship. Beyond this the lock drops.</summary>
-    private static float RangeNm => Mathf.Clamp(ModSettings.JamRangeNm, 5f, 200f);
+    private static float RangeNm => Mathf.Clamp(ModSettings.JamRangeNm, 5f, 300f);
 
     /// <summary>How far it reaches against something airborne - see ModSettings.JamAirRangeNm.</summary>
     private static float AirRangeNm => Mathf.Clamp(ModSettings.JamAirRangeNm, 5f, 300f);
@@ -82,10 +82,11 @@ internal static class OffensiveEcm
     /// <summary>
     /// How far this jammer can hold a particular contact.
     ///
-    /// Two figures, because there are two geometries. A ship or a missile skimming the sea is close
-    /// to the horizon at both ends, which is why <c>JamRangeNm</c> is short. An aircraft is not: the
-    /// radio horizon from 15,000 ft is about 65 nm by itself, so a masthead and an aircraft see each
-    /// other at roughly seventy miles and the jammer can work at that range too.
+    /// Two figures, because the two are configured separately: <c>JamRangeNm</c> for a ship or a
+    /// missile skimming the sea, <c>JamAirRangeNm</c> for anything airborne. Both default to 150 nm.
+    /// This is the reach the mod uses to decide what to offer and when to let go of a lock - the
+    /// game's own ECM model still decides whether the jam bites at that distance, and a masthead
+    /// jamming a ship's radar at 150 nm is well past the radio horizon in the real world.
     /// </summary>
     internal static float Reach(ObjectBase? contact) =>
         UnitFit.IsAir(contact) ? AirRangeNm : RangeNm;
