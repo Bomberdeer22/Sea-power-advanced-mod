@@ -49,12 +49,10 @@ internal static class WeaponDive
         internal int Route;
     }
 
-    /// <summary>One weapon being put down: when it started, and which ship called it in.</summary>
+    /// <summary>One weapon being put down: when it started, and the last height read off it.</summary>
     private sealed class Dive
     {
         internal float Started;
-        internal string Ship = "";
-        internal bool Logged;
         internal float Height = float.NaN;
     }
 
@@ -111,7 +109,7 @@ internal static class WeaponDive
     /// One tick of descent for a weapon that is inside the dive range: push its height down and tell
     /// the caller whether it has reached the water (or run out of time).
     /// </summary>
-    internal static bool PushDown(object? weapon, string ship, out string note, out bool waterline)
+    internal static bool PushDown(object? weapon, out string note, out bool waterline)
     {
         note = "";
         waterline = false;
@@ -122,7 +120,7 @@ internal static class WeaponDive
 
         if (!Diving.TryGetValue(weapon, out Dive? dive))
         {
-            dive = new Dive { Started = Time.unscaledTime, Ship = ship };
+            dive = new Dive { Started = Time.unscaledTime };
             Diving[weapon] = dive;
         }
 
@@ -151,12 +149,7 @@ internal static class WeaponDive
         {
             try
             {
-                GameObject? scene = asset switch
-                {
-                    Component component => component.gameObject,
-                    GameObject direct => direct,
-                    _ => null,
-                };
+                GameObject? scene = Scene(weapon);
 
                 if (scene != null)
                 {
@@ -205,6 +198,8 @@ internal static class WeaponDive
     {
         note = "";
 
+        if (weapon is null) return true;
+
         // Already gone: nothing to do, and nothing to report as a failure.
         if (weapon is UnityEngine.Object gone && gone == null) return true;
 
@@ -216,8 +211,8 @@ internal static class WeaponDive
             {
                 shape.Terminal.Invoke(weapon, null);
                 inTheWater++;
+                note = "in the water" + Altitude(weapon) + " (" + shape.TerminalName + "())";
                 Diving.Remove(weapon!);
-                note = "in the water (" + shape.TerminalName + "())";
                 return true;
             }
             catch (Exception error)
@@ -230,10 +225,18 @@ internal static class WeaponDive
         {
             try
             {
-                UnityEngine.Object.Destroy(asset.gameObject);
+                // Destroy the scene object when there is one - a weapon component lives on a
+                // GameObject - and the object itself otherwise. UnityEngine.Object has no
+                // gameObject member; Component and GameObject do, which is what Scene() is for.
+                GameObject? scene = Scene(weapon);
+                UnityEngine.Object target = scene != null ? scene : asset;
+
+                UnityEngine.Object.Destroy(target);
+
                 inTheWater++;
-                Diving.Remove(weapon!);
-                note = "in the water (destroyed - no terminal method on this build)";
+                note = "in the water" + Altitude(weapon)
+                       + " (destroyed - no terminal method on this build)";
+                Diving.Remove(weapon);
                 return true;
             }
             catch (Exception error)
@@ -247,6 +250,27 @@ internal static class WeaponDive
         note = note.Length > 0 ? note : "no way to take this weapon down";
         return false;
     }
+
+    /// <summary>Where the weapon had got down to when it went in, for the log line.</summary>
+    private static string Altitude(object weapon)
+    {
+        if (!Diving.TryGetValue(weapon, out Dive? dive)) return "";
+        if (float.IsNaN(dive.Height)) return "";
+
+        return " from " + dive.Height.ToString("0") + " m";
+    }
+
+    /// <summary>
+    /// The scene object behind a weapon: its GameObject when it is a component, itself when it is a
+    /// GameObject, and nothing when it is neither. <c>UnityEngine.Object</c> is the base of both and
+    /// has no <c>gameObject</c> member, which is why this is asked as a question rather than assumed.
+    /// </summary>
+    private static GameObject? Scene(object? thing) => thing switch
+    {
+        Component component => component.gameObject,
+        GameObject direct => direct,
+        _ => null,
+    };
 
     /// <summary>Forgets a weapon that has gone, so the dive table does not grow all mission.</summary>
     internal static void Forget(object? weapon)

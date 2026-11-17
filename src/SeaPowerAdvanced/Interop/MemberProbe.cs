@@ -135,8 +135,9 @@ internal static class MemberProbe
         return null;
     }
 
-    /// <summary>Reads a field or a property through reflection; null if it is not readable.</summary>
-    internal static object? Read(MemberInfo? member, object target)
+    /// <summary>Reads a field or a property through reflection; null if it is not readable. The target
+    /// is null for a static member, which is how the game's own globals are read.</summary>
+    internal static object? Read(MemberInfo? member, object? target)
     {
         if (member == null) return null;
         try

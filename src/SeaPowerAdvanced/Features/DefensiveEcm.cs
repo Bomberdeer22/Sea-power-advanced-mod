@@ -250,8 +250,7 @@ internal static class DefensiveEcm
                 WeaponDive.BreakLock(weapon, out _);
 
                 // 2. Push it down. The flag says it is at the waterline (or has run out of time).
-                bool down = WeaponDive.PushDown(weapon, Name(ship), out string descent,
-                                                out bool waterline);
+                WeaponDive.PushDown(weapon, out string descent, out bool waterline);
 
                 if (!waterline) { busy = true; continue; }
 

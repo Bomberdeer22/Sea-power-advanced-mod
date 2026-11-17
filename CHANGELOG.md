@@ -1,5 +1,22 @@
 # Changelog
 
+## 0.18.2 — build fix (the dive and the camera)
+
+One error and three warnings from 0.18.0/0.18.1:
+
+- **CS1061, `WeaponDive.cs`: `'Object' does not contain a definition for 'gameObject'`.** Right - and
+  it is the one place the distinction matters. `UnityEngine.Object` is the base of both `Component`
+  and `GameObject`, and only those two have a `gameObject`. The take-down now asks for the scene
+  object with a helper that handles both cases, destroys that when it exists and the object itself
+  when it does not. The descent route had the same switch inline; both now share the helper.
+- **CS8604** and **CS8625** are nullability warnings, cleared: the weapon is checked for null before
+  anything is read off it, and `MemberProbe.Read` now says in its signature what its callers already
+  do - a static member is read with a null target, which is how the game's own globals are read.
+- **CS0649**, a `Dive` field nothing assigned, removed. The dive's last known height is now used
+  where it is useful: the log line says how far it had got before it went in.
+
+Behaviour is unchanged from 0.18.1.
+
 ## 0.18.1 — offensive ECM reaches 150 nm
 
 `JamRangeNm` and `JamAirRangeNm` both default to **150 nm** now, up from 40 and 90, and both go up to
