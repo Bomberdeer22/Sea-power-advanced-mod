@@ -1,9 +1,50 @@
 # Changelog
 
-## Unreleased - updating and uninstalling, in the other direction
+## 0.20.0 - flown down, then handed to the game
 
-Two files that are the opposite of `build.cmd`, written while 0.19.0 is being tested. **No mod code
-changed**: the DLL is still 0.19.0, so the dive can be tested with these sitting next to it.
+The player's test of 0.19.0 found two things, and only one of them was a matter of taste.
+
+**It teleported.** The descent rate was a flat 12 m/s, so a weapon found at fifty feet was in the
+water in one and a quarter seconds. A dive nobody can see is not a dive.
+
+**It did not die, and that was 0.19.0's whole premise.** The build was written on the assumption that
+the game removes a weapon that reaches the surface, the way it removes a ship. It does not. The
+missile was held at about **50 ft** - which is very probably this build's skimming floor - and it
+stayed there, floating, while the mod had already stopped touching it because it believed the job was
+done. Worse, the model had been dragged to sea level while the simulation still had the weapon at its
+skimming height, so the thing that looked sunk and the thing on the ship's threat list were never the
+same object at the same place.
+
+So the dive is now:
+
+- **A descent time, chosen once, at the start.** At least 2.5 s, at most 40 s, from the height it was
+  found at; the height then follows a straight line over that time. A stutter cannot shorten it, a
+  long frame cannot jump it, and a weapon at 10,000 m no longer needs fourteen minutes.
+- **A nose that stops at 90 degrees.** It pitches at 6 deg/s, or **18 deg/s above 1,000 m** - a high
+  weapon's nose has a long way to travel and the way down is the point - and it never turns past
+  straight down.
+- **A model that follows the simulation, never below it.** The scene object is only ever moved *to*
+  the height the game reports. No more model in the water with the weapon at 50 ft.
+- **A floor, detected and reported.** If the game hands back the height that was written, three
+  times running, that is its skimming floor: `ecm-dive.txt` records it and the mod stops pretending it
+  can get under it.
+
+**And then the flight is ended by the game's own route.** At the waterline, or at that floor, the
+weapon is handed to the ways a game ends a flight it owns - **fuel to empty** (almost empty: a
+simulation handed an exact zero would divide by it), **life expired**, then **its own state machine**
+put into a state whose name says finished - one candidate per 1.5 s, each checked before the next is
+tried, warhead methods and `Destroy` still refused by name. Which routes exist, and what happened when
+each was tried, is written to `ecm-dive.txt` along with **the weapon type's whole member list**, so the
+next fix is written from fact rather than from another guess.
+
+`ecm-dive.txt` also gains a sweep, so a weapon the game throws away without telling anybody is
+forgotten instead of being held for the rest of the mission.
+
+## 0.20.0 tooling - updating and uninstalling, in the other direction
+
+Two files that are the opposite of `build.cmd`, added alongside the dive work above and **no mod code
+of their own**: they operate on a finished install, so they work on any version already in the game
+folder.
 
 **`build.cmd` assumes it is starting from nothing.** That is right for a first install and wasteful
 after that, and it says nothing useful about a version that is already in the game folder.

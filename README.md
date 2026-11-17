@@ -4,7 +4,7 @@ An advanced mod for **Sea Power: Naval Combat in the Missile Age**, built as an
 [Anchor Chain](https://github.com/SeaPower-Modders/AnchorChain) code mod and loadable as a plain
 BepInEx plugin.
 
-**Version 0.15.1** — advanced features for your own ships, plus per-cell hatch control.
+**Version 0.20.0** — advanced features for your own ships, plus per-cell hatch control.
 
 ### 1. Manual hatch control
 
@@ -37,7 +37,7 @@ Orders                      Weapon hatches (feature 1)
 Sensors                     radars, air/surface search only, active sonar, towed array,
                             EMCON profiles, radar blink, auto-ARM, defensive ECM,
                             offensive ECM (two modes, works on unidentified contacts), commercial
-                            disguise, and the close-in dive that puts jammed missiles in the sea
+                            disguise, and the close-in dive that flies jammed missiles down
 Engage                      deconflict the salvo, release everyone
 Rules of engagement         action stations / cold cruise, crew fatigue status
 Formation                   sprint and drift (this ship or the whole force),
@@ -59,9 +59,15 @@ happened through the game's own order-feedback text as well as the log.
 comes up automatically the moment a vampire is in the air - pointing at the missile itself and
 holding the lock, at the price of radiating air search while it works, because a jammer needs a
 fire-control quality bearing to know where to point. It stands down six seconds after the sky is
-clear and puts the radar back as it found it. What it cannot promise is that the missile misses:
-that is the game's own jamming model, not the mod's. `ecm-report.txt` says exactly which ECM members
-your install exposes and what the mod does with them.
+clear and puts the radar back as it found it. What it cannot promise is that the missile misses -
+that is the game's own jamming model, not the mod's - but inside ten miles it does two more things: it
+breaks the weapon's lock, and it flies the weapon down over a planned 2.5 to 40 seconds, nose stopping
+at ninety degrees, the model never dropped below the height the simulation reports. When it arrives,
+the flight is ended through the game's own routes - fuel, life, its own state machine - because this
+build of the game does **not** remove a weapon that reaches the sea; a test settled that. Nothing in
+the feature destroys a weapon and nothing sets a warhead off. `ecm-report.txt` and `ecm-dive.txt` say
+exactly which members your install exposes and what the mod does with them, down to the weapon type's
+whole member list.
 
 ### Multiplayer
 
@@ -117,7 +123,7 @@ that is there, does only what that version still needs, and writes down every de
 Both are described in [docs/updating.md](docs/updating.md).
 
 The DLL goes into `BepInEx\plugins\SeaPowerAdvanced\`, so **BepInEx loads it directly** — there is
-no mod-manager checkbox on this route. BepInEx's log then shows `Loading [Sea Power Advanced 0.15.1]`,
+no mod-manager checkbox on this route. BepInEx's log then shows `Loading [Sea Power Advanced 0.20.0]`,
 and the mod writes its own `seapoweradvanced.log` next to the DLL.
 
 ## Use it

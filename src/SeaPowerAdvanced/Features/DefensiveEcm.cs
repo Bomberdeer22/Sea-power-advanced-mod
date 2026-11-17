@@ -18,13 +18,17 @@ namespace SeaPowerAdvanced.Features;
 /// That is why this is a decision and not a freebie, and why it is armed per ship or per task force
 /// rather than switched on for the player.
 ///
-/// And it finishes the job at close range. A sea-skimmer whose seeker loses lock two miles out does
-/// not fly on towards the ship - it loses its height reference, stops correcting, and goes into the
-/// water. So once a missile is inside <see cref="DiveNm"/>, the jammer's lock on it is used for what
-/// it is worth: the weapon's own lock is broken and its height is driven down every tick until it is
-/// at the waterline. That is <see cref="WeaponDive"/>, and it is the one place this mod writes to a
-/// weapon rather than to a ship's sensors - deliberately, because a missile in the last two miles is
-/// a missile that has already been fired at somebody.
+/// And it finishes the job at close range. A sea-skimmer whose seeker loses lock does not fly on
+/// towards the ship - it loses its height reference, stops correcting, and goes down. So once a
+/// missile is inside <see cref="DiveNm"/>, the jammer's lock on it is used for what it is worth: the
+/// weapon's own lock is broken, its height is flown down, and when it arrives the weapon is handed to
+/// the game's own end-of-flight routes - fuel, life, its own state machine. That is
+/// <see cref="WeaponDive"/>, and it is the one place this mod writes to a weapon rather than to a
+/// ship's sensors - deliberately, because a missile inside the dive range is a missile that has
+/// already been fired at somebody.
+///
+/// The game does **not** remove a weapon that reaches the surface. 0.19.0 assumed it did; the test
+/// showed the missile held at fifty feet and left there. Hence the end-of-flight handover.
 ///
 /// What the mod does *not* claim: that every missile in the air will miss. Guns and rockets are not
 /// touched, and a missile outside the dive range is left to the simulation and to the jam. See
@@ -43,11 +47,11 @@ internal static class DefensiveEcm
     private const float FormationNm = 25f;
 
     /// <summary>
-    /// How close a missile gets before the jam is finished with it and it is put in the water.
+    /// How close a missile gets before the jam is finished with it and it is flown down.
     ///
-    /// Two miles is the number the player asked for and it is also the honest one: inside the
-    /// terminal defence envelope a jammed seeker has no time to re-acquire, and a sea-skimmer that
-    /// loses its height reference in the last few seconds ends up in the sea rather than on the ship.
+    /// Ten miles, because the descent has to be visible and the weapon has to be dealt with before it
+    /// is overhead: at six hundred knots a sea-skimmer covers two miles in twelve seconds. Ten gives
+    /// it about a minute, and the descent itself is capped at forty seconds.
     /// </summary>
     internal static float DiveNm => Mathf.Clamp(ModSettings.EcmDiveNm, 0f, 30f);
 
@@ -139,6 +143,10 @@ internal static class DefensiveEcm
         if (!ModSettings.FeaturesEnabled) return;
         if (Multiplayer.IsClient) return;
 
+        // Weapons the game has thrown away without telling anybody: forget them, or the dive's own
+        // bookkeeping holds every missile of the mission for ever.
+        WeaponDive.Sweep();
+
         List<ObjectBase> fleet = FleetTicker.Tracked();
         if (fleet.Count == 0) return;
 
@@ -214,11 +222,11 @@ internal static class DefensiveEcm
     /// <summary>
     /// Points every missile that has closed inside <see cref="DiveNm"/> at the sea.
     ///
-    /// It is steered, not killed: the lock is broken and the nose is walked down, far enough out
-    /// that the descent finishes well before the ship, and the game's own sea impact removes the
-    /// weapon - which is what happens to a missile that misses. Nothing here destroys the object and
-    /// nothing sets the warhead off; the previous build did both, and produced an explosion every
-    /// tick and then a NullReferenceException inside the game's own update.
+    /// It is steered, not killed: the lock is broken and the nose is flown down, far enough out that
+    /// the descent finishes well before the ship, and at the bottom the weapon is handed to the
+    /// game's own end-of-flight routes. Nothing here destroys the object and nothing sets the warhead
+    /// off; the previous builds did both, and produced an explosion every tick and then a
+    /// NullReferenceException inside the game's own update.
     ///
     /// Returns true when a weapon is being brought down, which tells the caller this ship has
     /// nothing else to do this tick.
@@ -279,9 +287,9 @@ internal static class DefensiveEcm
                         if (record.DiveStops <= MaxDiveLogs)
                         {
                             ModLog.Info("Defensive ECM: " + Name(ship) + " has " + name
-                                        + " on the water - " + (descent.Length > 0
+                                        + " down - " + (descent.Length > 0
                                             ? descent + "; " : "")
-                                        + "the game's own sea impact takes it from here");
+                                        + "the game's own end of flight is being used from here");
                         }
                     }
 
@@ -295,8 +303,8 @@ internal static class DefensiveEcm
 
                     if (record.DiveStops <= MaxDiveLogs)
                     {
-                        ModLog.Info("Defensive ECM: " + Name(ship) + " is pointing " + name
-                                    + " at the sea - " + (descent.Length > 0 ? descent
+                        ModLog.Info("Defensive ECM: " + Name(ship) + " is flying " + name
+                                    + " down - " + (descent.Length > 0 ? descent
                                         : "no height the mod can steer; the lock is broken and it "
                                           + "is no longer correcting"));
                     }

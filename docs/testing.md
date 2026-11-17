@@ -3,7 +3,7 @@
 Run this once per game version, and after any change to `HatchControl`, `HatchMenu` or the
 feature menus.
 
-Version under test: **0.15.1**. Mod id `io.github.bomberdeer22.seapoweradvanced`.
+Version under test: **0.20.0**. Mod id `io.github.bomberdeer22.seapoweradvanced`.
 
 **Read the log, do not guess.** Everything below is confirmed by two files:
 
@@ -35,11 +35,11 @@ If `seapoweradvanced.log` is missing, nothing else in this plan can pass — sto
 
 In `LogOutput.log`, BepInEx's own banner should appear:
 
-- [ ] `Loading [Sea Power Advanced 0.15.1]`
+- [ ] `Loading [Sea Power Advanced 0.20.0]`
 
 Then the mod's own startup lines:
 
-- [ ] `Sea Power Advanced: ================ Sea Power Advanced 0.15.1 ================`
+- [ ] `Sea Power Advanced: ================ Sea Power Advanced 0.20.0 ================`
 - [ ] `Sea Power Advanced: Entry point:  BepInEx plugin`
 - [ ] `Sea Power Advanced: Settings: enabled=True includeGuns=False ...`
 - [ ] `Sea Power Advanced: Patched MapUnitViewModel.GetContextMenuItems.`
@@ -193,18 +193,22 @@ Full description of each: [features.md](features.md). Right-click one of your sh
 - [ ] Arm a ship with a jammer: **Sensors → Defensive ECM: off - click to arm automatic jamming**
 - [ ] The entry reads `armed, waiting for a vampire` and names what the dive has done
 - [ ] Fire a missile at that ship and let it cross **10 nm**: the log shows
-      `Defensive ECM: <ship> is pointing <missile> at N nm at the sea - height ...`, **once**
-- [ ] **Watch it descend** over several seconds and go into the water. It must not explode in mid-air,
-      and it must not explode twice
-- [ ] It then disappears - `taken by the sea - the game removed it at the surface`. That is the game's
-      own sea impact, not the mod doing anything
+      `Defensive ECM: <ship> is flying <missile> down - height ... at start, ... at N s`, **once**
+- [ ] **Watch it descend.** It must move down steadily rather than jump, it must not explode in
+      mid-air, and it must not explode twice. A low, slow missile takes a couple of seconds to reach
+      the water; one high up takes up to forty
+- [ ] Its nose pitches over and **stops at 90°** — it does not keep turning past straight down
+- [ ] It then disappears: `taken by the game`. If it does not, the totals say `left where this build
+      puts them`, and `ecm-dive.txt` lists which of the game's end-of-flight routes were tried
 - [ ] The ship is not hit
 - [ ] **No exception in `LogOutput.log`** - in particular none in `GameMain.FixedUpdate`. If one
       appears, set `Features/EcmDiveNm` to `0`, restart, and send `ecm-dive.txt`: that narrows it to
-      the lock break rather than anything being removed
-- [ ] `ecm-dive.txt` names the weapon type's homing member and height member, and the route used
-- [ ] If the missile ends up sitting **on the water** and never disappears, `ecm-dive.txt` says
-      `left on the water` - send that file. The mod will not destroy it to hide that
+      the lock break rather than anything being handed over
+- [ ] `ecm-dive.txt` names the weapon type's homing member, height member, vertical member and
+      **every end-of-flight route found**, plus the type's whole member list
+- [ ] If it is held at a fixed height instead of reaching the water, `ecm-dive.txt` says
+      `the game holds it at N m` - that number is the skimming floor, and the report is what the next
+      fix is written from
 - [ ] Set `EcmDiveNm` to `0` and restart: missiles are jammed but never dived
 - [ ] Disarm defensive ECM and repeat: the missile hits as before, so the arming is the difference
 - [ ] Fire a **gun** at the same ship with defensive ECM armed: the shell still hits - stated limit

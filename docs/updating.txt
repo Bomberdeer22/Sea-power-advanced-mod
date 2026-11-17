@@ -141,6 +141,12 @@ explains the version jump rather than just announcing it.
         load. EcmDiveNm = 0 means "you switched the dive off", and that is
         left exactly as it is
 
+  < 0.20.0
+      Release: the dive is timed, the nose stops at 90 degrees, the flight
+        is ended through the game's own routes
+      On disk: nothing - all in the DLL
+      What update.cmd does: note only
+
   every release
       Release: -
       On disk: SeaPowerAdvanced.dll, _info.ini
