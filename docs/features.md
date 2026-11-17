@@ -265,47 +265,39 @@ Two limits worth stating plainly, because a player will otherwise read them as b
 2. **Damage, hits and sensor outcomes are the host's.** Nothing here claims a different result from the
    one the authoritative machine reached.
 
-## 2f. Missile shield — top level, **off by default**
+## 2f. The close-in dive — part of defensive ECM
 
-Nothing guided reaches the task force. This is the one feature in the mod that does **not** play by
-the simulation's rules, and it is built, labelled and documented as exactly that: a switch you can
-turn on, not a setting you discover is already on.
+This is what finishes a defensive jam, and it is the only thing in the mod that writes to a weapon
+rather than to a ship.
 
-### What it does
+A sea-skimmer that loses its seeker two miles out does not fly on towards the ship. It loses its
+height reference, stops correcting, and goes into the water. So once an armed ship's jammer has a
+missile inside **`EcmDiveNm` (2 nm by default)**:
 
-Every tick (20 times a second), for every one of your units - ships, submarines, aircraft,
-helicopters:
+1. **The weapon's own lock is broken** - the member it is homing on is set to `null`, so it can no
+   longer correct what comes next.
+2. **Its height is driven down**, every tick, through its own altitude member if this build has one,
+   otherwise through its transform (weapons *are* scene objects on this build - the multiplayer mod
+   rotates their transforms).
+3. **At the waterline it is taken down** - the game's own terminal method if it has one, otherwise
+   the object is removed. If neither the height member nor the transform moves it, a three second
+   deadline does the same job; `ecm-dive.txt` records which of the three routes did the work.
 
-1. **Break the lock.** Every guided weapon the game is tracking against that unit has the member it
-   is homing on written to `null`. The weapon keeps flying; it stops knowing where to. This is the
-   same state a missile is in when the ship it was fired at is sunk underneath it, so the game
-   already handles it.
-2. **Take it down when it matters.** When the weapon is on the game's own dangerous list
-   (`_dangerousMissiles` - the game's "this one is coming for you" list) or inside **2 nm**, its
-   flight is ended: the game's own terminal method if this build has one (`SelfDestruct`,
-   `Detonate`, `Expire`, `Abort`...), otherwise a plain `Destroy`. The ship's inbound list is cleaned
-   up afterwards so it is not left holding a reference to something that no longer exists.
+There is nothing to switch on and no separate cheat: it is what **armed defensive ECM** does at close
+range on any hull that carries a jammer. Disarm defensive ECM and it stops with it.
 
-### What it does not cover
-
-**Guns and rockets.** A shell is ballistic: there is no lock to break and nothing to point at, so it
-is not touched. The feature is a *missile* shield and not an invulnerability toggle, and the menu
-label says so.
-
-### How to switch it on
-
-Right-click any of your units → top level → **Missile shield: off - click to switch on (cheat)**.
-The setting `Features/MissileShield` in the `.cfg` decides what it starts as (default `false`); the
-menu entry toggles the same thing and wins for the rest of the session.
-
-| Refused on | A multiplayer **client** - weapons are simulated by the host, so a kill written here would be reverted. The menu says so rather than arming something that cannot work |
+| Needs | `Defensive ECM: off - click to arm automatic jamming` on that ship, or armed for the whole task force. A hull with no jammer never offers either |
 |---|---|
-| Logged | `Missile shield: <weapon> at N nm from <unit> - lost its lock; taken down by ...` - one line per weapon, capped per unit so a busy sky cannot flood the log |
-| Report | `missile-shield.txt` - what was read off each weapon type (the homing member, the terminal method), and a statement of what the shield does in order |
+| Range | `Features/EcmDiveNm`, 2 nm by default (0.5-10). Inside the terminal defence envelope a jammed seeker has no time to re-acquire |
+| Not covered | **Guns and rockets.** A shell has no lock to break and no seeker to put down, so it is never touched. The label says "missiles" for that reason |
+| Refused on | A multiplayer **client** - weapons are simulated by the host, so a kill written here would be reverted. Defensive ECM is not offered on a client at all |
+| Logged | `Defensive ECM: <ship> put <missile> at 1.2 nm in the water - height 40 m -> 0 m; in the water (Detonate())` - one line per missile, capped per ship so a busy sky cannot flood the log |
+| Report | `ecm-dive.txt` - what was read off each weapon type (homing member, height member, terminal method) and which route moved it down |
 
-If a weapon type exposes no readable homing member, the shield says `had no readable lock to break`
-and still tries the take-down; `missile-shield.txt` then lists what that type *does* have, which is
-the file to send if a missile ever gets through.
+If a weapon has **no** readable height member and no transform, it is removed at the end of the three
+seconds instead of visibly diving. That still keeps it off the ship, but the report says
+`nothing moved it down` - and that line, in `ecm-dive.txt`, is the one to send if missiles vanish
+rather than falling.
 
 ## 3. Commercial signature spoofing — `Deception`
 
@@ -416,12 +408,12 @@ more slowly than tiring, so there is a real cost to leaving the fleet closed up 
 | `JamRangeNm` | `40` | Reach of the focused offensive jammer against a ship |
 | `JamAirRangeNm` | `90` | Reach against an aircraft or helicopter - both ends are high above the radio horizon |
 | `ShowEcmCone` | `true` | Draw the ECM cones on the map |
-| `MissileShield` | `false` | **Cheat.** Start with the missile shield on. The menu entry toggles the same thing |
+| `EcmDiveNm` | `2` | How close a missile gets before an armed defensive jammer puts it in the water |
 
 ## What to send back if something misbehaves
 
 `seapoweradvanced.log` (mod folder), `capabilities.txt` and `ecm-report.txt` (same folder), plus
-`missile-shield.txt` if a missile got through with the shield on. The log
+`ecm-dive.txt` if a missile was not put down when it should have been. The log
 names every feature and its result per ship, so a single failed action is easy to find; the two
 report files say what the game actually exposes.
 

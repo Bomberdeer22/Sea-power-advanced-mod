@@ -54,9 +54,6 @@ public sealed class FleetTicker : MonoBehaviour
         try { OffensiveEcm.Tick(); }
         catch (Exception error) { ModLog.Error("Offensive ECM failed", error); }
 
-        try { MissileShield.Tick(); }
-        catch (Exception error) { ModLog.Error("Missile shield failed", error); }
-
         try { SalvoPlan.Tick(); }
         catch (Exception error) { ModLog.Error("Salvo release failed", error); }
 

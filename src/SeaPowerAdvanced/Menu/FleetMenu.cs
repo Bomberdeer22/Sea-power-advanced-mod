@@ -344,16 +344,21 @@ internal static class FleetMenu
             {
                 Add(DefensiveEcm.IsArmed(unit)
                     ? Action("Defensive ECM: " + DefensiveEcm.Describe(unit) + " - click to disarm",
-                        "Stops jamming incoming missiles automatically.",
+                        "Stops jamming incoming missiles automatically, and stops putting the close "
+                        + "ones in the water.",
                         () => Report(unit, "defensive ECM", DefensiveEcm.Toggle(unit, out string r), r))
                     : Action("Defensive ECM: off - click to arm automatic jamming",
                         "Points this ship's jammer at any missile inbound to it or to the task force, "
-                        + "and holds the lock. Defensive jamming needs air search; offensive does not.",
+                        + "and holds the lock. Any missile that gets inside "
+                        + (int)DefensiveEcm.DiveNm + " nm has its lock broken and is put in the "
+                        + "water. Needs air search; offensive jamming does not.",
                         () => Report(unit, "defensive ECM", DefensiveEcm.Toggle(unit, out string r), r)),
                     MenuRouting.Sensors);
 
                 Add(Action("Defensive ECM for the whole task force",
-                    "Arms automatic defensive jamming on every ship under command that carries ECM.",
+                    "Arms automatic defensive jamming on every ship under command that carries ECM - "
+                    + "including the close-in dive that puts missiles in the sea inside "
+                    + (int)DefensiveEcm.DiveNm + " nm.",
                     () => Fleet("defensive ECM (fleet)", DefensiveEcm.ArmFleet(true, out string r), r)),
                     MenuRouting.Sensors);
             }
@@ -493,22 +498,6 @@ internal static class FleetMenu
         Add(Action(BreakawayLabel, "Full ahead, hard rudder, chaff away - all at once, now.",
             () => Report(unit, "breakaway", Breakaway.Execute(unit, out string r), r)),
             Array.Empty<string>());
-
-        // The missile shield. Top level, because it is a task-force-wide switch and not a command to
-        // one ship, and labelled as what it is: the one feature here that does not play by the
-        // simulation's rules.
-        Add(Action(MissileShield.IsArmed
-                ? "Missile shield: ON (cheat) - click to switch off"
-                : "Missile shield: off - click to switch on (cheat)",
-            "Off by default. When on, every guided weapon aimed at one of your units has its lock "
-            + "broken every tick, and is taken down once the game flags it as dangerous or it comes "
-            + "inside 2 nm. Guns and rockets are not covered. missile-shield.txt records every "
-            + "weapon it touched.",
-            () => Report(unit, "missile shield", MissileShield.Toggle(out string r), r)),
-            Array.Empty<string>());
-
-        Add(Disabled("Missile shield: " + MissileShield.Describe(),
-            "What the shield is doing right now."), Array.Empty<string>());
 
         return entries;
     }

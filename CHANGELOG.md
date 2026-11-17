@@ -1,5 +1,33 @@
 # Changelog
 
+## 0.18.0 — the shield is gone; the jammer puts missiles in the water instead
+
+The missile shield is **removed**. It was an invulnerability switch wearing a feature's clothes: every
+guided weapon aimed at you was taken off the board, whether or not anything about your ship justified
+it. What replaces it is smaller, physical, and belongs to a feature that already exists.
+
+**Defensive ECM now finishes the job at close range.** A sea-skimmer whose seeker loses lock two miles
+out does not fly on towards the ship - it loses its height reference, stops correcting, and goes into
+the water. So once an armed ship's jammer has a missile inside **`EcmDiveNm` (2 nm by default)**:
+
+1. the weapon's own lock is broken - the member it is homing on is set to `null`, so it cannot
+   correct what comes next;
+2. its height is driven down every tick - through its own altitude member if this build has one,
+   otherwise through its transform, which weapons do have here;
+3. at the waterline it is taken down - the game's own terminal method if there is one, otherwise the
+   object is removed. If neither the height member nor the transform moves it, a three second
+   deadline does the same job.
+
+There is no switch to turn on, no cheat label, and no separate feature: it is what *armed defensive
+ECM* does at 2 nm on a hull that carries a jammer. Disarm the jammer and the dive stops with it. Guns
+and rockets are still not touched - a shell has no lock to break - and every missile put down is
+recorded in **`ecm-dive.txt`** with the route that did the work: `the weapon's own height member`,
+`its transform`, or `nothing moved it down - removed at the end of the dive`.
+
+Removed with the shield: `Features/MissileShield.cs`, `Interop/WeaponGuard.cs`, the top-level
+**Missile shield** menu entries, and the `Features/MissileShield` setting. A `.cfg` that still has
+that key keeps it harmlessly; the mod no longer reads it. The new key is `Features/EcmDiveNm`.
+
 ## 0.17.1 — the ECM cones can actually be drawn
 
 The cones reported that they could not work. The cause was structural: the overlay needs to turn a

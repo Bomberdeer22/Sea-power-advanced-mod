@@ -37,7 +37,7 @@ Orders                      Weapon hatches (feature 1)
 Sensors                     radars, air/surface search only, active sonar, towed array,
                             EMCON profiles, radar blink, auto-ARM, defensive ECM,
                             offensive ECM (two modes, works on unidentified contacts), commercial
-                            disguise, and an opt-in missile shield (a cheat, off by default)
+                            disguise, and the close-in dive that puts jammed missiles in the sea
 Engage                      deconflict the salvo, release everyone
 Rules of engagement         action stations / cold cruise, crew fatigue status
 Formation                   sprint and drift (this ship or the whole force),
@@ -327,8 +327,7 @@ src/SeaPowerAdvanced/
   Features/Replenishment.cs      ammunition from a supply ship alongside
   Features/DefensiveEcm.cs       automatic defensive jamming of missiles inbound to ship or force
   Features/OffensiveEcm.cs       two modes: the game's own, or focused jamming of one contact
-  Features/MissileShield.cs      the opt-in cheat: break every guided weapon aimed at your units
-  Interop/WeaponGuard.cs         a weapon's homing member and its terminal method, by reflection
+  Interop/WeaponDive.cs          a missile's lock broken and its height driven down, inside 2 nm
   Interop/OffensiveJam.cs        the game's jammer (a sensor system) and its own jam order
   Interop/ContactPicture.cs      the player's contacts, identified or not (plotting table)
   Features/FleetTicker.cs        the timers behind the timed features (no interface of its own)

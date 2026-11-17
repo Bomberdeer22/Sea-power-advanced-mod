@@ -24,7 +24,7 @@ internal static class ModSettings
     private static ConfigEntry<float>? jamRangeNm;
     private static ConfigEntry<float>? jamAirRangeNm;
     private static ConfigEntry<bool>? showEcmCone;
-    private static ConfigEntry<bool>? missileShield;
+    private static ConfigEntry<float>? ecmDiveNm;
 
     internal static bool Enabled => enabled?.Value ?? true;
     internal static bool IncludeGuns => includeGuns?.Value ?? false;
@@ -57,14 +57,13 @@ internal static class ModSettings
     internal static float JamAirRangeNm => jamAirRangeNm?.Value ?? 90f;
 
     /// <summary>
-    /// Whether the missile shield starts switched on.
+    /// How close a missile gets before a defensive jammer finishes with it and puts it in the water.
     ///
-    /// Off by default, and the only setting in the mod that asks the game to be something other than
-    /// a simulation. It is a cheat, in plain words: guided weapons aimed at your units have their
-    /// lock broken every tick and are taken down when they close. Everything else here works within
-    /// the rules; this does not, so it is the player's decision and it is recorded.
+    /// Two nautical miles by default. It is the terminal defence envelope: inside it a jammed seeker
+    /// has no time to re-acquire, which is why a jammed sea-skimmer ends up in the sea rather than on
+    /// the ship. Only defensive ECM uses it, and only on hulls that carry a jammer.
     /// </summary>
-    internal static bool MissileShield => missileShield?.Value ?? false;
+    internal static float EcmDiveNm => ecmDiveNm?.Value ?? 2f;
 
     /// <summary>Seconds between ships being released in a deconflicted salvo.</summary>
     internal static float SalvoSpacingSeconds => salvoSpacingSeconds?.Value ?? 8f;
@@ -117,12 +116,12 @@ internal static class ModSettings
                 + "miles (5-300). Longer than the ship figure because both ends are high above the "
                 + "radio horizon - roughly 70 nm for a masthead and an aircraft at 15,000 ft.");
 
-            missileShield = file.Bind("Features", "MissileShield", false,
-                "The missile shield: off by default. When on, every guided weapon aimed at one of "
-                + "your units has its lock broken every tick, and is taken down once the game flags "
-                + "it as dangerous or it closes inside 2 nm. Guns and rockets are not covered. THIS "
-                + "IS A CHEAT - it is the one feature that does not play by the simulation's rules. "
-                + "The menu entry toggles the same thing.");
+            ecmDiveNm = file.Bind("Features", "EcmDiveNm", 2f,
+                "How close a missile gets, in nautical miles, before an armed defensive jammer "
+                + "finishes with it: its lock is broken and its height is driven down until it is in "
+                + "the water (0.5-10). Inside the terminal defence envelope a jammed seeker has no "
+                + "time to re-acquire, which is why the missile goes into the sea rather than onto "
+                + "the ship. Guns and rockets are never affected - they have no lock to break.");
 
             salvoSpacingSeconds = file.Bind("Features", "SalvoSpacingSeconds", 8f,
                 "Seconds between ships being released to fire in a deconflicted salvo (1-60).");

@@ -187,35 +187,24 @@ Full description of each: [features.md](features.md). Right-click one of your sh
       range` and the aircraft's radar comes back
 - [ ] An aircraft beyond 90 nm is **not** offered - that is the horizon, not a bug
 
-## 7b. Missile shield (cheat, off by default)
+## 7b. The close-in dive (defensive ECM at 2 nm)
 
-- [ ] Right-click any of your units → top level → **Missile shield: off - click to switch on
-      (cheat)**; the label becomes `missile shield: ON (cheat)` and the log repeats the terms
-- [ ] `missile-shield.txt` appears in the mod folder with the weapon types the mod has read
-- [ ] Fire a missile at one of your ships from the other side: the log shows
-      `Missile shield: <weapon> at N nm from <ship> - lost its lock; taken down by ...` and **the
-      ship is not hit**
-- [ ] Leave the shield off and repeat: the missile hits as normal, so the switch is the only
-      difference
-- [ ] Fire a **gun** at the same ship with the shield on: the shell still hits - that is the stated
-      limit, not a bug
-- [ ] Switch it off again: the label returns to `off` and missiles come back
-- [ ] In a session as a **client**: the entry refuses with the host-simulates-weapons message
-- [ ] A busy sky with many missiles does not flood the log - at most a handful of lines per ship
-
-## 7c. The ECM cones (if they did not draw)
-
-- [ ] **An enemy contact → Jam with ECM**: a **long narrow cyan beam** runs from your jammer to the
-      contact and stops there
-- [ ] Press **hold its sensors down too**: the same beam goes brighter and thicker and reads
-      `ECM JAMMING` at the far end
-- [ ] Lock a different contact: the beam follows the new target, not the old one
-- [ ] Select a ship carrying a jammer with nothing locked: a small cyan box marks it, labelled
-      `ECM ready`
-- [ ] If **no beam appears**, the bottom of the screen names the reason and points at
-      **`ecm-cone.txt`** - send that file, not `ecm-report.txt`
-- [ ] `ecm-cone.txt` shows `centre tile`, a `lat/lon 0,0 ->` world position, where that projects to,
-      and the camera it chose
+- [ ] Arm a ship with a jammer: **Sensors → Defensive ECM: off - click to arm automatic jamming**
+- [ ] The entry now reads `armed, waiting for a vampire` and names what the dive has done
+- [ ] Fire a missile at that ship and let it close: the log shows
+      `Defensive ECM: <ship> put <missile> at N nm in the water - height ...; in the water (...)` and
+      **the ship is not hit**
+- [ ] **`ecm-dive.txt`** appears in the mod folder, naming the weapon type's homing member, its height
+      member and the terminal method, plus which route moved it down
+- [ ] The missile is seen to go **down** into the sea, not vanish in mid-air. If it vanishes instead,
+      `ecm-dive.txt` says `nothing moved it down` - send that file
+- [ ] Disarm defensive ECM and repeat: the missile hits as before, so the arming is the difference
+- [ ] Fire a **gun** at the same ship with defensive ECM armed: the shell still hits - that is the
+      stated limit, not a bug
+- [ ] A missile still well outside 2 nm is jammed but **not** put down; it dives only when it crosses
+      `EcmDiveNm`
+- [ ] In a session as a **client**: defensive ECM is not offered, with the host-simulates-weapons reason
+- [ ] A busy sky with many missiles does not flood the log - a handful of lines per ship at most
 
 ## 8. Disable
 

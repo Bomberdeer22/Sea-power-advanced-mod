@@ -18,10 +18,18 @@ namespace SeaPowerAdvanced.Features;
 /// That is why this is a decision and not a freebie, and why it is armed per ship or per task force
 /// rather than switched on for the player.
 ///
-/// What the mod does *not* claim: that the game's missile will certainly miss. It cannot. It points
-/// the game's own jammer at the game's own missile and holds it there; whether the seeker breaks
-/// lock is the simulation's answer, not the mod's. See <see cref="EcmControl"/> for what this build
-/// of the game actually exposes, and <c>ecm-report.txt</c> for the same in writing.
+/// And it finishes the job at close range. A sea-skimmer whose seeker loses lock two miles out does
+/// not fly on towards the ship - it loses its height reference, stops correcting, and goes into the
+/// water. So once a missile is inside <see cref="DiveNm"/>, the jammer's lock on it is used for what
+/// it is worth: the weapon's own lock is broken and its height is driven down every tick until it is
+/// at the waterline. That is <see cref="WeaponDive"/>, and it is the one place this mod writes to a
+/// weapon rather than to a ship's sensors - deliberately, because a missile in the last two miles is
+/// a missile that has already been fired at somebody.
+///
+/// What the mod does *not* claim: that every missile in the air will miss. Guns and rockets are not
+/// touched, and a missile outside the dive range is left to the simulation and to the jam. See
+/// <see cref="EcmControl"/> for what this build exposes, and <c>ecm-dive.txt</c> /
+/// <c>ecm-report.txt</c> for the same in writing.
 /// </summary>
 internal static class DefensiveEcm
 {
@@ -33,6 +41,15 @@ internal static class DefensiveEcm
 
     /// <summary>A missile aimed at a ship this close is treated as aimed at us too.</summary>
     private const float FormationNm = 25f;
+
+    /// <summary>
+    /// How close a missile gets before the jam is finished with it and it is put in the water.
+    ///
+    /// Two miles is the number the player asked for and it is also the honest one: inside the
+    /// terminal defence envelope a jammed seeker has no time to re-acquire, and a sea-skimmer that
+    /// loses its height reference in the last few seconds ends up in the sea rather than on the ship.
+    /// </summary>
+    internal static float DiveNm => Mathf.Clamp(ModSettings.EcmDiveNm, 0.5f, 10f);
 
     internal static bool IsArmed(ObjectBase unit) => unit != null && UnitState.Of(unit).DefensiveEcm;
 
@@ -143,6 +160,10 @@ internal static class DefensiveEcm
                 // an engagement that could not have happened.
                 if (!UnitFit.HasEcm(ship)) continue;
 
+                // Close in, before anything else: a missile inside the dive range is finished with
+                // the sea, not with the jammer.
+                if (Sink(ship, record)) continue;
+
                 bool inbound = Inbound.AnyNearby(ship, fleet, FormationNm,
                                                  out object? weapon, out ObjectBase? threatened);
 
@@ -188,6 +209,78 @@ internal static class DefensiveEcm
             }
         }
     }
+
+    /// <summary>
+    /// Puts every missile that has closed inside <see cref="DiveNm"/> into the water.
+    ///
+    /// Returns true when one is being dealt with, which is the caller's signal that this ship has
+    /// nothing else to do this tick. Three ticks per missile at most: break its lock, push its
+    /// height down, and put it in the sea.
+    /// </summary>
+    private static bool Sink(ObjectBase ship, UnitRecord record)
+    {
+        bool busy = false;
+        float reach = DiveNm;
+
+        var weapons = new List<object>();
+
+        try
+        {
+            weapons.AddRange(Inbound.WeaponsAgainst(ship));
+            foreach (object dangerous in Inbound.DangerousAgainst(ship))
+            {
+                if (!weapons.Contains(dangerous)) weapons.Add(dangerous);
+            }
+        }
+        catch (Exception) { return false; }
+
+        foreach (object weapon in weapons)
+        {
+            try
+            {
+                // A weapon whose range cannot be read is still put down: it is on this ship's own
+                // inbound list, so the game has already decided it is close enough to matter, and
+                // "the number would not read" is the worst possible reason to let one through.
+                double? range = Inbound.RangeNm(ship, weapon as ObjectBase);
+                if (range.HasValue && range.Value > reach) continue;
+
+                string name = Name(weapon, range);
+
+                // 1. Break its lock, so it cannot correct what comes next.
+                WeaponDive.BreakLock(weapon, out _);
+
+                // 2. Push it down. The flag says it is at the waterline (or has run out of time).
+                bool down = WeaponDive.PushDown(weapon, Name(ship), out string descent,
+                                                out bool waterline);
+
+                if (!waterline) { busy = true; continue; }
+
+                // 3. The sea.
+                bool sunk = WeaponDive.Water(weapon, out string splash);
+
+                if (sunk) Inbound.Forget(ship, weapon);
+
+                record.DiveStops = record.DiveStops + 1;
+
+                // One line per missile, not per tick: the game's lists take a moment to drop it.
+                if (record.DiveStops > MaxDiveLogs) { busy = true; continue; }
+
+                ModLog.Info("Defensive ECM: " + Name(ship) + " put " + name + " in the water - "
+                            + (descent.Length > 0 ? descent + "; " : "") + splash);
+
+                busy = true;
+            }
+            catch (Exception error)
+            {
+                ModLog.Error("Defensive ECM could not put a missile down", error);
+            }
+        }
+
+        return busy;
+    }
+
+    /// <summary>How many dive lines one ship reports before it goes quiet. The dive keeps working.</summary>
+    private const int MaxDiveLogs = 12;
 
     /// <summary>Stands the jammer down and puts the air-search radar back as it was found.</summary>
     private static void Stop(ObjectBase ship, UnitRecord record, string why)
@@ -248,7 +341,21 @@ internal static class DefensiveEcm
 
         UnitRecord record = UnitState.Of(unit);
         if (!record.DefensiveEcm) return "off";
-        return record.EcmEngaged ? "armed, jamming now" : "armed, waiting for a vampire";
+
+        string state = record.EcmEngaged ? "armed, jamming now" : "armed, waiting for a vampire";
+        return state + " (" + WeaponDive.Describe() + ")";
+    }
+
+    /// <summary>The missile's name and range, for the log line.</summary>
+    private static string Name(object weapon, double? range)
+    {
+        string what;
+
+        if (weapon is ObjectBase unit) what = Name(unit);
+        else if (weapon is UnityEngine.Object asset && asset != null) what = asset.name;
+        else what = weapon.GetType().Name;
+
+        return range.HasValue ? what + " at " + range.Value.ToString("0.0") + " nm" : what;
     }
 
     private static string Name(ObjectBase? unit)

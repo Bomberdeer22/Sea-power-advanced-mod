@@ -31,13 +31,13 @@ internal sealed class UnitRecord
     internal bool Blink;
 
     /// <summary>
-    /// How many weapons the missile shield has broken or taken down for this unit.
+    /// How many missiles this unit's defensive jammer has put in the water.
     ///
-    /// Kept per unit, and not on the weapon, because the weapon does not outlive the tick it is
-    /// stopped in. It is what stops a shield having to re-explain the same break every 50 ms while
-    /// the game's own lists catch up - which is a log flood, not a second effect.
+    /// Kept per unit, and not on the weapon, because the weapon does not outlive the tick it is sunk
+    /// in. It is what stops the same splash being logged every tick while the game's own lists catch
+    /// up - a log flood, not a second effect.
     /// </summary>
-    internal int ShieldStops;
+    internal int DiveStops;
 
     /// <summary>Which half of the blink cycle the ship is in right now.</summary>
     internal bool BlinkPhase;
