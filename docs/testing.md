@@ -3,7 +3,7 @@
 Run this once per game version, and after any change to `HatchControl`, `HatchMenu`,
 `TrafficGenerator` or `RouteFactory`.
 
-Version under test: **0.14.0**. Mod id `io.github.bomberdeer22.seapoweradvanced`.
+Version under test: **0.15.0**. Mod id `io.github.bomberdeer22.seapoweradvanced`.
 
 **Read the log, do not guess.** Everything below is confirmed by two files:
 
@@ -35,11 +35,11 @@ If `seapoweradvanced.log` is missing, nothing else in this plan can pass — sto
 
 In `LogOutput.log`, BepInEx's own banner should appear:
 
-- [ ] `Loading [Sea Power Advanced 0.14.0]`
+- [ ] `Loading [Sea Power Advanced 0.15.0]`
 
 Then the mod's own startup lines:
 
-- [ ] `Sea Power Advanced: ================ Sea Power Advanced 0.14.0 ================`
+- [ ] `Sea Power Advanced: ================ Sea Power Advanced 0.15.0 ================`
 - [ ] `Sea Power Advanced: Entry point:  BepInEx plugin`
 - [ ] `Sea Power Advanced: Settings: enabled=True includeGuns=False ...`
 - [ ] `Sea Power Advanced: Patched MapUnitViewModel.GetContextMenuItems.`
@@ -181,45 +181,44 @@ Full description of each: [features.md](features.md). Right-click one of your sh
 
 ## 7. Civilian traffic (mission editor)
 
-The panel was rebuilt, so test the panel first and the traffic second.
+The way in is now the game's own menu, because the F8 panel drew but could not be clicked.
 
-**The panel**
+**The menu**
 
-- [ ] Open the **mission editor** on a mission, press **F8**
-- [ ] A window appears at a readable size on **your** display, with a title bar, a Zone line, two
-      rows with **-** and **+** buttons, two big buttons and a log box
-- [ ] It drags by its title bar; ▲ collapses it to one bar; × closes it; F8 reopens it
-- [ ] Press F8 in the **main menu** and in a **mission**: instead of nothing, a short notice says to
-      open the mission editor, with **Close** and **Check setup**
-- [ ] **No text field anywhere** - the numbers only move with the buttons
+- [ ] Open the **mission editor**, place a unit, right-click it
+- [ ] A **Civilian traffic** section is at the top level of that menu, and it opens
+- [ ] Its first entry reads `Zone: none - draw one or use the map area`
+- [ ] The game's log (not the mod's) gains no error; `seapoweradvanced.log` reads
+      `Civilian traffic: the mission editor is open, so the traffic menu is in every unit's
+      right-click menu under 'Civilian traffic'.`
+- [ ] In a **running mission** the section is absent, and the log says why once
 
-**Getting a zone without drawing**
+**Making a zone without drawing**
 
-- [ ] Place (or already have) a few ships in the mission, press **Map area**
-- [ ] The Zone line reads `map area, ~N nm²` and the log says how many units it used
-- [ ] With no units placed at all, **Map area** says so and leaves the zone empty
+- [ ] **Use the map area around your units** → the on-screen feedback names how many units were used,
+      and reopening the menu shows `Zone: map area, ~N nm²`
 
 **Spawning**
 
-- [ ] Set ships to min 2 / max 4, planes 0 / 0, press **Spawn traffic in this zone**
-- [ ] The log's newest line is the full result; it must contain **`The list now holds N route(s)`**
+- [ ] Click **Ships at a time** twice: the label cycles (`2-6` → `4-10`) and the feedback confirms
+- [ ] **Spawn traffic now**: the on-screen feedback and the `Last:` line both contain
+      **`The list now holds N route(s)`**
 - [ ] If it says `Nothing was added ...`, the same sentence names the reason - send it verbatim
 - [ ] **Save the mission**, then play it: the ships appear inside the zone, not outside it
-- [ ] They keep coming back after finishing their run (`_maxUnits` is a concurrency cap, not a total)
-- [ ] **Remove** takes them back out and the log says how many
-- [ ] Repeat with planes set to 1 / 2 and ships 0 / 0
+- [ ] They keep coming back after finishing their run
+- [ ] **Remove generated traffic** takes them back out
+- [ ] Repeat with aircraft instead of ships
 
 **Drawing, if you want it**
 
-- [ ] **Draw zone** → left-click 4–6 points → middle-click (or **Finish**): the Zone line shows the
+- [ ] **Draw a zone on the map** → click 4–6 points → **Finish the zone**: the `Zone:` line shows the
       point count and an area
-- [ ] A zone with fewer than three points, or one too small, is refused with a sentence, not silently
 
 **When it fails**
 
-- [ ] Press **Check setup**: `traffic-report.txt` lists every prerequisite `ok`/`--` **and the type**
-      of the route list it found
-- [ ] Send that file plus the panel's newest log line
+- [ ] **Check setup - writes traffic-report.txt**: the file lists every prerequisite `ok`/`--` and
+      the exact type of the route list it found
+- [ ] Send that file plus the `Last:` line
 
 ## 8. Disable
 

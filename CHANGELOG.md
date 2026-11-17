@@ -1,5 +1,42 @@
 # Changelog
 
+## 0.15.0 — civilian traffic moved into the game's own menu
+
+The panel drew, and nothing in it could be clicked. That is what a full-screen UI layer consuming
+GUI events looks like: the window renders, the mouse never reaches it. Rather than fight it, the
+whole feature is now a **section of the game's own right-click menu**, the same menu every other
+feature in this mod uses and the one the player is already using in the mission editor.
+
+```
+Civilian traffic  ▸
+    Zone: none - draw one or use the map area
+    Draw a zone on the map  /  Finish the zone
+    Use the map area around your units
+    Clear the zone
+    Ships at a time: 2-6 - click to change
+    Aircraft at a time: 0-2 - click to change
+    Spawn traffic now
+    Remove generated traffic
+    Last: nothing spawned yet this session
+    Check setup - writes traffic-report.txt
+```
+
+The two things a context menu cannot do are handled instead of dropped:
+
+- **No text fields.** The counts cycle through presets on click - ships `none → 1-2 → 2-4 → 2-6 →
+  4-10 → 8-20 → 16-40`, aircraft `none → 1-2 → 2-4 → 4-8 → 8-16`. Saved to the config, so the
+  choice survives a restart.
+- **No pop-ups.** Every action reports through the game's own order feedback on the unit that was
+  right-clicked, and leaves a **`Last:`** line in the submenu that is still there next time it opens.
+
+The section is added in the **mission editor only**: traffic is written into the mission being
+edited, so in a running battle the entry would be a dead end. It is added to every unit's menu -
+including contacts, because in the editor the units on the map are often not the player's own.
+
+The F8 panel stays as a convenience and is no longer required. It now runs early in Unity's
+execution order, which is the one thing that can be done about the swallowed input from inside the
+mod, and it consumes no GUI events except its own hotkey.
+
 ## 0.14.0 — civilian traffic rebuilt: panel, and the reasons it never spawned
 
 ### The panel

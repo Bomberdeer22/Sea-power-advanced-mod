@@ -388,35 +388,54 @@ If the cones do not appear, ecm-cone.txt in the mod folder says which of the
 two projection routes was tried and what the camera was - that file is the
 thing to send.
 
-2E. CIVILIAN TRAFFIC  -  MISSION EDITOR, PANEL ON F8
-----------------------------------------------------
+2E. CIVILIAN TRAFFIC  -  CIVILIAN TRAFFIC IN THE RIGHT-CLICK MENU
+-----------------------------------------------------------------
 
-Press F8 in the mission editor. The panel is small, draggable, and can be
-collapsed to its title bar with the ▲ button, so it never has to sit over the
-map.
+Right-click any unit in the mission editor -> Civilian traffic. That is the
+whole way in: the game's own menu, the same one every other feature in this
+mod lives in, so it works with a mouse and looks like the rest of the game.
 
-    + Civilian traffic                                     ▲  × +
-    | Zone: map area, ~18 400 nm2                               |
-    | [Draw zone] [Map area] [Clear zone] [Check setup]         |
-    | Ship lanes (units alive at once)                          |
-    |   min [-] 2 [+]      max [-] 6 [+]                        |
-    | Aircraft lanes (units alive at once)                      |
-    |   min [-] 0 [+]      max [-] 2 [+]                        |
-    | [Spawn traffic in this zone]              [Remove]        |
-    | Classes: 23 ship class(es), 9 aircraft class(es) [Reload] |
-    | +-------------------------------------------------------+ |
-    | | [14:22:31] Added 2 ship lane(s) ... to MissionEdito... | |
-    | | [14:22:10] Zone from the map: 14 unit(s) placed ...    | |
-    | +-------------------------------------------------------┘ |
+    Civilian traffic  >
+        Zone: none - draw one or use the map area
+        Draw a zone on the map
+        Use the map area around your units
+        Clear the zone
+        Ships at a time: 2-6 - click to change
+        Aircraft at a time: 0-2 - click to change
+        Spawn traffic now
+        Remove generated traffic
+        Last: nothing spawned yet this session
+        Check setup - writes traffic-report.txt
+
+Why it is not a floating window any more: the panel drew, but the game's own
+interface layer swallowed the mouse, so no button in it could be clicked.
+Every function is a menu entry now, and the two things a menu cannot do are
+handled rather than left out:
+
+  take typed numbers
+      So...: the counts cycle through presets when clicked: ships none ->
+        1-2 -> 2-4 -> 2-6 -> 4-10 -> 8-20 -> 16-40, aircraft none -> 1-2 ->
+        2-4 -> 4-8 -> 8-16
+
+  pop up a message
+      So...: every action reports twice: the game's own on-screen order
+        feedback on the unit you clicked, and the Last: line at the bottom of
+        the submenu, which is still there next time you open it
+
+The order of a first run: Use the map area around your units (or Draw a zone
+on the map), set the two counts, Spawn traffic now, then save the mission.
+
+The F8 panel still exists if you want it, but nothing depends on it any more.
 
 Two ways to make a zone
 
-  Draw zone
+  Draw a zone on the map
       What it does: Hands the mouse to the game's own polygon tool. Left-
-        click points, middle-click or Finish to end
+        click points, then Finish the zone (the entry changes to that while
+        drawing) or middle-click
       When to use it: When you want a specific stretch of sea
 
-  Map area
+  Use the map area around your units
       What it does: Builds a zone from the sea the mission's units are
         already in: their bounding box plus 30%
       When to use it: When drawing does not work, or you just want traffic
@@ -427,26 +446,21 @@ neither exists, Spawn traffic says so instead of doing nothing.
 
 What was wrong, and what was rebuilt
 
-  The panel was a GUILayout window whose height was whatever the content measured
-      Why it made the feature look dead: In a game that also draws its own
-        UI, it collapsed, reflowed, or drew at a size that made no sense
-      What it does now: Absolute rectangles, one fixed size, scaled from the
-        screen height so it is the same size at 720p and 4K
+  It was an IMGUI window
+      Why it made the feature look dead: The game's own UI layer consumed
+        the mouse, so it drew but nothing in it could be clicked
+      What it does now: The game's own right-click menu. No separate input
+        path to lose
 
   Four text fields
       Why it made the feature look dead: Typing into IMGUI inside a
-        fullscreen game fights the game's own input for focus
-      What it does now: No text fields at all. Every number is - / +
+        fullscreen game fights the game's own input
+      What it does now: Counts cycle through presets on click
 
   The result was one line, overwritten by the next click
       Why it made the feature look dead: You could not see what had happened
-      What it does now: A visible log of the last six results, in the
-        window, newest first
-
-  Nothing was drawn outside the editor, silently
-      Why it made the feature look dead: "It does not work" with no evidence
-      What it does now: One short notice that says to open the mission
-        editor
+      What it does now: On-screen order feedback plus a Last: line in the
+        submenu
 
   The route list had to be a List<CivilianRoute> exactly
       Why it made the feature look dead: A mission holding any other
@@ -479,9 +493,9 @@ What was wrong, and what was rebuilt
 
 If it still does nothing
 
-Press Check setup. traffic-report.txt in the mod folder lists every
-prerequisite with an ok or -- mark and the exact type of the list that was
-found:
+Press Check setup (in the submenu, or on the F8 panel). traffic-report.txt in
+the mod folder lists every prerequisite with an ok or -- mark and the exact
+type of the list that was found:
 
       --   civilian route list   no civilian route list found (see traffic-report.txt)
       ok   civilian route list   MissionEditorViewModel.Mission._civilianRoutes (0 route(s)) [TrulyObservableCollection<CivilianRoute>]

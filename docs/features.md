@@ -214,33 +214,46 @@ look like a search fan would be telling you something that is not true.
 If the cones do not appear, `ecm-cone.txt` in the mod folder says which of the two projection routes
 was tried and what the camera was - that file is the thing to send.
 
-## 2e. Civilian traffic — `mission editor`, panel on `F8`
+## 2e. Civilian traffic — `Civilian traffic` in the right-click menu
 
-Press **F8** in the mission editor. The panel is small, draggable, and can be collapsed to its title
-bar with the ▲ button, so it never has to sit over the map.
+**Right-click any unit in the mission editor → Civilian traffic.** That is the whole way in: the
+game's own menu, the same one every other feature in this mod lives in, so it works with a mouse and
+looks like the rest of the game.
 
 ```
-┌ Civilian traffic                                     ▲  × ┐
-│ Zone: map area, ~18 400 nm²                               │
-│ [Draw zone] [Map area] [Clear zone] [Check setup]         │
-│ Ship lanes (units alive at once)                          │
-│   min [-] 2 [+]      max [-] 6 [+]                        │
-│ Aircraft lanes (units alive at once)                      │
-│   min [-] 0 [+]      max [-] 2 [+]                        │
-│ [Spawn traffic in this zone]              [Remove]        │
-│ Classes: 23 ship class(es), 9 aircraft class(es) [Reload] │
-│ ┌───────────────────────────────────────────────────────┐ │
-│ │ [14:22:31] Added 2 ship lane(s) ... to MissionEdito... │ │
-│ │ [14:22:10] Zone from the map: 14 unit(s) placed ...    │ │
-│ └───────────────────────────────────────────────────────┘ │
+Civilian traffic  ▸
+    Zone: none - draw one or use the map area
+    Draw a zone on the map
+    Use the map area around your units
+    Clear the zone
+    Ships at a time: 2-6 - click to change
+    Aircraft at a time: 0-2 - click to change
+    Spawn traffic now
+    Remove generated traffic
+    Last: nothing spawned yet this session
+    Check setup - writes traffic-report.txt
 ```
+
+Why it is not a floating window any more: the panel drew, but the game's own interface layer
+swallowed the mouse, so **no button in it could be clicked**. Every function is a menu entry now, and
+the two things a menu cannot do are handled rather than left out:
+
+| A menu cannot... | So... |
+|---|---|
+| take typed numbers | the counts **cycle** through presets when clicked: ships `none → 1-2 → 2-4 → 2-6 → 4-10 → 8-20 → 16-40`, aircraft `none → 1-2 → 2-4 → 4-8 → 8-16` |
+| pop up a message | every action reports twice: the game's own on-screen order feedback on the unit you clicked, and the **`Last:`** line at the bottom of the submenu, which is still there next time you open it |
+
+The order of a first run: **Use the map area around your units** (or **Draw a zone on the map**),
+set the two counts, **Spawn traffic now**, then save the mission.
+
+The **F8 panel** still exists if you want it, but nothing depends on it any more.
 
 ### Two ways to make a zone
 
-| Button | What it does | When to use it |
+| Entry | What it does | When to use it |
 |---|---|---|
-| **Draw zone** | Hands the mouse to the game's own polygon tool. Left-click points, middle-click or **Finish** to end | When you want a specific stretch of sea |
-| **Map area** | Builds a zone from the sea the mission's units are already in: their bounding box plus 30% | When drawing does not work, or you just want traffic where the action is |
+| **Draw a zone on the map** | Hands the mouse to the game's own polygon tool. Left-click points, then **Finish the zone** (the entry changes to that while drawing) or middle-click | When you want a specific stretch of sea |
+| **Use the map area around your units** | Builds a zone from the sea the mission's units are already in: their bounding box plus 30% | When drawing does not work, or you just want traffic where the action is |
 
 The zone line always says which of the two is in use and how big it is. If neither exists,
 **Spawn traffic** says so instead of doing nothing.
@@ -249,10 +262,9 @@ The zone line always says which of the two is in use and how big it is. If neith
 
 | Fault | Why it made the feature look dead | What it does now |
 |---|---|---|
-| The panel was a `GUILayout` window whose height was whatever the content measured | In a game that also draws its own UI, it collapsed, reflowed, or drew at a size that made no sense | Absolute rectangles, one fixed size, scaled from the screen height so it is the same size at 720p and 4K |
-| Four text fields | Typing into IMGUI inside a fullscreen game fights the game's own input for focus | **No text fields at all.** Every number is **-** / **+** |
-| The result was one line, overwritten by the next click | You could not see what had happened | A visible log of the last six results, in the window, newest first |
-| Nothing was drawn outside the editor, silently | "It does not work" with no evidence | One short notice that says to open the mission editor |
+| It was an IMGUI window | The game's own UI layer consumed the mouse, so it drew but **nothing in it could be clicked** | **The game's own right-click menu.** No separate input path to lose |
+| Four text fields | Typing into IMGUI inside a fullscreen game fights the game's own input | Counts cycle through presets on click |
+| The result was one line, overwritten by the next click | You could not see what had happened | On-screen order feedback plus a **`Last:`** line in the submenu |
 | The route list had to be a `List<CivilianRoute>` exactly | A mission holding any other collection type - including the observable collection the game's own view models use - was refused with "not a list of routes the mod can write to". This is very likely why nothing ever spawned | Any `IList` is accepted, added to through `IList.Add`, and the **count is read back** so a list that swallows the add is reported as such |
 | A route needed all forty of `CivilianRoute`'s private fields, or it was thrown away | One renamed optional field - a diagnostic counter, a loadout list - discarded every route, and the only clue was a "Problems: no field ..." tail | **Four essential fields**, everything else best-effort. The ones this build lacks are named in `traffic-report.txt` instead of failing the route |
 | `Globals._neutralTaskforce` had to be non-null before anything happened | In the editor it often is null, so the feature refused before it started | The taskforce is looked for, and if none is found the route is still created and the report says so |
@@ -260,8 +272,8 @@ The zone line always says which of the two is in use and how big it is. If neith
 
 ### If it still does nothing
 
-Press **Check setup**. `traffic-report.txt` in the mod folder lists every prerequisite with an `ok`
-or `--` mark and the exact type of the list that was found:
+Press **Check setup** (in the submenu, or on the F8 panel). `traffic-report.txt` in the mod folder lists
+every prerequisite with an `ok` or `--` mark and the exact type of the list that was found:
 
 ```
   --   civilian route list   no civilian route list found (see traffic-report.txt)

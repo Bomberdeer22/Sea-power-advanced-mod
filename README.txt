@@ -9,7 +9,7 @@ An advanced mod for Sea Power: Naval Combat in the Missile Age, built as an
 Anchor Chain (https://github.com/SeaPower-Modders/AnchorChain) code mod and
 loadable as a plain BepInEx plugin.
 
-Version 0.14.0  -  fourteen advanced features, plus hatch control and civilian
+Version 0.15.0  -  fourteen advanced features, plus hatch control and civilian
 traffic.
 
 1. Manual hatch control
@@ -79,29 +79,29 @@ on a client the host still has the final say on whether a radar radiates.
 multiplayer.txt in the mod folder records which side of the session this
 machine is on and every rule that followed from it.
 
-2. Civilian traffic zones (mission editor)
+2. Civilian traffic (mission editor)
 
-Press F8 in the mission editor. The panel has no text fields - every number is
-a - / + button - and a visible log of the last six things it did, so you can
-see the result in game instead of hunting for a file.
+Right-click any unit in the mission editor -> Civilian traffic. It is part of
+the game's own menu, like every other feature, so it takes clicks and looks
+like the rest of the game:
 
-Make a zone one of two ways: Draw zone uses the game's own polygon tool, or
-Map area builds one from the sea your mission's units are already in. Then set
-min/max ships and min/max planes and press Spawn traffic. The mod creates real
-civilian routes, each lane drawing from your install's own civilian classes
-for variety, and they are saved with the mission.
+    Civilian traffic  >
+        Zone: map area, ~18 400 nm2
+        Draw a zone on the map
+        Use the map area around your units
+        Ships at a time: 2-6 - click to change
+        Aircraft at a time: 0-2 - click to change
+        Spawn traffic now
+        Remove generated traffic
+        Last: Added 2 ship lane(s) ... The list now holds 6 route(s).
 
-    Civilian traffic                                   ▲  ×
-    Zone: map area, ~18 400 nm2
-    [Draw zone] [Map area] [Clear zone] [Check setup]
-    Ship lanes      min [-] 2 [+]   max [-] 6 [+]
-    Aircraft lanes  min [-] 0 [+]   max [-] 2 [+]
-    [Spawn traffic in this zone]            [Remove]
-    [14:22:31] Added 2 ship lane(s) ... The list now holds 6 route(s).
+Counts cycle when clicked - a menu has no text field - and every action
+reports on screen through the game's own order feedback as well as in the
+submenu's Last: line. Use the map area around your units makes a zone without
+drawing anything; Draw a zone on the map uses the game's own polygon tool.
 
-If nothing is added, the log line says why, and Check setup writes traffic-
-report.txt: every prerequisite marked ok/--, plus the exact type of the route
-list it found.
+The F8 panel still exists but nothing depends on it: its buttons never
+received clicks, because the game's interface layer consumes the mouse.
 
 How it works, and the verified mission-file format: docs/civilian-traffic.md.
 Hatch API: docs/hatch-api.md.
@@ -157,7 +157,7 @@ is permitted.
 
 The DLL goes into BepInEx\plugins\SeaPowerAdvanced\, so BepInEx loads it
 directly  -  there is no mod-manager checkbox on this route. BepInEx's log
-then shows Loading [Sea Power Advanced 0.14.0], and the mod writes its own
+then shows Loading [Sea Power Advanced 0.15.0], and the mod writes its own
 seapoweradvanced.log next to the DLL.
 
 USE IT

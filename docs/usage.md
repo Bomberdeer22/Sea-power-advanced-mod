@@ -140,30 +140,34 @@ animation for it. Run **Log hatch report** and send the file.
 
 # Civilian traffic zones
 
-Second feature: random civilian traffic in an area **you draw**, with the amounts **you choose**.
+Second feature: random civilian traffic in an area **you choose**, with the amounts **you choose**.
 This one lives in the **mission editor**, not in a running mission.
 
-## The shape of the workflow
+## Where it is
 
-1. Open the mission editor (new mission or an existing one).
-2. Press **F8** — the *Civilian traffic* panel appears. F8 again hides it; **Hide** collapses it to a
-   single bar so it can sit out of the way.
+**Right-click any unit in the mission editor → Civilian traffic.** It is a section of the game's own
+context menu, the same one every other feature in this mod uses.
+
+There is also an F8 panel, but its buttons cannot be clicked: the game's own interface layer consumes
+the mouse before IMGUI sees it. The menu is the way in.
+
+## The workflow
+
+1. Open the mission editor (new mission or an existing one) and place at least one unit.
+2. Right-click a unit → **Civilian traffic**.
 3. Make a zone, either way:
-   * **Draw zone**, then click points on the map, then **Finish** (or middle-click, the game's own
-     way to leave the polygon tool), or
-   * **Map area** — builds a zone from the sea the mission's own units are already in. No drawing,
-     no mouse handover, nothing to go wrong.
-4. Set how many ships and how many planes you want, at minimum and maximum, with the **-** and **+**
-   buttons. There are no text fields: typing into the game fights its own input.
-5. **Spawn traffic in this zone**.
+   * **Use the map area around your units** - the sea your units are already in, plus a margin. No
+     drawing, nothing to go wrong.
+   * **Draw a zone on the map** - hands the mouse to the game's own polygon tool; click points, then
+     **Finish the zone** (the entry changes to that while drawing) or middle-click.
+4. Click **Ships at a time** and **Aircraft at a time** until they show what you want. They cycle.
+5. **Spawn traffic now**.
 6. **Save the mission.** That is what makes them part of the mission.
 
-The panel keeps a **visible log** of the last six things it did, newest first. The line after a spawn
-is the whole result - how many lanes went in, and **how many routes the mission's list now holds**.
-If nothing went in, that line says why. **Check setup** writes `traffic-report.txt`, which marks
-every prerequisite `ok` or `--` and names the type of the route list it found.
+Every action answers twice: a line of the game's own order feedback on the unit you right-clicked,
+and the **`Last:`** entry in the submenu, which is still there when you open it again.
 
-## Drawing the zone
+## Drawing the zone, if you want it
 
 The panel does not have its own map tools — it borrows the mission editor's polygon tool, so
 points snap to markers and the shape is drawn on the map exactly like a map annotation. Click as

@@ -92,11 +92,18 @@ internal static class FleetMenuPatch
         Selection.Note(unit);
 
         // A contact is not one of ours. It gets the jammer and nothing else - the game's own
-        // identification entries are already in that menu and are the right ones for it.
+        // identification entries are already in that menu and are the right ones for it - plus the
+        // civilian traffic section, because in the mission editor the units on the map are often not
+        // the player's own and that menu is the only one there is.
         if (!UnitFit.IsPlayer(unit))
         {
-            if (FleetMenu.InstallContact(unit, MenuRouting.Roots(result), result) > 0)
+            List<ContextMenuItem> contactRoots = MenuRouting.Roots(result);
+
+            if (FleetMenu.InstallContact(unit, contactRoots, result) > 0)
                 MenuRouting.MarkHandled(result);
+
+            TrafficMenu.Install(unit, contactRoots, result);
+            MenuRouting.MarkHandled(result);
 
             if (ModSettings.VerboseLog && !contactLogged)
             {
@@ -109,6 +116,9 @@ internal static class FleetMenuPatch
 
         List<ContextMenuItem> roots = MenuRouting.Roots(result);
         int sections = FleetMenu.Install(unit, roots, result);
+
+        // Mission building, not an order: its own top-level section, on every unit menu.
+        TrafficMenu.Install(unit, roots, result);
         MenuRouting.MarkHandled(result);
 
         if (!logged)

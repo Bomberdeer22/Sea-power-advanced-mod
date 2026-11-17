@@ -33,6 +33,14 @@ namespace SeaPowerAdvanced.UI;
 /// It can also spawn traffic without a drawn zone at all: <b>Map area</b> builds one from the sea
 /// the mission's own units are sitting in, so a broken draw tool is no longer a dead end.
 /// </summary>
+/// <summary>
+/// Runs before the game's own interface handlers. The panel used to draw without ever seeing a
+/// click, which is what a full-screen UI layer consuming GUI events looks like; being early in the
+/// execution order is the one thing that can be done about that from here. The feature no longer
+/// depends on this panel - the right-click menu is the way in - so this is a convenience, not the
+/// mechanism.
+/// </summary>
+[DefaultExecutionOrder(-15000)]
 public sealed class TrafficPanel : MonoBehaviour
 {
     private const int WindowId = 0x5EA7;
@@ -129,6 +137,9 @@ public sealed class TrafficPanel : MonoBehaviour
             if (current != null && current.type == EventType.KeyDown && current.keyCode == ToggleKey())
             {
                 Toggle();
+
+                // Only our own key is consumed. Swallowing anything else would take clicks away
+                // from the game's menus.
                 current.Use();
             }
         }
