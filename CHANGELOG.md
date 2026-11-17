@@ -1,5 +1,29 @@
 # Changelog
 
+## 0.18.3 — the missile goes into the water, once
+
+Two faults, and the second was the visible one.
+
+**It was an explosion, not a splash.** The list of "ways to end a weapon's flight" included
+`Detonate`, `Explode` and `SelfDestruct`, so putting a missile in the sea was implemented by setting
+its warhead off two miles from the ship. The dive now uses only methods that end the flight quietly
+(`Expire`, `Abort`, `Terminate`, ...) , or removes the object **at sea level** if the build has none.
+Warhead methods are still found and listed in `ecm-dive.txt`, marked *warhead (unused)*, and are
+never called.
+
+**It exploded forever.** The take-down called the game's terminal method and trusted it to remove the
+weapon. When it did not, the next tick found the missile still on the ship's inbound list and set it
+off again - every tick, indefinitely. A weapon is now added to a *settled* set **before** anything is
+done to it and is untouchable from then on, whatever the outcome: `WeaponDive.Done()` is checked
+before the dive and before the jam bookkeeping, so one missile can produce at most one line and one
+ending.
+
+**And it was never going to be visible.** The descent was 60 metres per *call* at the ticker's rate -
+more than a kilometre a second - so a twenty-metre sea-skimmer reached the waterline in a single
+tick. It is now **15 m/s against real time**, with a one-second minimum before it may reach the
+surface and a six-second deadline if nothing moves it, so the missile is seen to lose its height and
+go in.
+
 ## 0.18.2 — build fix (the dive and the camera)
 
 One error and three warnings from 0.18.0/0.18.1:

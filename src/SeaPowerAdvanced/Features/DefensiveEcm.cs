@@ -167,6 +167,8 @@ internal static class DefensiveEcm
                 bool inbound = Inbound.AnyNearby(ship, fleet, FormationNm,
                                                  out object? weapon, out ObjectBase? threatened);
 
+                if (inbound && WeaponDive.Done(weapon)) inbound = false;
+
                 if (inbound)
                 {
                     if (!record.EcmEngaged)
@@ -238,6 +240,11 @@ internal static class DefensiveEcm
         {
             try
             {
+                // A weapon that has already been put down is never touched again. The game's own
+                // inbound list does not always drop a removed weapon on the same frame, and touching
+                // it twice is how an earlier build set the same warhead off every tick.
+                if (WeaponDive.Done(weapon)) continue;
+
                 // A weapon whose range cannot be read is still put down: it is on this ship's own
                 // inbound list, so the game has already decided it is close enough to matter, and
                 // "the number would not read" is the worst possible reason to let one through.

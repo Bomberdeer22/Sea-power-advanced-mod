@@ -282,12 +282,14 @@ missile inside **`EcmDiveNm` (2 nm by default)**:
 
 1. **The weapon's own lock is broken** - the member it is homing on is set to `null`, so it can no
    longer correct what comes next.
-2. **Its height is driven down**, every tick, through its own altitude member if this build has one,
+2. **Its height is driven down at 15 m/s**, through its own altitude member if this build has one,
    otherwise through its transform (weapons *are* scene objects on this build - the multiplayer mod
-   rotates their transforms).
-3. **At the waterline it is taken down** - the game's own terminal method if it has one, otherwise
-   the object is removed. If neither the height member nor the transform moves it, a three second
-   deadline does the same job; `ecm-dive.txt` records which of the three routes did the work.
+   rotates their transforms). It is given at least a second, so the fall is visible rather than the
+   missile vanishing between two frames.
+3. **At the waterline it is taken down quietly** - a method that ends the flight without setting the
+   warhead off (`Expire`, `Abort`, `Terminate`...), or, if this build has none, by removing it at sea
+   level. `ecm-dive.txt` records which of the three routes did the work, and which warhead methods
+   exist and were deliberately **not** called.
 
 There is nothing to switch on and no separate cheat: it is what **armed defensive ECM** does at close
 range on any hull that carries a jammer. Disarm defensive ECM and it stops with it.
@@ -297,7 +299,7 @@ range on any hull that carries a jammer. Disarm defensive ECM and it stops with 
 | Range | `Features/EcmDiveNm`, 2 nm by default (0.5-10). Inside the terminal defence envelope a jammed seeker has no time to re-acquire |
 | Not covered | **Guns and rockets.** A shell has no lock to break and no seeker to put down, so it is never touched. The label says "missiles" for that reason |
 | Refused on | A multiplayer **client** - weapons are simulated by the host, so a kill written here would be reverted. Defensive ECM is not offered on a client at all |
-| Logged | `Defensive ECM: <ship> put <missile> at 1.2 nm in the water - height 40 m -> 0 m; in the water (Detonate())` - one line per missile, capped per ship so a busy sky cannot flood the log |
+| Logged | `Defensive ECM: <ship> put <missile> at 1.2 nm in the water - height 40 m -> 2 m; sank from 1 m (Expire())` - one line per missile, and a missile is put down **once and never touched again**, whatever the outcome |
 | Report | `ecm-dive.txt` - what was read off each weapon type (homing member, height member, terminal method) and which route moved it down |
 
 If a weapon has **no** readable height member and no transform, it is removed at the end of the three

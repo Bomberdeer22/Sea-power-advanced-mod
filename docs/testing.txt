@@ -253,14 +253,18 @@ Aircraft as ECM targets
   * [ ] The entry now reads armed, waiting for a vampire and names what the
     dive has done
   * [ ] Fire a missile at that ship and let it close: the log shows Defensive
-    ECM: <ship> put <missile> at N nm in the water - height ...; in the water
-    (...) and the ship is not hit
+    ECM: <ship> put <missile> at N nm in the water - height ...; sank ...
+    once, and the ship is not hit
+  * [ ] The missile is seen to descend into the water over about a second - it
+    does not explode in mid-air, and it does not explode again a moment later
   * [ ] ecm-dive.txt appears in the mod folder, naming the weapon type's
     homing member, its height member and the terminal method, plus which route
     moved it down
-  * [ ] The missile is seen to go down into the sea, not vanish in mid-air. If
-    it vanishes instead, ecm-dive.txt says nothing moved it down - send that
-    file
+  * [ ] If it vanishes instead of descending, ecm-dive.txt says nothing moved
+    it down - send that file
+  * [ ] ecm-dive.txt lists any Detonate/Explode/SelfDestruct methods as
+    warhead (unused) - they are never called, because a warhead going off
+    beside the ship is not a missile falling in the sea
   * [ ] Disarm defensive ECM and repeat: the missile hits as before, so the
     arming is the difference
   * [ ] Fire a gun at the same ship with defensive ECM armed: the shell still
