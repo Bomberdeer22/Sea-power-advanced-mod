@@ -187,6 +187,22 @@ Full description of each: [features.md](features.md). Right-click one of your sh
       range` and the aircraft's radar comes back
 - [ ] An aircraft beyond 90 nm is **not** offered - that is the horizon, not a bug
 
+## 7b. Missile shield (cheat, off by default)
+
+- [ ] Right-click any of your units → top level → **Missile shield: off - click to switch on
+      (cheat)**; the label becomes `missile shield: ON (cheat)` and the log repeats the terms
+- [ ] `missile-shield.txt` appears in the mod folder with the weapon types the mod has read
+- [ ] Fire a missile at one of your ships from the other side: the log shows
+      `Missile shield: <weapon> at N nm from <ship> - lost its lock; taken down by ...` and **the
+      ship is not hit**
+- [ ] Leave the shield off and repeat: the missile hits as normal, so the switch is the only
+      difference
+- [ ] Fire a **gun** at the same ship with the shield on: the shell still hits - that is the stated
+      limit, not a bug
+- [ ] Switch it off again: the label returns to `off` and missiles come back
+- [ ] In a session as a **client**: the entry refuses with the host-simulates-weapons message
+- [ ] A busy sky with many missiles does not flood the log - at most a handful of lines per ship
+
 ## 8. Disable
 
 - [ ] Up the `General/Enabled` toggle in

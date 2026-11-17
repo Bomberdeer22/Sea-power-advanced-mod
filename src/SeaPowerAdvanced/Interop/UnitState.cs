@@ -30,6 +30,15 @@ internal sealed class UnitRecord
     /// <summary>Radar blink is cycling this unit's emitters.</summary>
     internal bool Blink;
 
+    /// <summary>
+    /// How many weapons the missile shield has broken or taken down for this unit.
+    ///
+    /// Kept per unit, and not on the weapon, because the weapon does not outlive the tick it is
+    /// stopped in. It is what stops a shield having to re-explain the same break every 50 ms while
+    /// the game's own lists catch up - which is a log flood, not a second effect.
+    /// </summary>
+    internal int ShieldStops;
+
     /// <summary>Which half of the blink cycle the ship is in right now.</summary>
     internal bool BlinkPhase;
 

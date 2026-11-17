@@ -1,5 +1,32 @@
 # Changelog
 
+## 0.17.0 — the missile shield
+
+The one feature that does not play by the simulation's rules, built as one and labelled as one.
+
+**What it does.** Every tick, for every unit of yours - ship, submarine, aircraft, helicopter - a
+guided weapon the game is tracking against it has the member it is homing on written to `null`. The
+weapon keeps flying and stops knowing where to; that is the same state a missile is in when the ship
+under it is sunk, so the game already handles it. Then, when the weapon is on the game's own
+`_dangerousMissiles` list or inside 2 nm, its flight is ended: the game's own terminal method
+(`SelfDestruct`/`Detonate`/`Expire`/`Abort`...) if the build has one, otherwise `Destroy`, with the
+ship's inbound list cleaned up afterwards.
+
+**What it does not do.** Guns and rockets. A shell has no lock to break. The menu label and the
+report both say "missile shield", not "invulnerable".
+
+**Off by default.** `Features/MissileShield` in the `.cfg` (default `false`), and a top-level menu
+entry on any of your units toggles it for the session: *Missile shield: off - click to switch on
+(cheat)*. It is refused on a multiplayer client, where the host simulates weapons.
+
+The per-unit log cap is a cap on the log only: after a dozen weapons a ship stops reporting, but the
+shield keeps breaking locks and taking weapons down.
+
+Everything about it is found by reflection, like the rest of the mod: the homing member and the
+terminal method are read off the live weapon and written to **`missile-shield.txt`**, per weapon type.
+That file is what to send if a missile ever gets through - it will name what the build actually
+exposes, including the case where nothing readable is there.
+
 ## 0.16.1 — build fix
 
 Three compiler errors in 0.16.0, all mine:

@@ -48,6 +48,46 @@ internal static class Inbound
         return found;
     }
 
+    /// <summary>
+    /// Only the weapons the game itself has flagged as dangerous to this unit.
+    ///
+    /// <c>_dangerousMissiles</c> is the game's own "this one is coming for you" list, and it is the
+    /// honest trigger for a hard kill: the mod is not deciding that a missile three hundred miles
+    /// away is about to hit, the game is saying this one is a threat now.
+    /// </summary>
+    internal static List<object> DangerousAgainst(ObjectBase? unit)
+    {
+        var found = new List<object>();
+        if (unit == null) return found;
+
+        try { Collect(unit._dangerousMissiles, found); }
+        catch (Exception) { }
+
+        return found;
+    }
+
+    /// <summary>
+    /// Removes a weapon from this unit's inbound lists. Used after the missile shield has taken a
+    /// weapon down, so the ship is not left holding a reference to something that no longer exists.
+    /// </summary>
+    internal static void Forget(ObjectBase? unit, object weapon)
+    {
+        if (unit == null || weapon == null) return;
+
+        try { Remove(unit._dangerousMissiles, weapon); }
+        catch (Exception) { }
+
+        try { Remove(unit._incomingWeapons, weapon); }
+        catch (Exception) { }
+    }
+
+    private static void Remove(object? source, object weapon)
+    {
+        if (source is IList list) { list.Remove(weapon); return; }
+
+        // A generic list that is not an IList: rare, and not worth a cast that can throw here.
+    }
+
     /// <summary>True when something is inbound to this unit.</summary>
     internal static bool Any(ObjectBase? unit) => WeaponsAgainst(unit).Count > 0;
 

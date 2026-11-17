@@ -24,6 +24,7 @@ internal static class ModSettings
     private static ConfigEntry<float>? jamRangeNm;
     private static ConfigEntry<float>? jamAirRangeNm;
     private static ConfigEntry<bool>? showEcmCone;
+    private static ConfigEntry<bool>? missileShield;
 
     internal static bool Enabled => enabled?.Value ?? true;
     internal static bool IncludeGuns => includeGuns?.Value ?? false;
@@ -54,6 +55,16 @@ internal static class ModSettings
     /// for ships and sea-skimming missiles, where both ends are close to the water.
     /// </summary>
     internal static float JamAirRangeNm => jamAirRangeNm?.Value ?? 90f;
+
+    /// <summary>
+    /// Whether the missile shield starts switched on.
+    ///
+    /// Off by default, and the only setting in the mod that asks the game to be something other than
+    /// a simulation. It is a cheat, in plain words: guided weapons aimed at your units have their
+    /// lock broken every tick and are taken down when they close. Everything else here works within
+    /// the rules; this does not, so it is the player's decision and it is recorded.
+    /// </summary>
+    internal static bool MissileShield => missileShield?.Value ?? false;
 
     /// <summary>Seconds between ships being released in a deconflicted salvo.</summary>
     internal static float SalvoSpacingSeconds => salvoSpacingSeconds?.Value ?? 8f;
@@ -105,6 +116,13 @@ internal static class ModSettings
                 "How far the same jammer reaches against an aircraft or a helicopter, in nautical "
                 + "miles (5-300). Longer than the ship figure because both ends are high above the "
                 + "radio horizon - roughly 70 nm for a masthead and an aircraft at 15,000 ft.");
+
+            missileShield = file.Bind("Features", "MissileShield", false,
+                "The missile shield: off by default. When on, every guided weapon aimed at one of "
+                + "your units has its lock broken every tick, and is taken down once the game flags "
+                + "it as dangerous or it closes inside 2 nm. Guns and rockets are not covered. THIS "
+                + "IS A CHEAT - it is the one feature that does not play by the simulation's rules. "
+                + "The menu entry toggles the same thing.");
 
             salvoSpacingSeconds = file.Bind("Features", "SalvoSpacingSeconds", 8f,
                 "Seconds between ships being released to fire in a deconflicted salvo (1-60).");

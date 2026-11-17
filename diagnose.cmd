@@ -250,7 +250,7 @@ REM ===========================================================================
 set "MODDIR=%HERE%"
 if defined GAME if exist "!GAME!\BepInEx\plugins\SeaPowerAdvanced" set "MODDIR=!GAME!\BepInEx\plugins\SeaPowerAdvanced"
 >> "%LOG%" echo folder: !MODDIR!
-for %%F in (capabilities.txt ecm-report.txt ecm-cone.txt offensive-ecm.txt multiplayer.txt menu-report.txt seapoweradvanced.log hatch-report.txt) do call :show_report "%%F"
+for %%F in (capabilities.txt ecm-report.txt ecm-cone.txt offensive-ecm.txt missile-shield.txt multiplayer.txt menu-report.txt seapoweradvanced.log hatch-report.txt) do call :show_report "%%F"
 echo  - mod reports
 exit /b
 

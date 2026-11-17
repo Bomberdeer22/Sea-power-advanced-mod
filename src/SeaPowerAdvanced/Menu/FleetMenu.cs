@@ -494,6 +494,22 @@ internal static class FleetMenu
             () => Report(unit, "breakaway", Breakaway.Execute(unit, out string r), r)),
             Array.Empty<string>());
 
+        // The missile shield. Top level, because it is a task-force-wide switch and not a command to
+        // one ship, and labelled as what it is: the one feature here that does not play by the
+        // simulation's rules.
+        Add(Action(MissileShield.IsArmed
+                ? "Missile shield: ON (cheat) - click to switch off"
+                : "Missile shield: off - click to switch on (cheat)",
+            "Off by default. When on, every guided weapon aimed at one of your units has its lock "
+            + "broken every tick, and is taken down once the game flags it as dangerous or it comes "
+            + "inside 2 nm. Guns and rockets are not covered. missile-shield.txt records every "
+            + "weapon it touched.",
+            () => Report(unit, "missile shield", MissileShield.Toggle(out string r), r)),
+            Array.Empty<string>());
+
+        Add(Disabled("Missile shield: " + MissileShield.Describe(),
+            "What the shield is doing right now."), Array.Empty<string>());
+
         return entries;
     }
 
