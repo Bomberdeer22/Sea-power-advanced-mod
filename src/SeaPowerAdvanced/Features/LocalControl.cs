@@ -42,6 +42,8 @@ internal static class LocalControl
             : "local control off"
               + (applied > 0 ? ": " + applied + " system(s) set to " + how : "");
 
+        Multiplayer.Attempt("local control", unit, applied > 0,
+                            record.LocalControl ? "on: " + applied + " system(s)" : "off");
         return applied > 0;
     }
 

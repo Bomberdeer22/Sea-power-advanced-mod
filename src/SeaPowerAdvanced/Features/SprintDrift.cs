@@ -52,6 +52,7 @@ internal static class SprintDrift
                      ? "; the game cavitates this hull above " + quiet.Value.ToString("0.0") + " kts"
                      : "; cavitation threshold not readable on this hull");
 
+        Multiplayer.Attempt("sprint and drift", unit, true, target ? "on" : "off");
         return true;
     }
 

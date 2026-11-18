@@ -120,6 +120,9 @@ internal static class HeloPatterns
         }
 
         report = pushed + " waypoint(s) pushed for a " + pattern + " search from " + Round(origin);
+
+        // Waypoints for a launched helicopter, which the session forwards as the game's own order.
+        Multiplayer.Attempt("threat axis and helicopter patterns", helo, true, report);
         return true;
     }
 

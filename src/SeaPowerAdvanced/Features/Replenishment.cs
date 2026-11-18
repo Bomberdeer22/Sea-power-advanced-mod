@@ -69,6 +69,8 @@ internal static class Replenishment
               + " (fuel transfer is not modelled by this game, so only ammunition moved)"
             : "alongside " + Name(supplier) + " but the game replenished nothing";
 
+        // In a session the host owns the magazine, so what comes back is the host's answer.
+        Multiplayer.Attempt("replenishment", unit, steps.Count > 0, report);
         return steps.Count > 0;
     }
 

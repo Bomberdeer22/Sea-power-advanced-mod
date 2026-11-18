@@ -1,5 +1,42 @@
 # Changelog
 
+## 0.24.0 - a menu that can be read, and a client path that admits what it has not proved
+
+Two debts paid, and neither of them is a new feature.
+
+**The menu.** On a hull that carries a jammer, Sensors was carrying twenty-three entries - not a menu,
+a hunt. There is now one rule, and it is deliberately not "a submenu once a section passes N": a named
+group with **more than one entry** becomes one submenu inside the section it was already going into,
+and everything else is placed exactly as before. So **Radars and sonar** and **ECM** are submenus in
+Sensors, a ship with no ECM grows no ECM submenu at all - a group of one is not a group - and a hull without sonar gets a shorter radar
+submenu rather than a differently shaped one. A feature can never move between one hull and the next
+because of how many sensors it happens to carry, and nothing is ever hidden - if a section is missing,
+the group goes up to Orders with the entries that would have been in it. The decision is made in one
+place, from the entries themselves, and `menu-report.txt` records the section *and* the submenu each
+entry landed in.
+
+**The client.** The multiplayer behaviour used to be prose in three places - a paragraph in the report,
+a sentence in the menu, and whatever each feature did in code - which is the arrangement that lets the
+menu promise something the report denies. It is now a single table in `Interop/Multiplayer.cs`: one row
+per feature, its route into the simulation (ORDER / CALL / READ / LOCAL), and what a client gets. The
+menu's refusal text is generated from that row, the report prints the whole table, and `multiplayer.txt`
+is the reader's copy.
+
+Writing the table down found four paths that were never stated at all, and they are not all fine:
+
+- **Readiness** was writing the reload speed-up (`WeaponSystem._remainingReloadTime`) on clients, where
+  the host's own weapon update reverts it. The weapons posture is still sent; the bonus is now skipped
+  on a client and the menu says why.
+- **Commercial disguise** was writing the hull's signature string on clients, where the host's copy of
+  the ship wins. The radars and the telegraph are still sent; the signature is left to the host.
+- **Breakaway, replenishment, threat axis, helo patterns** were never classified. They now are.
+
+And because a table of intentions is not evidence, **every path a client can act on records itself**
+when it is used - count, unit, whether it reported success - and `multiplayer.txt` closes with how many
+of the twelve are still untried this session. A client that flies three of them shows nine unproven.
+That number is meant to be uncomfortable; it is the only honest way to present code that only a client
+can prove.
+
 ## 0.23.0 - a jammer has channels, and a hold runs out
 
 The player's verdict on the offensive ECM, asked for and answered honestly: the game's own jam is

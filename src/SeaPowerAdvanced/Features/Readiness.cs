@@ -52,7 +52,12 @@ internal static class Readiness
 
         UnitRecord record = UnitState.Of(unit);
         record.GeneralQuarters = on;
-        record.GqReloadBonus = on ? GqBonus : 0f;
+
+        // On a client the reload clock belongs to the host: a shave written here is reverted by the
+        // host's own weapon update, so the bonus is not claimed and not applied. The weapons posture
+        // still goes out as the game's own call, which is the half that can survive a session.
+        bool here = !Multiplayer.IsClient;
+        record.GqReloadBonus = on && here ? GqBonus : 0f;
 
         bool status = false;
         try
@@ -62,10 +67,18 @@ internal static class Readiness
         catch (Exception) { }
 
         report = on
-            ? "action stations: reloads " + (int)(GqBonus * 100) + "% faster while held"
+            ? (here
+                ? "action stations: reloads " + (int)(GqBonus * 100) + "% faster while held"
+                : "action stations: weapons status sent, but the reload speed-up is the host's "
+                  + "clock in a session, so it is not applied here")
               + (status ? "" : " (weapon status not available in this build)")
             : "stood down: cold cruise, fatigue recovering";
 
+        // ok is the weapons status, not "the method returned": that is the only half of readiness a
+        // session can carry, so it is the only half that can be shown as taking.
+        Multiplayer.Attempt("readiness", unit, status, "action stations " + (on ? "on" : "off")
+                                                     + (here ? "" : " (reload speed-up skipped)")
+                                                     + (status ? "" : " (no weapon status in this build)"));
         return true;
     }
 
@@ -126,6 +139,10 @@ internal static class Readiness
                     record.BattleStationsSeconds = Math.Max(0f, record.BattleStationsSeconds - 1f);
                     record.Fatigue = Math.Clamp(record.BattleStationsSeconds / FatigueFullSeconds, 0f, 1f);
                 }
+
+                // Fatigue is still tracked and shown on a client - it is the mod's own model and
+                // costs nothing - but the reload clock it would change is not ours to change.
+                if (Multiplayer.IsClient) continue;
 
                 float net = record.GqReloadBonus - record.Fatigue * FatiguePenalty;
                 AdjustReloads(unit, net);

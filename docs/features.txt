@@ -39,12 +39,33 @@ submenu. There is no mod window and no hotkey.
   Breakaway with chaff and hard rudder
       Where it appears: Top level, one click - it is the emergency button
 
+One rule for submenus
+
+A hull that carries a jammer has a lot to say: on a full ECM hull the Sensors
+section was carrying twenty-three entries, which is a hunt rather than a menu.
+So there is exactly one rule, and it is not a count per section:
+
+  * a named group with more than one entry becomes one submenu inside the
+    section it would have gone into anyway;
+  * every group of one, and every ungrouped entry, is placed exactly as
+    before.
+
+Today there are two such groups, both in Sensors: Radars and sonar (radars
+on/off, air search only, surface search only, active sonar, the towed array)
+and ECM (auto-ARM, defensive ECM, offensive ECM, the lock list, the channel
+line, what this build exposes). A ship with no ECM gets no ECM submenu - a
+group of one is not a group - and a hull without sonar gets a shorter radar
+submenu, not a differently shaped menu. Nothing moves between one hull and the
+next because of how many sensors it happens to carry.
+
 Sections are found by keyword at runtime, because the game's exact menu labels
-are not in the API dump. If a section is missing in your build, the entry
-moves up to Orders rather than disappearing, and capabilities.txt lists the
-section labels that were actually found - so the routing can be corrected from
-a single log rather than a guess. This document says what each one does, which
-game member it drives, and - where it matters - what it honestly cannot do.
+are not in the API dump. If a section is missing in your build, the entry -
+and the submenu it belongs to - moves up to Orders rather than disappearing,
+and capabilities.txt lists the section labels that were actually found, so the
+routing can be corrected from a single log rather than a guess. menu-
+report.txt records which section and submenu each entry landed in for the last
+menu the mod built. This document says what each one does, which game member
+it drives, and - where it matters - what it honestly cannot do.
 
 HOW TO TEST THEM
 ----------------
@@ -528,35 +549,136 @@ breaks if it is not installed.
 multiplayer.txt in the mod folder says what was found and which rules followed
 from it. It is rewritten when a session comes up or ends.
 
-Three of the multiplayer mod's rules matter here:
+Every feature, and what a client gets
 
-  It throttles radar switches to one per ship per radar group per 10 seconds, and a throttled switch does not move locally either
-      What it does to this mod: Radar blink raises its half-cycle to 12
-        seconds in a session, whatever BlinkSeconds says. A six second blink
-        would lose every second flip and leave the radar stuck
+There is one table, in the mod itself (Interop/Multiplayer.cs), and it is the
+only place these decisions are written down. Each feature is one row: how it
+reaches the simulation, and therefore what happens when this machine is the
+client. The menu's refusal text, the report, and the features themselves all
+read that row, so they cannot contradict each other. The whole table is
+printed in multiplayer.txt every time it is written - read it there rather
+than trusting this page to stay in step.
 
-  The client does not decide its own emissions - the host's radar picture is re-imposed every frame
-      What it does to this mod: Radar blink checks each flip four seconds
-        later. If the switch did not take, the blink stops itself and says so
-        rather than pretending. Auto-ARM and defensive ECM are not offered on
-        a client at all, and the menu says why
+Four routes, and the route is what decides everything:
 
-  Jamming is an order the host runs, not a member write
-      What it does to this mod: Offensive ECM issues the game's own jam
-        order on the host and on a client alike, which is exactly what the
-        multiplayer mod forwards. The switch-off half is not attempted from a
-        client: the target is simulated on the host, so there is nothing there
-        to switch off, and the menu says so instead of offering the click
+  ORDER
+      Meaning: the game's own order (a jam, a waypoint, a launch)
+      On a client: sent; the multiplayer mod forwards it, and the host runs
+        the game's own task
 
-What still works everywhere:
+  CALL
+      Meaning: a call on the game's own object (a sensor switch, a weapon
+        status, a doctrine flag)
+      On a client: sent, and the host may accept or override it. The mod
+        records what was sent; the report says so
 
-  * Everything on the host, and in single player without a change: this
-    machine simulates the world.
-  * The ECM cones - they draw from whatever jamming the game reports on this
-    machine, including jamming the session replicated in from the other side.
-  * The menus, hatches, salvo planner, readiness, formations, helo patterns -
-    these go through the game's own orders, which the multiplayer mod already
-    forwards.
+  READ
+      Meaning: reads the game's state and draws it
+      On a client: unchanged - it shows what this machine knows
+
+  LOCAL
+      Meaning: the mod's own write, to state the host simulates
+      On a client: not attempted: the host reverts it within a frame, so the
+        menu says why instead of offering a click that cannot work
+
+Ordered by the feature you would click:
+
+  Radars and sonar switches
+      Route: CALL
+      On a client: sent, and the session throttles a repeat toggle on the
+        same set within ten seconds. A throttled toggle does not move locally
+        either, so a label can take a moment to catch up
+
+  Radar blink
+      Route: CALL
+      On a client: half-cycle raised to at least 12 seconds so the throttle
+        does not eat a flip; each flip is checked four seconds later, and a
+        flip the host refused stops the blink instead of pretending
+
+  Auto-ARM shutoff
+      Route: LOCAL
+      On a client: not offered: the host decides when a ship radiates, and a
+        cut written here is reverted
+
+  Defensive ECM
+      Route: LOCAL
+      On a client: not offered: weapons are simulated by the host, so
+        missile defence has to be armed there
+
+  Offensive ECM jam
+      Route: ORDER
+      On a client: sent; the host runs the game's own jam task
+
+  Offensive ECM suppression (holding a target's own sets down)
+      Route: LOCAL
+      On a client: not attempted: the target is simulated by the host, so
+        there is nothing here to switch off. The jam order still works
+
+  ECM cones
+      Route: READ
+      On a client: unchanged - draws what this machine knows, including
+        jamming replicated in
+
+  Hatch control
+      Route: CALL
+      On a client: this machine's model only; the host's own launch sequence
+        still opens what it needs
+
+  Salvo deconfliction
+      Route: CALL
+      On a client: sent per ship; whether the host adopts it is the host's
+        answer
+
+  Readiness (action stations)
+      Route: CALL
+      On a client: the weapons status is sent; the reload speed-up is
+        skipped, because the reload clock belongs to the host
+
+  Commercial disguise
+      Route: CALL
+      On a client: radars and telegraph are sent; the signature string is
+        skipped, because the host owns the ship's own data
+
+  Local control
+      Route: CALL
+      On a client: sent; the host decides whether a mount actually goes to
+        local control
+
+  Sprint and drift
+      Route: CALL
+      On a client: sent; the host runs the doctrine it accepts
+
+  Breakaway
+      Route: CALL
+      On a client: sent; the host decides the ship's course, so treat the
+        turn as a request in a session
+
+  Threat axis, helicopter patterns
+      Route: ORDER
+      On a client: sent as the game's own waypoints and launches, which the
+        multiplayer mod forwards
+
+  Replenishment
+      Route: CALL
+      On a client: sent; the host decides what a magazine actually takes on
+
+Proving it, one path at a time
+
+This is the least-exercised code in the mod, because only a client can prove
+it, and a table of intentions is not evidence. So every one of those paths
+records itself: when a feature is used, the mod writes down that it was tried,
+on which unit, and whether it reported success. multiplayer.txt ends with that
+list, plus a count of how many paths a client can actually take are still
+untried this session. Twelve of the sixteen rows are paths a client acts on -
+the three LOCAL ones are refused before anything is written and the READ one
+writes nothing, so counting them as "untried" would overstate the work left. A
+session that exercised three of the twelve shows nine unproven, rather than
+implying that twelve work.
+
+That is deliberate: the numbers are meant to be uncomfortable until somebody
+flies a client through them. If a path reports "no effect" in a real session,
+that is the answer - the row is wrong, and the fix belongs in the table, not
+in a comment.
 
 Two limits worth stating plainly, because a player will otherwise read them as
 bugs:

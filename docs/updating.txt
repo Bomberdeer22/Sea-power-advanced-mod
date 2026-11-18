@@ -64,12 +64,12 @@ In this order, because each one knows it more directly than the next:
 
   The mod's own log
       Where: ...\seapoweradvanced.log, the ================ Sea Power
-        Advanced 0.23.0 ================ banner
+        Advanced 0.24.0 ================ banner
       When it is there: Every install that has been started at least once.
         The last banner is the build that actually ran
 
   BepInEx's log
-      Where: BepInEx\LogOutput.log, Loading [Sea Power Advanced 0.23.0]
+      Where: BepInEx\LogOutput.log, Loading [Sea Power Advanced 0.24.0]
       When it is there: Any install the game has loaded
 
   nothing
@@ -174,6 +174,13 @@ explains the version jump rather than just announcing it.
       On disk: nothing - all in the DLL. New settings appear with defaults
         (EcmJamChannels 2, EcmJamHoldSeconds 60, EcmJamRecoverySeconds 15) and
         are read on the first start
+      What update.cmd does: note only
+
+  < 0.24.0
+      Release: the Sensors menu is two submenus (Radars and sonar, ECM)
+        instead of twenty-odd entries, and every multiplayer client path is
+        declared in one table and reports whether it was tried
+      On disk: nothing - all in the DLL, and no setting changes meaning
       What update.cmd does: note only
 
   every release

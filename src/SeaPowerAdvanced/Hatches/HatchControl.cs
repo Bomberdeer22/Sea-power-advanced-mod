@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using SeaPower;
+using SeaPowerAdvanced.Interop;
 
 namespace SeaPowerAdvanced.Hatches;
 
@@ -108,10 +109,16 @@ internal static class HatchControl
             // The mount has cells the player can drive: it responded, even if a cell was already
             // in the requested state (openHatches/closeHatches report false for that case).
             report = $"{cells} cell{(cells == 1 ? "" : "s")} {(open ? "opened" : "closed")}";
+
+            // A hatch is this machine's model, so this record is what a client session points at
+            // when the lid moves on one screen and not the other.
+            Multiplayer.Attempt("hatch control", null, true, report);
             return true;
         }
 
-        return TryMountCover(group, open, out report);
+        bool covered = TryMountCover(group, open, out report);
+        Multiplayer.Attempt("hatch control", null, covered, report);
+        return covered;
     }
 
     /// <summary>The mount-level cover, for launchers whose one lid covers every cell.</summary>
