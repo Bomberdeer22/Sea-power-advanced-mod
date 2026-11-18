@@ -62,6 +62,25 @@ internal static class Multiplayer
     private static MemberInfo? networkInstanceMember;
     private static MemberInfo? establishedMember;
 
+    // --- who commands which ship ----------------------------------------------------------------
+
+    /// <summary>
+    /// The two rules the multiplayer mod already keeps, read rather than re-invented.
+    ///
+    /// <c>SeapowerMultiplayer.UnitLockManager.BlocksOrdersFor(ObjectBase)</c> is the co-op lock: the
+    /// other player has claimed this unit, and the mod itself refuses orders for it. Its own comment
+    /// says every order path used to re-implement that check and one of them forgot - which is
+    /// exactly the mistake this file is not going to make.
+    ///
+    /// <c>SeapowerMultiplayer.TaskforceAssignmentManager.ClientMayControl(ObjectBase)</c> is the
+    /// host's task-force assignment: a client given one task force may not order another's units.
+    /// </summary>
+    private static MethodInfo? blocksOrders;
+    private static MethodInfo? mayControl;
+    private static MethodInfo? lockedByRemote;
+    private static Type? lockType;
+    private static Type? assignmentType;
+
     /// <summary>Something the player should be told, once: a switch the session refused, an ECM
     /// order it could not carry. Written to <c>multiplayer.txt</c>.</summary>
     private static string lastNote = "nothing yet";
@@ -279,6 +298,53 @@ internal static class Multiplayer
                 text.AppendLine();
             }
 
+            text.AppendLine("Who commands what");
+            text.AppendLine("------------------");
+            text.AppendLine("  ownership rule: "
+                            + (!InSession
+                                ? "not needed - with no session up every unit here is this machine's"
+                                : OwnershipReadable
+                                    ? "read from the multiplayer mod ("
+                                      + (blocksOrders != null ? "UnitLockManager.BlocksOrdersFor" : "")
+                                      + (blocksOrders != null && mayControl != null ? " + " : "")
+                                      + (mayControl != null
+                                          ? "TaskforceAssignmentManager.ClientMayControl" : "")
+                                      + ")"
+                                    : "NOT READABLE - this build of the multiplayer mod publishes "
+                                      + "no rule the mod can read"));
+            text.AppendLine("  this machine: " + (IsAuthority
+                                ? "the authority - it acts on everything"
+                                : "a client - defensive and offensive ECM act only on the ships this "
+                                  + "client commands"));
+
+            if (InSession)
+            {
+                int mine = 0;
+                int theirs = 0;
+
+                try
+                {
+                    foreach (ObjectBase ship in Features.FleetTicker.Tracked())
+                    {
+                        if (Commands(ship, out _)) mine++;
+                        else theirs++;
+                    }
+                }
+                catch (Exception) { }
+
+                text.AppendLine("  the fleet:    " + mine + " ship(s) this machine commands, "
+                                + theirs + " it does not");
+
+                if (theirs > 0)
+                {
+                    text.AppendLine("                Those " + theirs + " are never armed, engaged, "
+                                    + "jammed or held by this");
+                    text.AppendLine("                machine, whatever the menu was used for on the "
+                                    + "other screen.");
+                }
+            }
+
+            text.AppendLine();
             text.AppendLine("Every feature, by how it reaches the simulation");
             text.AppendLine("---------------------------------------------");
             text.AppendLine("  ORDER = the game's own order, forwarded by the multiplayer mod");
@@ -457,9 +523,20 @@ internal static class Multiplayer
             "not offered: weapons are simulated by the host, so missile defence has to be armed "
             + "there"),
 
+        new("defensive ECM on someone else's ship", Route.Local,
+            "the same jam assignments, on a hull this client does not command",
+            "refused everywhere, host or client: in a co-op session the fleet list holds the other "
+            + "player's ships, and arming one from here put their ship on the air without them asking. "
+            + "Arming a whole task force also needs a readable ownership rule, or it is refused"),
+
         new("offensive ECM jam", Route.Order,
             "the game's own jam order, unit or bearing form",
             "sent, and the multiplayer mod forwards it; the host runs the game's own jam task"),
+
+        new("offensive ECM on someone else's ship", Route.Local,
+            "the game's own jam order, issued for a hull this client does not command",
+            "refused: the contact menu picks the nearest jammer, and the nearest one may be the other "
+            + "player's ship. Their jammer is theirs to task"),
 
         new("offensive ECM suppression", Route.Local,
             "the target's own sensor switches",
@@ -652,6 +729,15 @@ internal static class Multiplayer
             // missing - and a detection failure there must not cost the session check.
             networkType = plugin.Assembly.GetType("SeapowerMultiplayer.NetworkManager", false);
 
+            // The ownership rules, by the names the multiplayer mod publishes them under. Missing is
+            // a supported answer - an older or newer build of that mod - and it is reported.
+            lockType = plugin.Assembly.GetType("SeapowerMultiplayer.UnitLockManager", false);
+            assignmentType = plugin.Assembly.GetType("SeapowerMultiplayer.TaskforceAssignmentManager", false);
+
+            blocksOrders = StaticBool(lockType, "BlocksOrdersFor", typeof(ObjectBase));
+            mayControl = StaticBool(assignmentType, "ClientMayControl", typeof(ObjectBase));
+            lockedByRemote = StaticBool(lockType, "IsLockedByRemote", typeof(int));
+
             if (networkType == null)
             {
                 try
@@ -706,6 +792,142 @@ internal static class Multiplayer
                        BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Static);
         }
         catch (Exception) { return null; }
+    }
+
+    /// <summary>A public static bool method taking one parameter of the given type, by name.</summary>
+    private static MethodInfo? StaticBool(Type? type, string name, Type parameter)
+    {
+        if (type == null) return null;
+
+        try
+        {
+            MethodInfo? method = type.GetMethod(name,
+                BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Static);
+
+            if (method == null || method.ReturnType != typeof(bool)) return null;
+
+            ParameterInfo[] parameters = method.GetParameters();
+            if (parameters.Length != 1) return null;
+            if (!parameters[0].ParameterType.IsAssignableFrom(parameter)) return null;
+
+            return method;
+        }
+        catch (Exception) { return null; }
+    }
+
+    /// <summary>
+    /// Whether the session's ownership rule could be read at all. False means the multiplayer mod is
+    /// present but this build does not publish the members that say who controls what - in which case
+    /// a fleet-wide action would be a guess, and this mod does not guess with other people's ships.
+    /// </summary>
+    internal static bool OwnershipReadable
+    {
+        get
+        {
+            Scan();
+            return blocksOrders != null || mayControl != null;
+        }
+    }
+
+    /// <summary>
+    /// Whether this machine may act on this unit: in single player or on the host, everything of ours
+    /// is ours; in a session, only what the session says this machine commands.
+    ///
+    /// <paramref name="why"/> says which rule answered, in a sentence a player can act on, and it is
+    /// what the menu shows instead of an entry that would do nothing.
+    /// </summary>
+    internal static bool Commands(ObjectBase? unit, out string why)
+    {
+        why = "no unit";
+        if (unit == null) return false;
+
+        Scan();
+
+        if (!InSession)
+        {
+            why = "no session - every unit here is this machine's";
+            return true;
+        }
+
+        bool ours;
+        try { ours = unit.IsPlayerUnit; }
+        catch (Exception) { ours = true; }
+
+        if (!ours)
+        {
+            why = "it is not one of ours";
+            return false;
+        }
+
+        if (blocksOrders != null)
+        {
+            try
+            {
+                if (blocksOrders.Invoke(null, new object?[] { unit }) is bool blocked && blocked)
+                {
+                    why = "the other player has claimed it in this co-op session, and the "
+                          + "multiplayer mod refuses orders for it (UnitLockManager)";
+                    return false;
+                }
+            }
+            catch (Exception) { }
+        }
+
+        if (mayControl != null)
+        {
+            try
+            {
+                if (mayControl.Invoke(null, new object?[] { unit }) is bool may && !may)
+                {
+                    why = "this client is assigned a different task force, so its orders do not "
+                          + "belong here (TaskforceAssignmentManager)";
+                    return false;
+                }
+            }
+            catch (Exception) { }
+        }
+
+        why = OwnershipReadable
+            ? "this client commands it"
+            : "the session publishes no ownership rule the mod can read, so this is taken to be this "
+              + "client's";
+        return true;
+    }
+
+    /// <summary>
+    /// Whether a fleet-wide action may run here. Per-ship entries are the player clicking a ship they
+    /// can see, which is evidence enough; "every ship I have" is not, unless the session can say which
+    /// of them are mine.
+    /// </summary>
+    internal static bool CanActFleetWide(out string why)
+    {
+        Scan();
+
+        if (!InSession)
+        {
+            why = "no session";
+            return true;
+        }
+
+        if (OwnershipReadable)
+        {
+            why = "the session's ownership rule is readable";
+            return true;
+        }
+
+        why = "this build of the multiplayer mod publishes no ownership rule the mod can read, so a "
+              + "fleet-wide action cannot tell your ships from the other player's. Do it ship by ship";
+        return false;
+    }
+
+    /// <summary>
+    /// The name of a unit for the report's "who commands what" counts, or a type name if the unit
+    /// will not say.
+    /// </summary>
+    private static string Name(ObjectBase unit)
+    {
+        try { return unit.DisplayNameShort; }
+        catch (Exception) { return unit.GetType().Name; }
     }
 
     private static object? ReadStatic(Type? type, MemberInfo? member)

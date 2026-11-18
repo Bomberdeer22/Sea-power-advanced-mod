@@ -321,6 +321,14 @@ internal static class OffensiveEcm
             return false;
         }
 
+        // Arming a mode is a command to that ship, so it has to be this machine's ship.
+        if (!Multiplayer.Commands(unit, out string notMine))
+        {
+            report = Name(unit) + " is not this machine's to command: " + notMine;
+            ModLog.Warn("Offensive ECM: " + report);
+            return false;
+        }
+
         Modes[unit] = mode;
 
         if (mode == Mode.Standard)
@@ -600,6 +608,16 @@ internal static class OffensiveEcm
             return false;
         }
 
+        // Only a ship this machine commands. In a co-op session the fleet list holds the other
+        // player's ships too, and a jam ordered for one of those is a jam that player did not ask
+        // for and cannot see the reason for.
+        if (!Multiplayer.Commands(ship, out string notMine))
+        {
+            report = Name(ship) + " is not this machine's to command: " + notMine;
+            ModLog.Warn("Offensive ECM: " + report);
+            return false;
+        }
+
         double range = SafeRange(Position(ship), target);
         double reach = Reach(target);
 
@@ -743,6 +761,9 @@ internal static class OffensiveEcm
             {
                 if (!OffensiveJam.HasEcm(ship)) continue;
 
+                // Somebody else's ship is not a jammer this client can task, however close it is.
+                if (!Multiplayer.Commands(ship, out _)) continue;
+
                 double range = SafeRange(Position(ship), contact);
                 if (range > reach || range >= bestRange) continue;
 
@@ -774,6 +795,12 @@ internal static class OffensiveEcm
         if (ship == null || !Held.TryGetValue(ship, out Hold hold) || hold.Target == null)
         {
             report = "no lock to jam - lock a contact first";
+            return false;
+        }
+
+        if (!Multiplayer.Commands(ship, out string notMineJam))
+        {
+            report = Name(ship) + " is not this machine's to command: " + notMineJam;
             return false;
         }
 
@@ -926,6 +953,12 @@ internal static class OffensiveEcm
             return false;
         }
 
+        if (!Multiplayer.Commands(ship, out string notMineStop))
+        {
+            report = Name(ship) + " is not this machine's to command: " + notMineStop;
+            return false;
+        }
+
         // Only the second half is stopped here. The game's own jam belongs to the lock and keeps
         // running - "release" is the order that takes it down.
         //
@@ -988,6 +1021,17 @@ internal static class OffensiveEcm
         report = "";
 
         if (ship == null || !Held.TryGetValue(ship, out Hold hold)) return false;
+
+        if (!Multiplayer.Commands(ship, out string notMineRelease))
+        {
+            // The local record still goes: holding a lock for a ship this machine may not command
+            // would leave the mod counting a suppression channel for a jam it can never stop. The
+            // game's own jam task is the other client's to release.
+            Held.Remove(ship);
+            ModLog.Warn("Offensive ECM: lock dropped here without touching the ship - " + notMineRelease);
+            report = "dropped this machine's lock without touching the ship: " + notMineRelease;
+            return true;
+        }
 
         string target = Name(hold.Target);
 

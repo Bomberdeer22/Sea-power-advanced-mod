@@ -92,6 +92,11 @@ picture, which is why it is off by default and opt-in per ship.
 Every ship that carries a jammer also defends itself and its formation with it, without being
 asked twice.
 
+**Arming it is a deliberate act on a ship you command - never automatic.** Nothing in the mod arms
+defensive ECM on its own: the two menu entries are the only way in, and both refuse a hull that is not
+this machine's to command (see the multiplayer section, §2e). A ship that stops being yours is
+disarmed on the next tick.
+
 **"Carries a jammer" is read from the ship, not assumed from its shape.** A jammer is one entry in a
 hull's own sensor list, so the mod asks that ship's list and takes the answer - and the answer "none"
 is an answer. A **Huak class**, with a radar and an RWR and no set, therefore gets no ECM entries at
@@ -371,6 +376,30 @@ Ordered by the feature you would click:
 | Breakaway | CALL | sent; the host decides the ship's course, so treat the turn as a request in a session |
 | Threat axis, helicopter patterns | ORDER | sent as the game's own waypoints and launches, which the multiplayer mod forwards |
 | Replenishment | CALL | sent; the host decides what a magazine actually takes on |
+
+### Yours is yours: one client cannot switch another's ECM on
+
+The fleet list on a co-op client holds **every friendly ship on that side**, including the ones the
+other player commands. Everything in this mod that arms, engages, jams or holds acts **only on ships
+this machine commands**, and the answer comes from the multiplayer mod's own rules rather than from a
+guess:
+
+| Rule, as the multiplayer mod publishes it | What this mod does with it |
+|---|---|
+| `UnitLockManager.BlocksOrdersFor(unit)` - the other player has claimed this unit, and that mod refuses every order for it | **touches nothing on it**: no arming, no jam, no hold, no mode change. The menu says whose ship it is |
+| `TaskforceAssignmentManager.ClientMayControl(unit)` - the host assigned this client a particular task force | the same: a ship outside the assignment is not this client's to task |
+| neither readable (an older or newer build of that mod) | per-ship clicks still work - the player is clicking a ship they can see - but **fleet-wide arming is refused**, because "all my ships" cannot be told from "everybody's ships" |
+
+That closes the specific bug behind this: *arm the whole task force* used to arm **every** friendly
+hull, including the other player's command. The other client then saw its own ships' radars come on
+and their jammers transmit with nobody having asked - defensive ECM appearing to switch itself on.
+A ship this machine no longer commands is **disarmed on the next tick** and the log says why, so an
+old arming cannot survive a change of hands either.
+
+And **nothing arms defensive ECM except a click**: the per-ship entry, or *for the whole task force*.
+There is no automatic arming path in the mod - the feature only ever arms what the player pointed at.
+`ecm-report.txt` carries the audit: how many ships are armed here, and how many of those this machine
+does **not** command (which should be zero, and is the number to send if it ever is not).
 
 ### Proving it, one path at a time
 

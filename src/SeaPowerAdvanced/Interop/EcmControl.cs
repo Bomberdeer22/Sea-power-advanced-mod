@@ -529,6 +529,36 @@ internal static class EcmControl
             if (TypeHits.Count == 0) text.AppendLine("  (none)");
             foreach (string hit in TypeHits) text.AppendLine("  " + hit);
             text.AppendLine();
+            text.AppendLine("Defensive ECM arming - who switched it on");
+            text.AppendLine("------------------------------------------");
+
+            int armedHere = 0;
+            int armedNotMine = 0;
+
+            try
+            {
+                foreach (ObjectBase ship in FleetTicker.Tracked())
+                {
+                    if (!DefensiveEcm.IsArmed(ship)) continue;
+
+                    armedHere++;
+
+                    if (!Multiplayer.Commands(ship, out _)) armedNotMine++;
+                }
+            }
+            catch (Exception) { }
+
+            text.AppendLine("  armed on " + armedHere + " ship(s) of this fleet");
+            text.AppendLine("  armed on " + armedNotMine + " ship(s) this machine does not command"
+                            + (armedNotMine > 0
+                                ? " - that should be zero, and means the ownership rule is not being"
+                                  + " applied. Send this file"
+                                : ""));
+            text.AppendLine("  Nothing arms this feature except the two menu entries: this ship, or");
+            text.AppendLine("  the whole task force. There is no automatic arming path in the mod, and");
+            text.AppendLine("  a ship that stops being this machine's is disarmed on the next tick.");
+
+            text.AppendLine();
             text.AppendLine("Jammer fit by hull, from each ship's own sensor list");
             text.AppendLine("--------------------------------------------------");
 

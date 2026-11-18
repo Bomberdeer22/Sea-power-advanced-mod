@@ -2,9 +2,10 @@
 
 ## 0.24.0 - a menu that can be read, and a client path that admits what it has not proved
 
-Two debts paid, and neither of them is a new feature. A bug report against a Huak class came in
-while they were being paid, and it is fixed here too - see *a ship with no jammer is no longer
-given one* at the end of this section.
+Two debts paid, and neither of them is a new feature. Two reports from a live session came in
+while they were being paid, and both are fixed here as well: a hull with **no jammer** being
+given one (a Huak class), and **one client switching another client's ECM on** - which is why
+defensive ECM appeared to arm itself. Those are the two sections after this one.
 
 **The menu.** On a hull that carries a jammer, Sensors was carrying twenty-three entries - not a menu,
 a hunt. There is now one rule, and it is deliberately not "a submenu once a section passes N": a named
@@ -77,6 +78,37 @@ Two consequences worth stating rather than discovering:
   is driven by the jammer's lock on the missile; without a set there is no lock to break.
 - **Arming the whole task force now reports what it skipped**, and disarms a ship that was armed by an
   earlier build instead of leaving it armed and silently doing nothing.
+
+### One client can no longer switch another client's ECM on
+
+The second half of the report from the same session. Two things were happening at once:
+
+- **Arming the whole task force armed everybody's ships.** The fleet list on a co-op client holds
+  every friendly hull on that side, including the other player's command, and *Defensive ECM for the
+  whole task force* walked all of them.
+- **Which is why defensive ECM looked like it turned itself on.** The other player's screen showed
+  their own ships' radar and jammer come on with nobody having clicked anything on that machine - the
+  click had happened on yours.
+
+The fix is the ownership rule the multiplayer mod already keeps, read rather than re-invented:
+
+- **`UnitLockManager.BlocksOrdersFor(unit)`** - the other player has claimed that hull and the
+  multiplayer mod refuses orders for it. Every ECM path here now asks the same question first:
+  arming, engaging, jamming, holding, releasing, changing mode, and picking a jammer from the contact
+  menu.
+- **`TaskforceAssignmentManager.ClientMayControl(unit)`** - a client assigned one task force does not
+  get to task another's ships. Same gate.
+- **Neither readable** (older or newer build of that mod): per-ship clicks still work, because the
+  player is clicking a ship on their own screen, but **fleet-wide arming is refused** with that
+  reason rather than guessed at.
+
+A ship this machine no longer commands is **disarmed on the next tick** and the log says so, so an
+arm recorded before the other player claimed the hull cannot survive the handover.
+
+And a direct answer to "defensive ECM turns on by itself": **it cannot**. There is no automatic arming
+path in the mod - the two menu entries are the only way in - and `ecm-report.txt` now carries the
+audit: how many ships are armed, and how many of those this machine does **not** command. That second
+number should always be zero; if it is not, that file is the bug report.
 
 ## 0.23.0 - a jammer has channels, and a hold runs out
 

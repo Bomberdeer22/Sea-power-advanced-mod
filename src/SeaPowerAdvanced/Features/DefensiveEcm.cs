@@ -82,15 +82,27 @@ internal static class DefensiveEcm
 
         UnitRecord record = UnitState.Of(unit);
 
-        // Disarming is always allowed, whatever the fit says: a ship armed by an earlier build - when
-        // anything that was not a submarine counted as having a jammer - must be able to be stood
-        // down, and the ticker stands those down by itself anyway.
+        // Not this machine's ship, not this machine's decision. In a co-op session the other player
+        // can claim a hull, and the multiplayer mod refuses every order for it; arming its jammer
+        // from here would put that player's ship on the air and leave them wondering why.
+        bool mine = Multiplayer.Commands(unit, out string notMine);
+
+        // Disarming is always allowed, whatever the fit or the ownership says: a ship armed by an
+        // earlier build - or by an earlier client, which is the bug this replaced - must be able to be
+        // stood down, and the ticker stands those down by itself anyway.
         if (record.DefensiveEcm)
         {
             record.DefensiveEcm = false;
             if (record.EcmEngaged) Stop(unit, record, "disarmed");
             report = "defensive ECM off";
             return true;
+        }
+
+        if (!mine)
+        {
+            report = Name(unit) + " is not this machine's to command: " + notMine;
+            ModLog.Warn("Defensive ECM: " + report);
+            return false;
         }
 
         // A hull with no jammer cannot defend with one. This is the check that was missing: the
@@ -121,6 +133,7 @@ internal static class DefensiveEcm
     {
         int changed = 0;
         int unreadable = 0;
+        int others = 0;
 
         // Same reason as Toggle: the host decides missile defence in a session.
         string? refused = Multiplayer.RefusedTo("Defensive ECM");
@@ -128,6 +141,15 @@ internal static class DefensiveEcm
         {
             report = refused;
             ModLog.Warn("Defensive ECM: " + refused);
+            return 0;
+        }
+
+        // Arming "my fleet" is only meaningful if the session can say which ships are mine. Disarming
+        // is always allowed - a ship armed from the wrong client has to be able to be stood down.
+        if (on && !Multiplayer.CanActFleetWide(out string fleetWhy))
+        {
+            report = "defensive ECM not armed across the task force: " + fleetWhy;
+            ModLog.Warn("Defensive ECM: " + report);
             return 0;
         }
 
@@ -146,6 +168,18 @@ internal static class DefensiveEcm
                     record.DefensiveEcm = false;
                     if (record.EcmEngaged) Stop(ship, record, "task force disarmed");
                     changed++;
+                    continue;
+                }
+
+                // Only this machine's ships. The fleet list is every friendly hull on this side, and
+                // in co-op that includes the other player's command: arming those from here is how
+                // one client switched another client's defensive ECM on without being asked.
+                if (!Multiplayer.Commands(ship, out string notMine))
+                {
+                    others++;
+                    if (ModSettings.VerboseLog)
+                        ModLog.Info("Defensive ECM: " + Name(ship) + " left alone - " + notMine);
+
                     continue;
                 }
 
@@ -178,6 +212,9 @@ internal static class DefensiveEcm
         report = (on ? "defensive ECM armed on " : "defensive ECM disarmed on ") + changed
                  + " ship(s)" + (on && unreadable > 0
                      ? ", " + unreadable + " skipped: their sensor fit could not be read"
+                     : "")
+                 + (on && others > 0
+                     ? ", " + others + " left alone: not this machine's to command"
                      : "");
         return changed;
     }
@@ -206,6 +243,18 @@ internal static class DefensiveEcm
                 if (!record.DefensiveEcm)
                 {
                     if (record.EcmEngaged) Stop(ship, record, "defensive ECM was off");
+                    continue;
+                }
+
+                // Armed, but no longer ours to command - the other player has claimed it, or this
+                // client was never the one that should have armed it. Stand it down here rather than
+                // keep working somebody else's ship. This is the guard that stops one client turning
+                // another client's defensive ECM on and leaving it running.
+                if (!Multiplayer.Commands(ship, out string notMine))
+                {
+                    if (record.EcmEngaged) Stop(ship, record, "not this machine's to command");
+                    record.DefensiveEcm = false;
+                    ModLog.Warn("Defensive ECM: " + Name(ship) + " disarmed - " + notMine);
                     continue;
                 }
 

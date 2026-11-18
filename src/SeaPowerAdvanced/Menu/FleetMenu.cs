@@ -433,6 +433,19 @@ internal static class FleetMenu
         OffensiveJam.JammerFit fit = UnitFit.EcmFit(unit, out string fitEvidence);
         bool carriesEcm = fit != OffensiveJam.JammerFit.None;
 
+        // And only on a ship this machine commands. In a co-op session the fleet holds the other
+        // player's ships as well, and a menu that arms their jammer is how one client switched
+        // another client's defensive ECM on. One line says whose the ship is instead.
+        bool commands = Multiplayer.Commands(unit, out string notMine);
+
+        if (!commands)
+        {
+            Grouped(EcmGroup, Disabled("ECM: this ship is not this machine's to command",
+                notMine + "."), MenuRouting.Sensors);
+
+            carriesEcm = false;
+        }
+
         if (carriesEcm && fit != OffensiveJam.JammerFit.Fitted)
         {
             Grouped(EcmGroup, Disabled("ECM: this hull's jammer fit could not be read",
@@ -747,7 +760,10 @@ internal static class FleetMenu
         {
             try
             {
-                if (OffensiveJam.HasEcm(ship)) return ship;
+                if (!OffensiveJam.HasEcm(ship)) continue;
+                if (!Multiplayer.Commands(ship, out _)) continue;
+
+                return ship;
             }
             catch (Exception) { }
         }

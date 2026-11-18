@@ -312,6 +312,18 @@ mod folder is the file that answers everything below.
       clock; the label does not claim a faster reload
 - [ ] **Commercial disguise** on a client says `signature left to the host` and still sends the
       radars and the telegraph
+- [ ] **Neither client arms the other's ECM.** In a co-op session with ships split between the two
+      players: on client A, *Defensive ECM for the whole task force* reports `N left alone: not this
+      machine's to command`, and player B's ships do **not** start radiating or jamming. Right-click
+      one of B's ships on A's screen and the ECM submenu holds one line, *this ship is not this
+      machine's to command*, with no switches in it
+- [ ] **Contact menu jam picks only your own ship**: with the nearest ECM hull belonging to the other
+      player, *Jam with ECM* either names one of yours or says no ship of ours with ECM is in range
+- [ ] **Defensive ECM never arms itself.** Start a session, take a missile, and without touching the
+      menu `ecm-report.txt` should keep reading `armed on 0 ship(s)`. If it ever reads otherwise,
+      that file is the bug report
+- [ ] `multiplayer.txt` has a **who commands what** block: the ownership rule that was found, this
+      machine's side, and `the fleet: N ships this machine commands, M it does not`
 - [ ] `multiplayer.txt` ends with **what has actually been tried on this machine**: one line per
       feature used, with a count, the unit, and whether it took - plus how many paths are still
       untried. Click a few features, reopen the file, and watch those numbers move. The untried
