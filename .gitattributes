@@ -1,0 +1,17 @@
+# Windows scripts must keep CRLF endings or cmd.exe mis-parses labels and echoes.
+*.cmd text eol=crlf
+*.bat text eol=crlf
+*.ps1 text eol=crlf
+
+# Bash scripts must keep LF endings or they fail with "bad interpreter".
+*.sh text eol=lf
+
+# Everything else: normalise to LF in the repository.
+*.cs text eol=lf
+*.csproj text eol=lf
+*.props text eol=lf
+*.example text eol=lf
+*.md text eol=lf
+*.ini text eol=lf
+*.py text eol=lf
+*.json text eol=lf

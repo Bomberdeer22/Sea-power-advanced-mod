@@ -1,0 +1,36 @@
+name: checks
+
+# What can run without the game. The mod itself is compiled against the player's own
+# Seapower-Scripts.dll, which is not in this repository and is not redistributable, so a CI build
+# would prove nothing - the DLL it produced would be for a game version nobody has. These checks
+# are the ones that catch the mistakes that have actually broken builds: a missing using, a member
+# that no longer exists, a batch label that does not resolve, a version number left behind in one
+# document, and a .txt copy that no longer matches the Markdown it came from.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  checks:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Source checks
+        run: python3 tools/check-source.py
+
+      - name: Batch-file checks
+        run: python3 tools/check-batch.py
+
+      - name: Version numbers agree
+        run: python3 tools/check-versions.py
+
+      - name: Plain-text copies are current
+        run: python3 tools/check-docs.py

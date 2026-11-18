@@ -1,0 +1,74 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>netstandard2.1</TargetFramework>
+    <AssemblyName>SeaPowerAdvanced</AssemblyName>
+    <RootNamespace>SeaPowerAdvanced</RootNamespace>
+    <LangVersion>latest</LangVersion>
+    <Nullable>enable</Nullable>
+    <AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
+    <GenerateDependencyFile>false</GenerateDependencyFile>
+    <DebugType>none</DebugType>
+    <Version>0.23.0</Version>
+    <AssemblyVersion>0.23.0.0</AssemblyVersion>
+    <FindDependenciesOfExternallyResolvedReferences>false</FindDependenciesOfExternallyResolvedReferences>
+    <!-- Keep warnings visible but non-fatal: a first build on a new game version should not stop. -->
+    <TreatWarningsAsErrors>false</TreatWarningsAsErrors>
+  </PropertyGroup>
+
+  <PropertyGroup>
+    <AnchorChainAvailable Condition="Exists('$(AnchorChainDir)\AnchorChain.dll')">true</AnchorChainAvailable>
+    <DefineConstants Condition="'$(AnchorChainAvailable)' == 'true'">$(DefineConstants);ANCHORCHAIN</DefineConstants>
+    <DefineConstants Condition="'$(AnchorChainAvailable)' != 'true'">$(DefineConstants);NO_ANCHORCHAIN</DefineConstants>
+  </PropertyGroup>
+
+  <ItemGroup Condition="'$(AnchorChainAvailable)' != 'true'">
+    <!-- Plugin.cs exists only to be created by Anchor Chain; with no reference there is nothing for
+         it to compile against, and keeping it would make the DLL depend on a loader that is not
+         there. -->
+    <Compile Remove="Plugin.cs" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- Anchor Chain is OPTIONAL. It is a second, alternative loader: the mod also loads as a plain
+         BepInEx plugin, which is the documented route. When AnchorChain.dll is present the entry
+         point Anchor Chain calls is compiled in; when it is not, Plugin.cs is skipped and the DLL
+         carries no reference to Anchor Chain at all, so it cannot fail to load on a PC with no
+         Workshop subscription. -->
+    <Reference Include="AnchorChain" HintPath="$(AnchorChainDir)\AnchorChain.dll" Private="false" ExternallyResolved="true" Condition="Exists('$(AnchorChainDir)\AnchorChain.dll')" />
+    <Reference Include="BepInEx" HintPath="$(SeaPowerDir)\BepInEx\core\BepInEx.dll" Private="false" ExternallyResolved="true" />
+    <Reference Include="0Harmony" HintPath="$(SeaPowerDir)\BepInEx\core\0Harmony.dll" Private="false" ExternallyResolved="true" />
+    <Reference Include="Seapower-Scripts" HintPath="$(ManagedDir)\Seapower-Scripts.dll" Private="false" ExternallyResolved="true" />
+    <Reference Include="UniRx" HintPath="$(ManagedDir)\UniRx.dll" Private="false" ExternallyResolved="true" />
+    <Reference Include="UnityEngine.CoreModule" HintPath="$(ManagedDir)\UnityEngine.CoreModule.dll" Private="false" ExternallyResolved="true" />
+    <!-- BaseUnityPlugin derives from MonoBehaviour, which lives in the legacy monolithic UnityEngine
+         assembly, not in CoreModule. Without this the BepInEx entry point fails with CS0012. -->
+    <Reference Include="UnityEngine" HintPath="$(ManagedDir)\UnityEngine.dll" Private="false" ExternallyResolved="true" />
+    <!-- The game is built from modular Unity assemblies. IMGUI (GUI/GUILayout) lives in
+         IMGUIModule and the legacy Input class in InputLegacyModule; both are optional so a build
+         against an install that only has the monolithic UnityEngine.dll still resolves. -->
+    <Reference Include="UnityEngine.IMGUIModule" HintPath="$(ManagedDir)\UnityEngine.IMGUIModule.dll" Condition="Exists('$(ManagedDir)\UnityEngine.IMGUIModule.dll')" Private="false" ExternallyResolved="true" />
+    <Reference Include="UnityEngine.InputLegacyModule" HintPath="$(ManagedDir)\UnityEngine.InputLegacyModule.dll" Condition="Exists('$(ManagedDir)\UnityEngine.InputLegacyModule.dll')" Private="false" ExternallyResolved="true" />
+    <Reference Include="UnityEngine.TextRenderingModule" HintPath="$(ManagedDir)\UnityEngine.TextRenderingModule.dll" Condition="Exists('$(ManagedDir)\UnityEngine.TextRenderingModule.dll')" Private="false" ExternallyResolved="true" />
+    <!-- Needed only because the mission editor's polygon state comes from the Noesis-based UI
+         assembly; the mod never draws through Noesis itself. -->
+    <Reference Include="Noesis.NoesisGUI" HintPath="$(ManagedDir)\Noesis.NoesisGUI.dll" Condition="Exists('$(ManagedDir)\Noesis.NoesisGUI.dll')" Private="false" ExternallyResolved="true" />
+    <Reference Include="Unity.Mathematics" HintPath="$(ManagedDir)\Unity.Mathematics.dll" Condition="Exists('$(ManagedDir)\Unity.Mathematics.dll')" Private="false" ExternallyResolved="true" />
+
+  </ItemGroup>
+
+  <Target Name="CheckGameReferences" BeforeTargets="ResolveReferences">
+    <Error Condition="!Exists('$(ManagedDir)\Seapower-Scripts.dll')"
+           Text="Sea Power not found. Set SeaPowerDir in Directory.Build.local.props (see Directory.Build.local.props.example)." />
+    <Error Condition="!Exists('$(SeaPowerDir)\BepInEx\core\0Harmony.dll')"
+           Text="BepInEx not found under $(SeaPowerDir). Run build.cmd, which installs it, or install BepInEx yourself." />
+    <!-- Deliberately not an error any more: without Anchor Chain the build produces the
+         BepInEx-only plugin, which is exactly how the mod is installed. -->
+    <Message Condition="!Exists('$(AnchorChainDir)\AnchorChain.dll')"
+             Importance="high"
+             Text="Anchor Chain not installed - building the BepInEx-only plugin. This is fine." />
+    <Error Condition="!Exists('$(ManagedDir)\UnityEngine.dll')"
+           Text="UnityEngine.dll not found in $(ManagedDir). The game install looks incomplete." />
+  </Target>
+
+</Project>

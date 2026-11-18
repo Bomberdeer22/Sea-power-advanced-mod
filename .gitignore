@@ -1,0 +1,50 @@
+# Build output
+bin/
+obj/
+dist/
+
+# Local machine paths
+Directory.Build.local.props
+
+# Portable SDK fetched by tools/build-portable.*
+.dotnet/
+
+# IDE
+.vs/
+.idea/
+*.user
+*.suo
+
+# Analysis toolchain (tools/analysis)
+tools/analysis/.venv/
+tools/analysis/feature-readiness.txt
+__pycache__/
+*.pyc
+analysis-report.txt
+
+# Diagnostic output produced on a player's machine
+SeaPowerAdvanced-diagnose.txt
+tools/analysis/run-log.txt
+tools/analysis/analysis-error.txt
+
+# Build logs written next to build.cmd
+build-log.txt
+build-output.txt
+check-source.txt
+check-batch.txt
+dotnet-sdk.zip
+acpreloader.zip
+
+# Reports the mod writes into the mod folder, and copies kept here for diagnosis
+menu-report.txt
+ecm-report.txt
+offensive-ecm.txt
+ecm-dive.txt
+ecm-cone.txt
+multiplayer.txt
+capabilities.txt
+
+# Written by update.cmd and uninstall.cmd, and the backups they keep
+update.txt
+uninstall-report.txt
+uninstalled/

@@ -1,0 +1,270 @@
+#!/usr/bin/env python3
+"""
+Ask questions of a .NET assembly from the command line.
+
+    python analyze.py brief                     # the full survey -> analysis-report.txt
+    python analyze.py readiness                 # which planned features are buildable
+    python analyze.py types   Sensor
+    python analyze.py member  SeaPower.ObjectBase
+    python analyze.py il      SeaPower.ObjectBase setOrder
+    python analyze.py find    "::fire"          # call sites of anything matching
+    python analyze.py enums   Target
+    python analyze.py selftest                  # prove the reader still works
+
+The assembly defaults to the Steam install path, or pass --dll. Nothing is loaded or executed:
+only the metadata and the IL bytes are read.
+"""
+
+from __future__ import annotations
+
+import argparse
+import os
+import sys
+
+from gameapi import Assembly, access, modifiers
+from features import Probe, format_report
+from survey import build_report
+
+DEFAULT_DLL = r"C:\Program Files (x86)\Steam\steamapps\common\Sea Power\Sea Power_Data\Managed\Seapower-Scripts.dll"
+HERE = os.path.dirname(os.path.abspath(__file__))
+REPO = os.path.dirname(os.path.dirname(HERE))
+LOCAL_PROPS = os.path.join(REPO, "Directory.Build.local.props")
+
+
+def _property(text: str, name: str) -> str | None:
+    """Read one <Name>value</Name> out of Directory.Build.local.props."""
+    import re
+    match = re.search(rf"<{name}>\s*([^<]+?)\s*</{name}>", text, re.IGNORECASE)
+    return match.group(1) if match else None
+
+
+def dll_from_local_props() -> str | None:
+    """Find the game through build.cmd's own path file.
+
+    build.cmd already discovers the install (registry, then every drive letter) and writes
+    Directory.Build.local.props. Reading it means this tool works on a machine where Steam is not
+    in the default folder, without anyone retyping a path.
+    """
+    try:
+        with open(LOCAL_PROPS, encoding="utf-8-sig") as handle:
+            text = handle.read()
+    except OSError:
+        return None
+
+    for directory, tail in (
+        (_property(text, "ManagedDir"), "Seapower-Scripts.dll"),
+        (_property(text, "SeaPowerDir"), os.path.join("Sea Power_Data", "Managed", "Seapower-Scripts.dll")),
+    ):
+        if not directory:
+            continue
+        candidate = os.path.join(directory.strip(), tail)
+        if os.path.isfile(candidate):
+            return candidate
+    return None
+
+
+def default_dll() -> str:
+    return os.environ.get("SEAPOWER_DLL") or dll_from_local_props() or DEFAULT_DLL
+
+
+def resolve_type(assembly: Assembly, name: str):
+    """Exact name first, then a unique short name (e.g. "CivilianRoute")."""
+    typedef = assembly.types.get(name)
+    if typedef is not None:
+        return typedef
+    candidates = assembly.type_name_without_namespace.get(name, [])
+    if len(candidates) == 1:
+        return assembly.types.get(candidates[0])
+    return None
+
+
+def load(path: str) -> Assembly:
+    if not os.path.isfile(path):
+        sys.exit(f"Assembly not found: {path}\n"
+                 f"Pass --dll <path to Seapower-Scripts.dll>, or run build.cmd once so it writes\n"
+                 f"{LOCAL_PROPS}")
+    return Assembly(path)
+
+
+def cmd_brief(assembly: Assembly, args) -> None:
+    report = build_report(assembly, verbose_types=args.verbose)
+    # Written next to the tool rather than into the current directory, so the path in the docs is
+    # the path you get whichever folder the command was run from.
+    output = args.output or os.path.join(HERE, "analysis-report.txt")
+    with open(output, "w", encoding="utf-8") as handle:
+        handle.write(report)
+    print(f"Wrote {output} ({len(report.splitlines())} lines, {len(report) // 1024} KB)")
+    print("Send that file back; it contains everything needed to check the API.")
+
+
+def cmd_readiness(assembly: Assembly, args) -> None:
+    probe = Probe(assembly, callsites=not args.fast, log=lambda message: print(message, file=sys.stderr))
+    results = probe.run()
+    report = format_report(assembly, results)
+
+    output = args.output or os.path.join(HERE, "feature-readiness.txt")
+    with open(output, "w", encoding="utf-8") as handle:
+        handle.write(report)
+
+    for result in results:
+        print(f"  [{result['verdict']:<7}] {result['name']}")
+
+    print()
+    print(f"Wrote {output}")
+    print("Send that file back to have the buildable ones implemented.")
+
+
+def cmd_types(assembly: Assembly, args) -> None:
+    matches = sorted(name for name in assembly.types if args.pattern.lower() in name.lower())
+    print(f"{len(matches)} type(s) matching {args.pattern!r}")
+    for name in matches:
+        flags = assembly.types[name].Flags
+        scope = "public" if getattr(flags, "tdPublic", False) else "non-public"
+        print(f"  {name}   ({scope})")
+
+
+def cmd_member(assembly: Assembly, args) -> None:
+    typedef = resolve_type(assembly, args.type)
+    if typedef is None:
+        sys.exit(f"No such type: {args.type}")
+
+    flags = typedef.Flags
+    print(f"{args.type}  public={getattr(flags, 'tdPublic', False)} "
+          f"interface={getattr(flags, 'tdInterface', False)} "
+          f"abstract={getattr(flags, 'tdAbstract', False)}")
+    print("\nfields:")
+    for name, type_text, field_flags in assembly.fields(typedef):
+        print(f"  {access(field_flags, 'fd'):<18} {modifiers(field_flags, 'fd'):<18} {type_text} {name}")
+    print("\nmethods:")
+    for method in assembly.methods(typedef):
+        if method["name"].startswith("<"):
+            continue
+        parameters = ", ".join(method["parameters"])
+        body = "IL" if method["rva"] else "no body"
+        print(f"  {access(method['flags'], 'md'):<18} {modifiers(method['flags'], 'md'):<18} "
+              f"{method['returns']} {method['name']}({parameters})   [{body}]")
+
+
+def cmd_il(assembly: Assembly, args) -> None:
+    method = assembly.method(args.type, args.method, args.parameters)
+    if method is None:
+        sys.exit(f"No method {args.type}.{args.method}")
+    print(f"{args.type}.{method['name']}({', '.join(method['parameters'])})  -> {method['returns']}")
+    print(assembly.disassembly(method))
+
+
+def cmd_find(assembly: Assembly, args) -> None:
+    if args.callsites:
+        hits = assembly.find_calls(args.pattern)
+        print(f"{len(hits)} call site(s) referencing {args.pattern!r}")
+        for caller_type, caller_method, target in hits[: args.limit]:
+            print(f"  {caller_type}.{caller_method}  ->  {target}")
+        if len(hits) > args.limit:
+            print(f"  ... {len(hits) - args.limit} more")
+        return
+
+    print(f"members matching {args.pattern!r}")
+    for full_name, typedef in sorted(assembly.types.items()):
+        for name, type_text, _ in assembly.fields(typedef):
+            if args.pattern.lower() in name.lower():
+                print(f"  field  {full_name}::{name}  ({type_text})")
+        for method in assembly.methods(typedef):
+            if method["name"].startswith("<"):
+                continue
+            if args.pattern.lower() in method["name"].lower():
+                parameters = ", ".join(method["parameters"])
+                print(f"  method {full_name}::{method['name']}({parameters})  -> {method['returns']}")
+
+
+def cmd_enums(assembly: Assembly, args) -> None:
+    values = assembly.enum_values(args.type)
+    if not values:
+        sys.exit(f"{args.type} has no constant values (wrong name?)")
+    for name, value in values:
+        print(f"  {name} = {value}")
+
+
+def cmd_selftest(_assembly, _args) -> None:
+    sys.path.insert(0, HERE)
+    from selftest import run
+    sys.exit(run(HERE))
+
+
+def main() -> None:
+    parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
+    parser.add_argument("--dll", default=None,
+                        help="path to Seapower-Scripts.dll (default: SEAPOWER_DLL, then "
+                             "Directory.Build.local.props, then the standard Steam path)")
+    sub = parser.add_subparsers(dest="command", required=True)
+
+    brief = sub.add_parser("brief", help="write the full API survey")
+    brief.add_argument("-o", "--output")
+    brief.add_argument("--verbose", action="store_true", help="longer type lists")
+    brief.set_defaults(func=cmd_brief)
+
+    readiness = sub.add_parser("readiness", help="which planned features this build can support")
+    readiness.add_argument("-o", "--output")
+    readiness.add_argument("--fast", action="store_true", help="skip call-site scans (much faster)")
+    readiness.set_defaults(func=cmd_readiness)
+
+    types = sub.add_parser("types", help="list type names containing a string")
+    types.add_argument("pattern")
+    types.set_defaults(func=cmd_types)
+
+    member = sub.add_parser("member", help="dump one type's fields and methods")
+    member.add_argument("type")
+    member.set_defaults(func=cmd_member)
+
+    il = sub.add_parser("il", help="disassemble one method")
+    il.add_argument("type")
+    il.add_argument("method")
+    il.add_argument("--parameters", type=int, default=None, help="match on parameter count")
+    il.set_defaults(func=cmd_il)
+
+    find = sub.add_parser("find", help="find members, or call sites with --callsites")
+    find.add_argument("pattern")
+    find.add_argument("--callsites", action="store_true")
+    find.add_argument("--limit", type=int, default=60)
+    find.set_defaults(func=cmd_find)
+
+    enums = sub.add_parser("enums", help="dump an enum's values")
+    enums.add_argument("type")
+    enums.set_defaults(func=cmd_enums)
+
+    selftest = sub.add_parser("selftest", help="check the reader against a known assembly")
+    selftest.set_defaults(func=cmd_selftest)
+
+    args = parser.parse_args()
+
+    if args.command == "selftest":
+        args.func(None, args)
+        return
+
+    assembly = load(args.dll or default_dll())
+    args.func(assembly, args)
+
+
+if __name__ == "__main__":
+    # A crash must still leave a file behind: this is often run by double-clicking, where the
+    # console window can close before anything can be read or copied.
+    try:
+        main()
+    except SystemExit:
+        raise
+    except BaseException:
+        import traceback
+        log = os.path.join(HERE, "analysis-error.txt")
+        try:
+            with open(log, "w", encoding="utf-8") as handle:
+                handle.write("Sea Power Advanced - analysis error\n")
+                handle.write(f"when:   {__import__('datetime').datetime.now()}\n")
+                handle.write(f"python: {sys.version}\n")
+                handle.write(f"script: {os.path.abspath(__file__)}\n")
+                handle.write(f"args:   {sys.argv}\n\n")
+                handle.write(traceback.format_exc())
+            print(f"\nThe analysis crashed. The full error was written to:")
+            print(f"  {log}")
+            print("Send that file; it contains everything needed to diagnose it.")
+        except Exception:
+            traceback.print_exc()
+        sys.exit(1)

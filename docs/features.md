@@ -1,0 +1,520 @@
+# The advanced features
+
+There are fourteen now: the twelve original ones, automatic defensive ECM, and offensive ECM in
+two modes. All of them live in
+the game's own right-click menu, each in the section a player would look in first - not stacked into
+one submenu. There is no mod window and no hotkey.
+
+| Feature | Where it appears |
+|---|---|
+| Radars, air/surface search only, active sonar, towed array, EMCON profiles | **Sensors** |
+| Radar blink, auto-ARM shutoff, **defensive ECM**, **offensive ECM**, commercial disguise | **Sensors** (they are emission decisions) |
+| **ECM cones on the map** | Not a menu entry - drawn over the map whenever a set is aimed |
+| Salvo deconfliction | **Engage** (it is about who may fire, and when) |
+| Action stations, cold cruise, crew fatigue | **Rules of engagement** |
+| Sprint and drift, turn the screen onto the threat | **Formation** |
+| Helicopter ladder / square / sector | **Air operations** |
+| Local control, replenish alongside | **Damage control** (replenishment falls back to logistics) |
+| Breakaway with chaff and hard rudder | **Top level, one click** - it is the emergency button |
+
+Sections are found by keyword at runtime, because the game's exact menu labels are not in the API
+dump. If a section is missing in your build, the entry moves up to Orders rather than disappearing,
+and `capabilities.txt` lists the section labels that were actually found - so the routing can be
+corrected from a single log rather than a guess. This document says what each one does, which game
+member it drives, and - where it matters - what it honestly cannot do.
+
+## How to test them
+
+Right-click one of your ships → **Orders**. You should see **Weapon hatches** and the feature
+entries, spread across Sensors, Engage, Rules of engagement, Formation, Air operations, Damage
+control and Logistics. Each toggle states its own state in the label ("Radar blink: on - click to stop"), and
+each action reports through the game's order-feedback text as well as `seapoweradvanced.log`.
+
+Anything that goes wrong is written down. `capabilities.txt` in the mod folder lists every lever the
+mod found in your build of the game, and `ecm-report.txt` lists every ECM member and type it found.
+
+---
+
+## 1. Radar blink cycling — `Sensors and EMCON`
+
+Switches a radar on for a few seconds, then off again, on a timer. A real ship does this so a passive
+anti-radiation seeker has to track an intermittent, moving source instead of a steady beacon.
+
+**You choose which set.** The entry is a submenu:
+
+| Choice | What cycles | Why you would pick it |
+|---|---|---|
+| Air search radar | The air-search set only | This is the set an anti-radiation missile homes on |
+| Surface search radar | The surface-search set only | Still finds ships, far harder to home on |
+| Both radars | Both, on one timer | Two intermittent emissions, one control |
+
+A hull with no radar is not offered the entry. Stopping puts every set back exactly as it was found -
+if the radar was off before, it stays off.
+
+| Drives | `EnableSurfaceSearchRadars(bool,bool)` / `DisableSurfaceSearchRadars(bool)`, state read from `IsSurfaceSearchRadarsOn` |
+|---|---|
+| Interval | `Features/BlinkSeconds`, default 6 s |
+| Reversible | Yes - stopping puts each radar back exactly as it was found |
+
+## 2. Auto-ARM shutoff — `Countermeasures`
+
+When a weapon is tracked against the ship, the radars go dark for eight seconds, then come back.
+This is what an anti-radiation missile forces a ship to do, and it costs the ship its own air
+picture, which is why it is off by default and opt-in per ship.
+
+| Drives | `DisableAllRadars()` / `EnableAllRadars(bool)` |
+|---|---|
+| Sensors used | `_incomingWeapons`, `_dangerousMissiles`, `ThreateningMissile` (read by reflection: you cannot call the `get_` accessor, that is CS0571) |
+| Honest limit | The game does not label a missile as anti-radiation in any readable member, so **any** inbound weapon goes dark. That is conservative on purpose. |
+| With defensive ECM | Defensive ECM wins while it is jamming: a jammer cannot hold a lock with the radar dark. The two features do not fight each other on the same ship. |
+
+## 2b. Automatic defensive ECM — `Sensors and EMCON`
+
+Every ship that carries a jammer also defends itself and its formation with it, without being
+asked twice. When a vampire - a weapon the game is tracking against this ship, or against any ship
+of the task force within 25 nm - appears, the mod:
+
+1. **puts the air-search radar on.** A jammer needs a fire-control quality bearing to know where to
+   point, and that bearing comes from radiating. This is the price, and it is not optional: while
+   the jammer works, the ship is the loudest thing in the water. It is the same trade a real
+   commanding officer makes, and it is why the feature is armed deliberately rather than always on.
+2. **hands the missile itself to the jammer** as its target, so the set is pointing at the seeker
+   rather than at a bearing the mod computed.
+3. **raises power or mode**, where this build exposes a control whose units the mod can trust.
+4. **holds the lock** - the target is re-pointed four times a second for as long as the missile is
+   tracked, so a lock that the game clears is immediately re-established.
+
+When the sky has been clear for six seconds it stands down, stops jamming, and puts the air-search
+radar back exactly as it was found.
+
+| Drives | The game's own ECM switch, ECM target member and power/mode member - all found at runtime by name, never guessed (see `Interop/EcmControl.cs`) |
+|---|---|
+| Sensors | Air-search radar on for the duration; that is the deliberate cost |
+| Range | Defends the ship and any task-force ship within 25 nm of it |
+| Honest limit | **The mod cannot promise the missile misses.** It points the game's jammer at the game's missile and keeps it there; whether the seeker breaks lock is the simulation's answer. "Almost impossible to resist" is not something a mod can guarantee without knowing the game's jamming model, and this one does not pretend to. |
+| Honest limit | If this build names its jammers something the scan does not recognise, the feature says so in the menu and writes `ecm-report.txt` listing every ECM-like member it found. That file is ground truth from the installed game and is the fastest way to make the next build exact. |
+
+### Which units get which entries
+
+The mod only offers an option to a unit that can carry it out:
+
+| Entry | Shown for |
+|---|---|
+| ECM (defensive, offensive, mode and lock) | hulls the game says carry ECM, and surface hulls where it does not say. **Never on submarines** |
+| Active sonar, towed array | hulls that report the fit, or where the game does not report one |
+| Helicopter search patterns | hulls with a flight deck or hangar, or surface hulls where the game does not say |
+| Replenish alongside | surface hulls |
+| **Jam with ECM** on a contact | hostile and neutral contacts, identified or not, when one of your ships carries a jammer. If a jammer exists in the fleet but none is close enough, the contact menu says so instead of silently adding nothing |
+
+| Setting | What it does |
+|---|---|
+| Sensors → *Defensive ECM: off - click to arm automatic jamming* | Arms this ship |
+| Sensors → *Defensive ECM for the whole task force* | Arms every ship under command |
+| Sensors → *ECM: what this build exposes* | Writes `ecm-report.txt` again on demand |
+
+## 2c. Offensive ECM, two modes — `Sensors and EMCON`
+
+The ship's jammer, used deliberately. There are two modes and the default is the one that changes
+nothing.
+
+### Standard (default)
+
+The game's own ECM behaviour. The mod does not touch the set, does not radiate for it, and switches
+back to this the moment you pick it - which also releases any lock it was holding. If you never open
+this menu, nothing about your jamming changes.
+
+### Focused (the mode that does something)
+
+Two ways in, and both end in the same place:
+
+- **Right-click the enemy contact itself → Jam with ECM.** That is the only entry the mod adds to a
+  contact's menu; the game's own identification entries (mark hostile/neutral, request identify) are
+  untouched. The mod picks whichever of your ships carries a jammer is nearest and inside range, and
+  names it in the label, so you do not have to work out which hull carries the set. **The contact does
+  not have to be identified first.**
+- **Right-click your own ship → Sensors → Offensive ECM lock** and pick a contact from the list (the
+  contacts the *task force* holds, nearest first, max 150 nm for ships and 150 nm for aircraft). The
+  list is there whatever the mode toggle says - picking a contact is what switches the mode.
+
+### Aircraft and helicopters
+
+Planes can be locked too, and the reach is set separately for them:
+
+| Target | Reach | Note |
+|---|---|---|
+| Ship or sea-skimming missile | `JamRangeNm`, **150 nm** | The mod's reach: what it will offer and how far it will hold a lock. Whether the jam bites at that distance is the game's own ECM model deciding |
+| Aircraft or helicopter | `JamAirRangeNm`, **150 nm** | Also 150 nm. In the real world this is the easier of the two - a masthead sees 4.5 nm, an aircraft at 15,000 ft sees 65 nm on its own |
+
+**Stated plainly, because it is the one place this feature overreaches the physics:** 150 nm
+ship-to-ship is well past the radio horizon. The mod will point the jammer and hold the order at that
+range; if the game's radar calculator decides the jam does not degrade a set that far away, that is
+the simulation's answer and the menu still shows the lock. What the second half - holding the
+target's own sensors down - does at range is unaffected, because it reaches the target's own switches
+rather than the other radar's receiver.
+
+Jamming an aircraft is not the same as jamming a ship, and the mod says so rather than pretending
+otherwise:
+
+- it carries **one radar**, not a ship's families. Radar off means blind, and its crew can put it back
+  up between assertions like anyone else's.
+- its **receiver cannot be jammed off at all** - a passive set has nothing to switch down - so the
+  report says that instead of claiming a clean sweep.
+- the entry names the type and whether it has been identified:
+  `Jam E-2C Hawkeye - aircraft (68 nm)` or `Jam Skunk 14 - unidentified, aircraft (68 nm)`.
+
+### Where the contacts come from
+
+The picture is the **player's side's**, read from the two places the game actually keeps it:
+
+| Source | What it is |
+|---|---|
+| `Taskforce.PlottingTable.LocalVehicles` | the map itself: every foreign track this machine holds, keyed by the object behind it. **A track in here may be completely unidentified and is still a contact** |
+| `Taskforce._spottedObjects` | what the side's sensors have reported, which can include a contact before the table has given it a number |
+
+Nothing is invented, and identification is never a filter: the count that is read is
+"foreign contacts held", not "identified contacts". `offensive-ecm.txt` records which of the two was
+read and how many contacts were in each state, so "nothing was offered" can be told apart from "the
+mod could not see the picture".
+
+### What the lock actually does
+
+1. **Issues the game's own jam order** - `setOrder(Order.Type.Jam, target, displayOrderText)` for a
+   contact the picture has identified, or the bearing form of the same order for one it has not. This
+   is the order the weapons panel issues when a player points a pod at something, so the game's own
+   ECM does the work: it selects the set, records the order, and registers the assignment where its
+   radar model reads it.
+2. **That is the jam.** The game's radar calculator now treats the target as jammed; the cone on the
+   map is live, and in a session the multiplayer mod forwards the same order to the host.
+3. **`Offensive ECM: hold its sensors down too`** is the second, deliberate order, and it is the
+   *extra* half: instead of only degrading what the target sees, the mod switches the target's own
+   radar families, sonar and towed array off and keeps them off, re-asserted ten times a second.
+   This half needs the contact to be identified - there is nothing to hold down on a track nobody has
+   named - and it is offered only when the picture says the contact is identified. It is a **burst**,
+   not a switch: it runs for one window and then the contact's crew get their sensors back for a
+   while. A menu line under the lock reports `N of M suppression channel(s) in use` and names the
+   ships using them.
+4. **`stop`** stops that second half and leaves the game's jam running;
+   **`Release the ECM lock`** takes the jam down through the game's own teardown
+   (`ceaseOffensiveJam`), which is the only thing that also removes the set from every victim's list.
+5. **stands the lock down** when the target is sunk, runs beyond range, you release it, or you go
+   back to standard.
+
+| Drives | The game's own jam order (`setOrder(Order.Type.Jam, ...)`, unit and bearing forms), and - for the second half - the target's own switches: `DisableAllRadars()`, `DisableAirSearchRadars`, `DisableSurfaceSearchRadars`, `TowedSonarsSetActive(false)`, `DisableActiveSonars`, plus any ESM / jammer switch it exposes |
+|---|---|
+| Reads | Its radiator state (`IsAirSearchRadarsOn`, `IsSurfaceSearchRadarsOn`), its sensor fit (`HasTowedSonar`, `HasActiveSonar`), its hull signature from its parameter block |
+| Range | `Features/JamRangeNm`, default **150 nm** against ships; `Features/JamAirRangeNm`, default **150 nm** against aircraft. Both go to 300 |
+| Cost | **None in emissions.** This mode runs on EMCON: it never switches the attacking ship's radar on, so the jammer gives away nothing while it works. (The defensive feature does need air search - it is locking onto a missile, not a contact.) |
+| Result you will see | The game's jam, immediately, from the lock. Then, if the second half is ordered: *every sensor off*, or *NOT all sensors off - <sensor> would not switch off on this build*. The second is not a bug in the lock: it means the game gives no way to reach that one sensor family, so it is still working. The menu names it and `offensive-ecm.txt` lists it as `STILL`. The mod does not edit the target's picture to hide that. On an unidentified contact there is no second half to order, and the menu says so rather than offering a button that cannot do anything. |
+| Honest limit | The game's jam lasts as long as the lock is held. The second half - the switch-off - is a **burst**: it runs for a set window, then the contact's crew get their sensors back for a recovery period before it can be held down again. There is also a limit on how many contacts the task force can hold blind at once. See below. |
+
+### Making it less powerful
+
+The second half was the strongest thing in the mod, and it was unlimited in the two ways a real jammer
+is not: it never ran out, and there was no limit on how many contacts were kept blind at the same
+time. Two limits now, both settings, both stated in the menu before the click and in
+`offensive-ecm.txt` afterwards:
+
+| Setting | Default | What it means |
+|---|---|---|
+| `Features/EcmJamChannels` | **2** | How many contacts the task force may hold **blind** at once. This is the expensive half only: every lock still gets the game's own jam, so a lock with no channel free is a jam without the blinding, and the menu says which ships are using the channels |
+| `Features/EcmJamHoldSeconds` | **60** | How long one hold lasts. When it runs out the mod simply stops switching the contact's sensors off - it switches nothing back on for the enemy, the game's own crew does that - and the game's jam continues |
+| `Features/EcmJamRecoverySeconds` | **15** | After a hold ends, the same contact cannot be held down again for this long. Without it the window would be a formality: the player would re-order the instant it lapsed and the target would never get a sensor back |
+
+**Why the channel budget is the task force's, not one ship's.** A ship's jammer already holds one
+contact - the game gives a set one assignment - so a per-ship figure above one would be a promise the
+simulation would not keep, and the mod does not make those. What is finite is the expensive half: a
+few tracks held blind at a time, staffed and run from the force's electronic attack cell, with
+everything else getting the game's own jam. A player who sets `99` gets the 0.22.1 behaviour back;
+`1` makes it a single-track weapon.
+
+The recovery window is not skippable: stopping a hold by hand, releasing the lock, and running out of
+window all start it. Re-ordering during it is refused with the seconds named. The defensive dive's
+guidance channels (§2f) are a separate budget: defending a ship and blinding someone else's do not
+compete for the same number.
+
+**And it checks itself.** Five seconds after a hold ends the mod reads the contact's sensors once and
+writes down whether anything came back up. It cannot switch them on for the enemy - that would be
+radiating on someone else's behalf - so the target's own side has to do it, and if it does not, the
+window is not buying the target anything on that build. The log line is
+`5 s after the hold on <target> ended: N of M sensor famil(ies) radiating - ...`, and a zero after it
+says the limit needs another look. Send that line with the report.
+
+Three settings, three presets:
+
+| Preset | Channels | Hold | Recovery | What it feels like |
+|---|---|---|---|---|
+| **Shipped** | 2 | 60 | 15 | Two tracks blind at a time; a target is off the air for a minute, then has a quarter of a minute with its radar back |
+| Single track | 1 | 45 | 30 | One contact at a time, and it gets a long look between windows |
+| 0.22.1, unlimited | 99 | 0 | 0 | Every lock blinds its contact for as long as it is held - the version that was too strong |
+
+`offensive-ecm.txt` in the mod folder records every lock, appended rather than overwritten: which
+kind of target it was, which contact lists the picture was read from, the signatures read off the
+target, what was silenced, what was not, and the jammer path used. It is the file to send if the
+target does not go quiet when it should - and the file to send if an aircraft does not appear in the
+lock list at all.
+
+## 2d. The ECM cones on the map — `Sensors and EMCON`
+
+A jammer is directional and a menu cannot show you which way it is pointing, so the mod draws it:
+
+| State | What you see |
+|---|---|
+| Offensive set, locked, game jam running | a long, narrow cyan beam from the jammer to the contact it is locked on, bright - the game's own jam is live |
+| Offensive set with the sensors held down | the same beam, with `ECM JAMMING` on the far end; that is the second half working |
+| Defensive set, engaged | an amber beam to the missile it is tracking, with a marker on the missile |
+| A ship with ECM selected, nothing aimed | a small cyan box on the ship and `ECM ready` |
+
+The beams are deliberately long and narrow - they are bearings, not areas, and a cone wide enough to
+look like a search fan would be telling you something that is not true.
+
+| How it is drawn | IMGUI, like the rest of the overlay - no assets, no XAML |
+|---|---|
+| Where the ends come from | `Interop/MapProjection.cs`, in order: **the map's own arithmetic** (0.2° tiles at 330.71396 world units, offset by `Globals._currentCenterTile`) - exact, and the only route that works here because this build's units are ECS data with no Unity transform; then any `GeoPosition`→`Vector3` method the game exposes; then a Unity transform on the unit. The result is projected through the map camera |
+| If neither exists | nothing is drawn, one line appears at the bottom of the screen saying so, and `ecm-cone.txt` records exactly what was looked for. A cone in the wrong place would be worse than none |
+| Setting | `Features/ShowEcmCone`, default true |
+| Follows the selected unit | the game's own selection member if the mod can find one, otherwise the unit whose right-click menu you opened last |
+
+If the cones do not appear, **`ecm-cone.txt`** in the mod folder is the file to send - not
+`ecm-report.txt`. It records the centre tile the map arithmetic used, where `lat/lon 0,0` lands in
+world space, where that projects to on a screen of known size, which camera was chosen and what other
+cameras were available. A beam in the wrong place and a beam that never appears have different causes,
+and those four numbers tell them apart.
+
+## 2e. Using it with the multiplayer mod
+
+The multiplayer mod (`SeapowerMultiplayer`, `com.seapowermultiplayer.plugin`) is supported: the mod
+detects it, works out whether this machine is the host or the client, and changes what it promises
+accordingly. It is reached by reflection, so nothing changes for players who do not have it, and
+nothing breaks if it is not installed.
+
+**`multiplayer.txt`** in the mod folder says what was found and which rules followed from it. It is
+rewritten when a session comes up or ends.
+
+Three of the multiplayer mod's rules matter here:
+
+| Rule | What it does to this mod |
+|---|---|
+| It throttles radar switches to one per ship per radar group per 10 seconds, and a throttled switch does not move locally either | **Radar blink** raises its half-cycle to 12 seconds in a session, whatever `BlinkSeconds` says. A six second blink would lose every second flip and leave the radar stuck |
+| The client does not decide its own emissions - the host's radar picture is re-imposed every frame | **Radar blink** checks each flip four seconds later. If the switch did not take, the blink **stops itself and says so** rather than pretending. **Auto-ARM** and **defensive ECM** are not offered on a client at all, and the menu says why |
+| Jamming is an order the host runs, not a member write | **Offensive ECM** issues the game's own jam order on the host and on a client alike, which is exactly what the multiplayer mod forwards. The switch-off half is not attempted from a client: the target is simulated on the host, so there is nothing there to switch off, and the menu says so instead of offering the click |
+
+What still works everywhere:
+
+- **Everything on the host**, and in single player without a change: this machine simulates the world.
+- **The ECM cones** - they draw from whatever jamming the game reports on this machine, including
+  jamming the session replicated in from the other side.
+- **The menus, hatches, salvo planner, readiness, formations, helo patterns** - these go through the
+  game's own orders, which the multiplayer mod already forwards.
+
+Two limits worth stating plainly, because a player will otherwise read them as bugs:
+
+1. **A jam started from a client cannot be stopped from that client.** The multiplayer mod forwards a
+   jam order but has no "stop jamming" order, so the host's jam task runs until it ends by itself.
+   The menu says so when you stop it.
+2. **Damage, hits and sensor outcomes are the host's.** Nothing here claims a different result from the
+   one the authoritative machine reached.
+
+## 2f. Pointing a jammed missile at the sea — part of defensive ECM
+
+This is what finishes a defensive jam. It is also the only place in the mod that touches a weapon
+rather than a ship — and it **never destroys one**.
+
+A sea-skimmer whose seeker loses lock loses its height reference, stops correcting, and the sea wins.
+So once an armed ship's jammer has a missile inside **`EcmDiveNm` (10 nm by default)**:
+
+1. **The guidance link is broken *the way the game does it*** - `ConnectionLost` set true and
+   `_lostGuidanceTime` stamped with the mission clock. The missile then coasts on its last track,
+   which is a state its own code already understands for a jammed missile.
+2. **It is aimed at the water using the flight model's own numbers** - its orientation is assigned
+   every frame (pitch towards the sea, heading held) and its `_velocityVecInUnity` is written to
+   match, so the physics step integrates a real descent rather than a dragged model.
+3. **The nose stops at 90 degrees**, and gets there faster the higher the weapon is: 6 deg/s below
+   1,000 m, 18 deg/s to 5,000 m, 30 deg/s above. Past vertical it would be pointing at the sky.
+4. **The descent is metred.** A pitch is worked out from the height and the weapon's own speed, and
+   the height is walked down a straight line over 2.5 to 20 s. A sea-skimmer at 15 m noses over by
+   about a degree and takes a couple of seconds; one at 5,000 m pitches much harder.
+5. **The game removes it.** `Missile.OnUpdateEveryFrame` carries this game's own **water-dip
+   destruction path**; at the waterline the mod stops writing and that path does the rest.
+
+**10 nm, not 2, and that is about the descent.** A sea-skimmer closing at 600 knots covers two miles
+in twelve seconds. From ten miles it has about a minute.
+
+**What 0.20.0 did wrong, and why this version exists.** "Breaking the lock" was implemented by
+finding any member whose name mentioned a target or a seeker and **setting it to null** - on this
+type, `_seeker` and `CurrentTarget`. `Missile.OnFixedUpdate` carries motion integration, guidance,
+seeker, fuse and state machine and dereferences both, so the game threw a `NullReferenceException`
+every physics tick: the "Repeated Exceptions" warning, a missile that stopped in mid-air, and the mod
+still rotating its transform, so it span on the spot. **This build never writes null to a
+reference.** The report says so, and lists every member it did write.
+
+Nothing here calls `Detonate`, `Explode`, `SelfDestruct` or `Destroy` either. Two earlier builds did,
+and the player saw both: a warhead going off two miles off the bow **once per tick**, and then - once
+that was narrowed to a plain `Destroy` - a `NullReferenceException` inside `GameMain.FixedUpdate`
+with the missile left sitting on the water, because the game was still walking an object that had been
+deleted from under it.
+
+| Needs | `Defensive ECM: off - click to arm automatic jamming` on that ship, or armed for the whole task force. A hull with no jammer never offers either |
+|---|---|
+| Range | `Features/EcmDiveNm`, **10 nm** by default (0-30). **0 switches the dive off** and leaves the jam alone |
+| Not covered | **Guns and rockets.** A shell has no lock to break and no seeker to point down, so it is never touched |
+| Refused on | A multiplayer **client** - weapons are simulated by the host. Defensive ECM is not offered on a client at all |
+| Logged | `Defensive ECM: <ship> is flying <missile> down - height 1200 m, nose 24 deg down, 4.6 u/s`, then once more when the game takes it: `taken by the game at the waterline` |
+| Report | `ecm-dive.txt` - the guidance, velocity, altitude and scene members found on each weapon type, **its whole member list**, any skimming floor the game refused to let the mod write under, which route moved it, and the session totals |
+
+### Making it less powerful
+
+Worked perfectly, and too well: a jammer that kills every missile in a salvo makes the enemy's
+anti-ship missiles pointless. Four settings dial it back, and none of them is an artificial
+difficulty switch - each one is a thing that actually limits a ship's ability to do this.
+
+| Setting | Default | What it does | The real-world reason |
+|---|---|---|---|
+| `Features/EcmDiveChannels` | **3** | How many missiles one ship can hold down at once (1-99). At three, a two-missile shot is stopped and a four-missile salvo is not | Ships defend on a handful of **guidance channels** - illuminators and fire-control loops - not on unlimited attention |
+| `Features/EcmDiveIntervalSeconds` | **2** | Seconds between one missile starting its descent and the next being allowed to | The crew has to see how the first one went before the next solution settles |
+| `Features/EcmDiveReactionSeconds` | **1** | Seconds between a missile crossing `EcmDiveNm` and its dive starting. The jammer is on it immediately; the *descent* waits | A contact has to be seen, designated, and the fire-control solution allowed to settle |
+| `Features/EcmDiveRadarSeekersOnly` | **true** | Only radar seekers can be decoyed. Infrared, imaging, optical and **anti-radiation** missiles are left alone | RF jamming cannot blind a heat seeker, and an anti-radiation missile is homing on the jammer itself |
+
+Three combinations, all from the config file
+`BepInEx\config\io.github.bomberdeer22.seapoweradvanced.cfg`. The player picked **3 / 2 / 1 / true**
+as the shipped default: strict enough that a salvo means something, generous enough that a lone
+missile is still dead.
+
+| | Channels | Interval | Reaction | Radar only | What it plays like |
+|---|---|---|---|---|---|
+| **0.21.0 - the wall** | `99` | `0` | `0` | `false` | Every missile of every salvo dies. Kept only so the old behaviour is reachable |
+| **Shipped default** | `3` | `2` | `1` | `true` | **The chosen setting.** A two-missile shot is stopped; a four-missile salvo loses three and the last one arrives |
+| **Practical** | `2` | `4` | `2` | `true` | Kills the leading pair; a well-escorted strike usually gets through |
+| **Strict** | `1` | `8` | `4` | `true` | Last-ditch self-defence. One missile, then a long reset; a two-missile salvo has a real chance |
+
+The dive itself is unchanged in all three: the same guidance-link break, the same metred descent, the
+same nose that stops at 90 degrees, the same water-dip removal by the game. The menu shows the
+channels in use - `armed, jamming now, 1/2 channels` - so it is visible when a salvo is overwhelming
+the ship rather than mysterious.
+
+## 3. Commercial signature spoofing — `Deception`
+
+The ship stops radiating, drops to a merchant's telegraph setting, and presents a civilian-looking
+signature string (`MV <hull>`).
+
+| Drives | `DisableAllRadars()`, `setEMCON(bool,bool)`, `setTelegraph(int)`, the signature member on the hull's parameters |
+|---|---|
+| Honest limit | **The mod cannot make an enemy's radar read our signature.** That needs a patch on the detection routine. Treat this as a reduced emission profile, and the log says so every time it is used. |
+
+## 4. Salvo deconfliction — `Strike`
+
+Holds every ship but the leader at hold-fire, then releases them one at a time so the task force's
+launches arrive as several engagements instead of one.
+
+| Drives | `SetWeaponStatus(WeaponStatus, bool)` |
+|---|---|
+| Enum values | Read from `WeaponStatus`'s own names at runtime - "hold/tight/safe" and "free/open/engage" - so a renamed enum cannot make it set the wrong state |
+| Spacing | `Features/SalvoSpacingSeconds`, default 8 s |
+| Never | Fires anything. It only decides when each ship may fire. |
+
+## 5. Breakaway with chaff and hard rudder — `Countermeasures`
+
+Full ahead, rudder hard over, chaff away, noisemaker - all in one action, at the moment a missile is
+actually tracked.
+
+| Drives | `setTelegraph(int)`, `setRudderAngle(float)`, `LaunchChaff(bool)`, `LaunchNoisemaker(string)` |
+|---|---|
+
+## 6. Degraded local control — `Countermeasures`
+
+Ships the guns and CIWS onto local control for when the fire-control picture is lost.
+
+| Drives | Any member on the hull whose enum type is named `*Discipline*` (the game has `CiwsDisciplineState`), set to the value whose name mentions local/manual/autonomous |
+|---|---|
+| Honest limit | If this build exposes no such member, the menu reports that the game was not told rather than claiming success. |
+
+## 7. Cold cruise vs battle stations — `Readiness`
+
+Closes the ship up: reloads run about 15% faster while held, and the crew starts to tire.
+
+| Drives | `WeaponSystem._remainingReloadTime` is shortened on every mount that is reloading |
+|---|---|
+| Also | `SetWeaponStatus(<its own enum>, bool)` for the weapons posture, reached through `WeaponStatusControl` |
+| Honest limit | General quarters is **not** a game concept - the mod keeps it, and expresses it through these two levers. |
+
+## 8. Threat-axis screen reorientation — `Manoeuvres`
+
+Finds the nearest tracked threat, computes the bearing to it, and re-stations the task force onto
+that axis.
+
+| Drives | `setWaypointTask(GeoPosition, string, <height enum>)` on each ship, through `WaypointControl` |
+|---|---|
+| Reads | `_threats`, `_dangerousMissiles`, `_spottedObjects`, `getGeoPosition()` |
+| Detail | Bearing is corrected for latitude, so it is right in the North Atlantic rather than skewed |
+
+## 9. Sprint-and-drift ASW — `Manoeuvres`
+
+Toggles the game's own `SprintAndDriftDoctrine`, per ship or for the whole task force at once, and
+streams the towed array. Reports the ship's real cavitation threshold from `CavitationOnsetKts()`.
+
+| Drives | `SprintAndDriftDoctrine` (ReactiveProperty), `TowedSonarsSetActive(bool)` |
+|---|---|
+| Why not write it ourselves | The behaviour already exists and is already tested by the developers. The gap the mod fills is doing it fleet-wide, which the game's UI does not offer |
+
+## 10. Helicopter search patterns — `Air operations`
+
+Ladder, expanding square, or sector search. Launches an ASW helicopter if one is on deck and flies
+the pattern; if one is already airborne, it just flies it.
+
+| Drives | `FlightDeckHasUnit(...)`, `FlightDeckLaunchUnit(...)`, `setWaypointTask(...)` - all through `FlightDeckControl` and `WaypointControl` |
+|---|---|
+| Enum values | `UnitRoles` and `MissionType` are never named in code. The methods are found by name and their arguments are built from their own signatures; the role is picked by matching names like `ASW`, and the launch arguments are written to the log |
+| Honest limit | If this build's flight-deck call has a shape the mod cannot fill, the menu says so and logs the signature instead of guessing at it |
+| Honest limit | Launch is asynchronous, so the pattern is queued and flown once the aircraft appears - the log says "launching" rather than pretending it already flew |
+
+## 11. Functional underway replenishment — `Logistics`
+
+Takes on ammunition from a supply ship within 2 nm.
+
+| Drives | `RearmAll(bool)`, `ReplenishAmmo(float,float)`, `ReplenishAccountableAmmo(float, Dictionary)` |
+|---|---|
+| Supply ships found by | Name containing supply / oiler / replenish / AOE / AOR / tanker |
+| Honest limit | **Fuel is not transferred** - this game has no fuel-transfer-at-sea member the mod can find, so only ammunition moves, and the log says so |
+
+## 12. Battle stations fatigue — `Readiness`
+
+Fatigue accumulates while the ship is at action stations: 15 minutes of general quarters makes a
+crew fully tired, and a tired crew gives back up to 25% of the reload saving. Standing down recovers
+more slowly than tiring, so there is a real cost to leaving the fleet closed up all mission.
+
+| Drives | The same `_remainingReloadTime` shave, with the penalty subtracted |
+|---|---|
+| Shown | The current state and fatigue percentage in the Readiness submenu |
+| Honest limit | Crew fatigue is entirely the mod's model. The game has crew *skill*, not crew *tiredness*. |
+
+---
+
+## Settings
+
+`BepInEx/config/io.github.bomberdeer22.seapoweradvanced.cfg`, section `Features`:
+
+| Key | Default | Meaning |
+|---|---|---|
+| `Enabled` | `true` | Add the eight submenus at all |
+| `BlinkSeconds` | `6` | Seconds between radar blink flips (raised to 12 in a multiplayer session) |
+| `SalvoSpacingSeconds` | `8` | Seconds between ships released in a salvo |
+| `JamRangeNm` | `150` | Reach of the focused offensive jammer against a ship |
+| `JamAirRangeNm` | `150` | Reach against an aircraft or helicopter |
+| `ShowEcmCone` | `true` | Draw the ECM cones on the map |
+| `EcmJamChannels` | `2` | How many contacts the task force may hold sensors down on at once. The game's jam is unaffected |
+| `EcmJamHoldSeconds` | `60` | How long one hold lasts before the contact's crew get their sensors back. **0 = unlimited** |
+| `EcmJamRecoverySeconds` | `15` | Seconds before the same contact can be held down again. **0 = free to renew** |
+| `EcmDiveNm` | `10` | How far out an armed jammer starts pointing an inbound missile at the sea. **0 = off** |
+| `EcmDiveChannels` | `3` | How many missiles one ship's jammer can put down at once (§2f) |
+| `EcmDiveIntervalSeconds` | `2` | Seconds between one descent starting and the next being allowed (§2f) |
+| `EcmDiveReactionSeconds` | `1` | Seconds between a missile crossing `EcmDiveNm` and its descent starting (§2f) |
+| `EcmDiveRadarSeekersOnly` | `true` | Only radar-seeking missiles can be decoyed - IR, optical and anti-radiation are immune (§2f) |
+
+## What to send back if something misbehaves
+
+`seapoweradvanced.log` (mod folder), `capabilities.txt` and `ecm-report.txt` (same folder), plus
+`ecm-dive.txt` if a missile was not put down when it should have been. The log
+names every feature and its result per ship, so a single failed action is easy to find; the two
+report files say what the game actually exposes.
+
+In a multiplayer session, add **`multiplayer.txt`**: it names the multiplayer mod's version, which
+side of the session this machine is on, and every rule that followed from it.

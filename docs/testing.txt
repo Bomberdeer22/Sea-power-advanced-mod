@@ -1,0 +1,421 @@
+Plain-text copy of docs/testing.md, kept in step with it by tools/md2txt.py.
+The Markdown version is the one that renders on GitHub; this one is for Notepad.
+
+==============================================================================
+TEST PLAN
+==============================================================================
+
+Run this once per game version, and after any change to HatchControl,
+HatchMenu or the feature menus.
+
+Version under test: 0.23.0. Mod id io.github.bomberdeer22.seapoweradvanced.
+
+Read the log, do not guess. Everything below is confirmed by two files:
+
+  BepInEx\LogOutput.log
+      What it proves: BepInEx listed the plugin, Harmony patched the game.
+
+  BepInEx\plugins\SeaPowerAdvanced\seapoweradvanced.log
+      What it proves: The mod's own log. If this file exists, the code ran.
+
+If seapoweradvanced.log is missing, nothing else in this plan can pass  -
+stop and send SeaPowerAdvanced-diagnose.txt (from diagnose.cmd).
+
+0. BEFORE THE FIRST TEST
+------------------------
+
+  * [ ] check-source.cmd says PASS. It costs a second and catches the mistakes
+    that otherwise show up as CS0246/CS0103 two minutes into a build: a
+    missing using, a member that does not exist, and a name used outside the
+    method that declares it. build.cmd runs the same check as step [4/6]; it
+    never blocks the build.
+
+  * [ ] BepInEx + the Anchor Chain preloader in the game folder (run build.cmd
+    once and it puts them there); the game does not say "The Anchor Chain
+    preloader is not running!"
+  * [ ] SeaPowerAdvanced.dll + _info.ini in BepInEx\plugins\SeaPowerAdvanced\
+    (written by build.cmd, step [install])
+  * [ ] No leftover copy in Sea Power_Data\StreamingAssets\SeaPowerAdvanced\
+    -  a double install loads every patch twice
+  * [ ] Game fully restarted after the build (code loads once per launch)
+  * [ ] LogOutput.log open in a second window
+
+1. LOAD
+-------
+
+In LogOutput.log, BepInEx's own banner should appear:
+
+  * [ ] Loading [Sea Power Advanced 0.20.0]
+
+Then the mod's own startup lines:
+
+  * [ ] Sea Power Advanced: ================ Sea Power Advanced 0.20.0
+    ================
+  * [ ] Sea Power Advanced: Entry point:  BepInEx plugin
+  * [ ] Sea Power Advanced: Settings: enabled=True includeGuns=False ...
+  * [ ] Sea Power Advanced: Patched MapUnitViewModel.GetContextMenuItems.
+  * [ ] Sea Power Advanced: Context menu patch is live (...)
+  * [ ] Sea Power Advanced: Ready. Right-click a ship > Orders > Weapon
+    hatches.
+  * [ ] No Could not patch, no Startup failed
+
+If Entry point: says AnchorChain mod, the DLL is being loaded from
+StreamingAssets  -  that is the double-install case; remove that folder.
+
+Anchor Chain's Workshop copy is optional: without it the build produces the
+BepInEx-only plugin and the startup line reads Anchor Chain not installed -
+building the BepInEx-only plugin. This is fine. Builds with Anchor Chain
+installed also compile an AnchorChain mod entry point, which is unused on the
+BepInEx route.
+
+2. HATCH MENU
+-------------
+
+  * [ ] Right-click a player ship with launchers (Spruance, Ticonderoga,
+    Burke, Kirov, Slava)
+  * [ ] Orders -> Weapon hatches exists
+  * [ ] Mounts are named as the game names them (Mk 41 VLS  (32)), not
+    WeaponSystemLauncher
+  * [ ] Two mounts with the same name show  #2
+  * [ ] A ship with no launchers shows This ship has no launchers - click for
+    a report
+  * [ ] Enemy and neutral ships show nothing (unless AllowEnemyUnits)
+  * [ ] Vanilla Orders entries are unchanged and still work
+
+3. ONE CELL (THE FEATURE)
+-------------------------
+
+  * [ ] Cell 1 -> the hatch opens; log reads Open <mount> / Cell 1:
+    openHatches -> started
+  * [ ] Reopen the menu: Cell 1 is ticked
+  * [ ] Click Cell 1 again -> closes, unticked, log reads closeHatches ->
+    started
+  * [ ] Move the camera close: the hatch animates and the hatch sound plays
+  * [ ] Repeat on a cell in the middle of the mount (not just the first)
+
+-> already running or -> state set are also correct; -> no-op is the one worth
+reporting.
+
+4. WHOLE MOUNT / WHOLE SHIP
+---------------------------
+
+  * [ ] Open all cells opens every cell of that mount, all ticked
+  * [ ] Open all hatches cycles every mount; log ends with Open all hatches on
+    <ship>: N/M mounts responded.
+  * [ ] Close all hatches closes them
+  * [ ] A 16+ cell VLS completes smoothly, no stutter
+  * [ ] A rail launcher without per-cell hatches (Mk 141) offers Open cover /
+    Close cover, and the cover moves
+
+5. COEXISTENCE WITH THE GAME
+----------------------------
+
+  * [ ] Open cells manually, then launch: the launch is normal, salvo/reload
+    counters unchanged
+  * [ ] Let the ship fire with cells manually opened: note whether the game
+    reopened/closed cells (expected  -  the game owns the cycle)
+  * [ ] Hatch stays open afterwards (the mod clears _triggerCloseAnimation; if
+    it slams shut, note the ship and what it was doing)
+  * [ ] Order a reload, a turn, a sensor change: nothing regresses
+  * [ ] Save, then load: the menu still works (check marks come from live
+    state, so they must survive)
+
+6. HATCH ROBUSTNESS
+-------------------
+
+  * [ ] Toggle a cell twice quickly
+  * [ ] Open hatches on a small boat with one mount
+  * [ ] Log hatch report -> hatch-report.txt appears in the mod folder, per-
+    cell lines look sane
+  * [ ] No NullReferenceException or TypeLoadException in LogOutput.log
+  * [ ] Ten minutes of play: no crash, log does not grow without bound
+
+6B. THE ADVANCED FEATURES (RIGHT-CLICK MENU)
+--------------------------------------------
+
+Full description of each: features.md. Right-click one of your ships.
+
+  * [ ] The features are spread across the menu's own sections, not stacked
+    under Orders: Sensors, Engage, Rules of engagement, Formation, Air
+    operations, Damage control
+  * [ ] Breakaway is at the top level of the right-click menu, one click away
+  * [ ] menu-report.txt (mod folder) lists the section labels found and where
+    each entry went - check it against the list above; it is the file to send
+    if an entry is in the wrong place
+  * [ ] capabilities.txt lists the gameplay levers found in this build, and
+    ecm-report.txt lists every ECM member and type the scan found
+  * [ ] Each toggle shows its state in the label and flips when clicked
+  * [ ] Sensors and EMCON -> Radars off actually darkens the ship; Radars on
+    brings them back
+  * [ ] Radar blink is a submenu: air search / surface search / both. Pick
+    one, watch that set cycle, stop, and check it goes back to the state it
+    was found in
+  * [ ] Countermeasures -> Breakaway launches chaff and turns the ship
+  * [ ] Countermeasures -> Auto-ARM shutoff goes dark when a missile is
+    inbound, then recovers
+  * [ ] Sensors -> Defensive ECM: ... - click to arm arms one ship; the label
+    then reads armed, waiting for a vampire
+  * [ ] Sensors -> Defensive ECM for the whole task force arms every ship at
+    once
+  * [ ] With a missile fired at the task force: the log shows Defensive ECM:
+    <ship> engaging a missile inbound to <ship> - air search on, lock on the
+    missile via <member>, jamming, the ship's air-search radar comes on, and
+    six seconds after the sky clears the log shows stood down and the radar
+    goes back as it was
+  * [ ] If this build exposes no ECM at all, the menu says so instead of
+    pretending, and ecm-report.txt lists what the scan looked at - send that
+    file, it is the missing piece
+  * [ ] Sensors -> ECM: what this build exposes rewrites ecm-report.txt on
+    demand
+  * [ ] Sensors -> Offensive ECM lock (N contact(s) in range) is there on any
+    ship carrying a jammer, whatever the mode toggle says; the toggle only
+    changes the label
+  * [ ] Lock a contact from that list: a long narrow blue beam runs from the
+    jammer to the contact and stops there, and the beam is live - the game's
+    own jam is already running. Offensive ECM: hold its sensors down too is
+    the second half; ecm-cone.txt records how positions are projected
+  * [ ] With a defensive set armed and a missile inbound, an amber beam runs
+    to the missile
+  * [ ] If no beam appears, the bottom of the screen says why and ecm-cone.txt
+    names what was tried
+  * [ ] Offensive ECM lock lists hostile contacts with ranges and marks the
+    unidentified ones; picking one logs Offensive ECM: <ship> locked on
+    <target> (N nm, hull <sig>) ... The jammer is pointed: ..., and offensive-
+    ecm.txt appears in the mod folder with the contact-picture block and a
+    per-sensor verdict table
+  * [ ] The key check: lock a contact that is not identified. It must work:
+    the log reads bearing jam issued (the game's own bearing form), nothing
+    asks you to identify it first, and offensive-ecm.txt shows the picture
+    with not identified counted
+  * [ ] The target's radars go dark and stay dark while the lock is held
+    (watch its emissions); the log repeats holding <target> ... blind only
+    when the picture changes
+  * [ ] The window (limit 1). The hold label counts down - holding its sensors
+    down (43 s) - and the menu line under the lock reads N of M suppression
+    channel(s) in use. When it reaches zero the log reads stopped holding
+    <target> down - 60 s window used up; its crew have their sensors back and
+    it cannot be held down again for 15 s, the target's radar comes back on
+    its own (the game's crew, not the mod), and hold its sensors down reads
+    cannot hold it down - <target>'s crew are back up for another N s
+  * [ ] Wait out the recovery window and order it again: it is allowed, and
+    the log records (hold 2 on this contact) so a second window is visible in
+    the report
+  * [ ] Does the window actually do anything? Five seconds after a hold ends
+    the log gains 5 s after the hold on <target> ended: N of M sensor
+    famil(ies) radiating - .... If N is zero, the target's own side never
+    brought its sets back, so the window is not giving it anything yet - send
+    that line, it is the one that decides whether the limit is real
+  * [ ] The channel budget (limit 2). Lock a second and third contact and
+    order the hold on each: with the shipped 2, the third reads cannot hold it
+    down - all 2 suppression channel(s) are in use (<ship> on <target>, ...).
+    The game's jam on it keeps running - only the blinding is refused
+  * [ ] Stop one hold by hand: the channel frees at once, the log reads
+    stopped by hand, and that contact starts its own recovery window -
+    stopping by hand is not a way round the limit
+  * [ ] Releasing the lock on a contact that was being held also starts its
+    recovery window
+  * [ ] Set EcmJamHoldSeconds = 0 and EcmJamChannels = 99 in the config,
+    restart: the countdown is gone and every lock can blind its contact, which
+    is the 0.22.1 behaviour
+  * [ ] Release the lock (or switching back to standard) stops the
+    suppression, logs released <target> after N assertion(s), and puts the
+    jammer ship's air search back as found
+  * [ ] The lock runs on EMCON: the attacking ship's air-search radar does not
+    come on, and the log says on EMCON (no radar) in the jammer path
+  * [ ] If a sensor cannot be switched off, the menu says NOT all sensors off
+    - <sensor> would not switch off on this build, and offensive-ecm.txt shows
+    STILL ... for that family - that line is the one to send, it names the
+    member the next build needs
+  * [ ] Right-click an enemy contact: the menu shows the game's own
+    identification entries plus Jam with ECM (<ship>, N nm, <kind>) - and,
+    once locked, only hold its sensors down and release the lock as well.
+    Nothing else from this mod
+  * [ ] With no ship of yours close enough, the contact menu says ECM: no
+    jammer within N nm instead of adding nothing - so the feature is visibly
+    installed either way
+  * [ ] Right-click one of your submarines: no ECM entries at all
+  * [ ] Right-click a ship without a flight deck: no helicopter entries
+  * [ ] Readiness -> Action stations shows fatigue climbing; reloads shorten
+  * [ ] Manoeuvres -> Sprint and drift sets the doctrine (check the log for
+    the cavitation speed)
+  * [ ] Manoeuvres -> Turn the screen onto the threat re-stations the ships on
+    one bearing
+  * [ ] Air operations -> ladder/square/sector flies a helicopter pattern
+  * [ ] Strike -> Deconflict the salvo holds ships and releases them one at a
+    time
+  * [ ] Deception -> Commercial disguise goes dark and slow, and says plainly
+    what it cannot do
+  * [ ] Logistics -> Replenish alongside moves ammunition when a supply ship
+    is within 2 nm
+  * [ ] Nothing above throws an exception; seapoweradvanced.log names each
+    action and its result
+
+Aircraft as ECM targets
+
+  * [ ] Fly a hostile aircraft or helicopter inside ~80 nm of a ship with a
+    jammer
+  * [ ] That ship -> Sensors -> Offensive ECM lock: the submenu header reads N
+    contact(s) in range, M in the air, and the aircraft is listed as Jam
+    <name> - aircraft (x nm)
+  * [ ] The same entry appears on the aircraft's own right-click menu,
+    labelled Jam with ECM (<ship>, x nm, aircraft)
+  * [ ] Lock it: offensive-ecm.txt gains a block whose target line says
+    (aircraft) and whose contact picture read from: line names the plotting
+    table and the spotted objects
+  * [ ] Hold its sensors down too: the log reads either every sensor off or
+    NOT all sensors off - <family> with the aircraft named; the radar on the
+    map goes quiet
+  * [ ] Let it fly beyond JamAirRangeNm (150 nm by default): the log reads
+    lost the lock on ... out of range and the aircraft's radar comes back
+  * [ ] An aircraft beyond 150 nm is not offered - that is the reach, not a
+    bug
+  * [ ] A contact 100 nm out is offered, and the beam reaches it - the old 90
+    nm limit is gone
+
+7B. POINTING A MISSILE AT THE WATER (DEFENSIVE ECM)
+---------------------------------------------------
+
+  * [ ] Arm a ship with a jammer: Sensors -> Defensive ECM: off - click to arm
+    automatic jamming
+  * [ ] The entry reads armed, waiting for a vampire and names what the dive
+    has done
+  * [ ] Fire a missile at that ship and let it cross 10 nm: the log shows
+    Defensive ECM: <ship> is flying <missile> down - height ... m, nose N deg
+    down, ... u/s, once
+  * [ ] Watch it descend and keep flying. It must not stop in mid-air, must
+    not spin, must not explode, and must not jump straight to the water
+  * [ ] Its nose pitches over and stops at 90 degrees - it does not keep
+    turning past straight down
+  * [ ] It reaches the water and disappears: taken by the game at the
+    waterline. That is the game's own water-dip removal, not the mod deleting
+    anything
+  * [ ] The ship is not hit
+  * [ ] No exception in LogOutput.log - in particular none in
+    GameMain.FixedUpdate, and no "Repeated Exceptions detected" warning. If
+    one appears, set Features/EcmDiveNm to 0, restart, and send ecm-dive.txt
+    and LogOutput.log
+  * [ ] ecm-dive.txt names the weapon type's guidance link, loss clock,
+    velocity vector, height member and scene object, and prints its whole
+    member list
+  * [ ] If the missile is held at a fixed height instead of reaching the
+    water, ecm-dive.txt says FLOOR <N> m - that number is the skimming floor,
+    and the file is what the next fix is written from
+  * [ ] If it says the missile is not moving, the game has stopped integrating
+    it: send the file, that is the 0.20.0 failure mode reappearing
+  * [ ] Set EcmDiveNm to 0 and restart: missiles are jammed but never dived
+  * [ ] Disarm defensive ECM and repeat: the missile hits as before, so the
+    arming is the difference
+  * [ ] Fire a gun at the same ship with defensive ECM armed: the shell still
+    hits - stated limit
+  * [ ] Channels: fire a four-missile salvo at one armed ship. Three are flown
+    down, then the log warns has all 3 guidance channel(s) committed - the
+    rest of this salvo is not being decoyed, and the rest hit. The menu entry
+    shows 1/2 channels while it is working
+  * [ ] Interval: the next missile's descent does not start until two seconds
+    after the one before. Raise Features/EcmDiveIntervalSeconds to 12 and a
+    two-missile salvo stops being stoppable
+  * [ ] Reaction: a missile crossing 10 nm is not dived for about a second;
+    the log says designating - the descent starts in 0.9 s first. Set
+    EcmDiveReactionSeconds to 8 and the dive starts much later
+  * [ ] Seeker filter: fire an infrared or anti-radiation missile at the same
+    ship. It is not dived - the log says left a missile alone because of its
+    seeker - IRHoming seeker - radio jamming cannot blind that - and ecm-
+    dive.txt lists the seeker type it read. Set EcmDiveRadarSeekersOnly to
+    false and it is dived again
+  * [ ] ecm-dive.txt prints a seeker line per weapon type, and the totals
+    count left alone because their seeker is not radar
+  * [ ] In a session as a client: defensive ECM is not offered, with the host-
+    simulates-weapons reason
+  * [ ] A busy sky with many missiles does not flood the log - a handful of
+    lines per ship at most
+
+7C. THE ECM CONES
+-----------------
+
+  * [ ] An enemy contact -> Jam with ECM: a long narrow cyan beam runs from
+    your jammer to the contact and stops there
+  * [ ] Press hold its sensors down too: the same beam goes brighter and
+    thicker and reads ECM JAMMING at the far end
+  * [ ] Lock a different contact: the beam follows the new target, not the old
+    one
+  * [ ] Select a ship carrying a jammer with nothing locked: a small cyan box
+    marks it, labelled ECM ready
+  * [ ] If no beam appears, the bottom of the screen names the reason and
+    points at ecm-cone.txt
+  * send that file, not ecm-report.txt
+  * [ ] ecm-cone.txt shows centre tile, a lat/lon 0,0 -> world position, where
+    that projects to, and the camera it chose
+
+8. DISABLE
+----------
+
+  * [ ] Up the General/Enabled toggle in
+    BepInEx\config\io.github.bomberdeer22.seapoweradvanced.cfg, restart: log
+    reads General/Enabled is false; nothing will be patched. and no Weapon
+    hatches entry appears
+  * [ ] Set it back to true, restart: it comes back
+
+9. WITH THE MULTIPLAYER MOD (OPTIONAL)
+--------------------------------------
+
+Only if SeapowerMultiplayer is installed. The mod finds it by itself;
+multiplayer.txt in the mod folder is the file that answers everything below.
+
+  * [ ] Single player: multiplayer.txt reads present: no (or present: yes,
+    session: not up), and every feature behaves exactly as it did without it
+  * [ ] seapoweradvanced.log gains one line: Multiplayer: no multiplayer mod
+    or Multiplayer: multimod <version>, installed, no session up
+  * [ ] Start hosting, open a mission: multiplayer.txt now says session: up
+    and this machine: authority; blink, defensive ECM and offensive ECM all
+    work as in single player
+  * [ ] Join as the client: this machine: client
+  * [ ] Sensors -> Radar blink: the start message says the half-cycle was
+    raised to 12 seconds
+  * [ ] Blink a ship and watch the radar: it goes on and off at ~12 second
+    intervals, no rate-limited warnings in LogOutput.log from the multiplayer
+    mod
+  * [ ] Blink a ship you do not command: the blink stops itself within a few
+    seconds and the log says the switch was refused or reverted. That is the
+    expected behaviour, not a failure
+  * [ ] Sensors -> Auto-ARM shutoff reads not available in multiplayer, and
+    Defensive ECM reads the host runs missile defence in multiplayer
+  * [ ] Jam with ECM on an enemy contact: the log shows the game's jam order
+    issued on this machine, and the multiplayer mod's own log shows it applied
+    the jam on the host
+  * [ ] On a client, hold its sensors down is offered but the report says
+    plainly that the effects are the host's to decide (the target is simulated
+    by the host); no switch-off is claimed
+  * [ ] Stop jamming: the message says plainly that the host's jam task is its
+    own and runs until it ends
+  * [ ] ECM cones still draw on the client, from whatever jamming the host
+    replicated in
+
+CHECKS THAT RUN WITHOUT THE GAME
+--------------------------------
+
+Three of them, and they are the gate before anything is handed over. They need
+Python 3 and nothing else - no game DLLs, no compiler:
+
+    python tools\check-source.py       :: the mistakes that have actually broken builds
+    python tools\check-batch.py        :: the .cmd files: labels, blocks, stale %expansion%
+    python tools\check-versions.py     :: the version agrees in all seven places it is written
+    python tools\check-docs.py         :: every .txt twin still matches its Markdown
+
+All four run on every push (.github/workflows/checks.yml). They do not prove
+the mod compiles - only the compiler against your own game DLLs can do that -
+they prove the things a compiler does not look for. What has to be true before
+a release is tagged is in releasing.md.
+
+WHAT TO SEND BACK
+-----------------
+
+  * Which numbered checks failed  -  just the numbers, that is enough.
+  * seapoweradvanced.log (mod folder) for anything that failed, and the
+    matching LogOutput.log lines.
+  * hatch-report.txt for anything hatch-related that did not move.
+  * In a multiplayer session: multiplayer.txt, plus the multiplayer mod's
+    LogOutput.log lines for the same minute  -  a refused order is logged on
+    both sides.
+
+diagnose.cmd collects system, game folder, mod files, build logs and game logs
+into one file. If in doubt, run it and send SeaPowerAdvanced-diagnose.txt.

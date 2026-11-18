@@ -1,0 +1,3 @@
+# Metadata and IL readers. Both are pure Python and install in seconds.
+dnfile>=0.18
+dncil>=1.0.2
