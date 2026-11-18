@@ -67,15 +67,14 @@ air search while it works, because a jammer needs a fire-control quality
 bearing to know where to point. It stands down six seconds after the sky is
 clear and puts the radar back as it found it. What it cannot promise is that
 the missile misses - that is the game's own jamming model, not the mod's - but
-inside ten miles it does two more things: it breaks the weapon's lock, and it
-flies the weapon down over a planned 2.5 to 40 seconds, nose stopping at
-ninety degrees, the model never dropped below the height the simulation
-reports. When it arrives, the flight is ended through the game's own routes -
-fuel, life, its own state machine - because this build of the game does not
-remove a weapon that reaches the sea; a test settled that. Nothing in the
-feature destroys a weapon and nothing sets a warhead off. ecm-report.txt and
-ecm-dive.txt say exactly which members your install exposes and what the mod
-does with them, down to the weapon type's whole member list.
+inside ten miles it does two more things: it breaks the weapon's guidance link
+the way the game itself does, and flies it into the water over a planned 2.5
+to 20 seconds with the nose stopping at ninety degrees - using the flight
+model's own numbers, its orientation and velocity vector, not a dragged model.
+At the waterline the game's own water-dip path removes it. Nothing in the
+feature nulls a reference, destroys a weapon, or sets a warhead off; ecm-
+report.txt and ecm-dive.txt say exactly which members your install exposes and
+what the mod does with them, down to the weapon type's whole member list.
 
 Multiplayer
 

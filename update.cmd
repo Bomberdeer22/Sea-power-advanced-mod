@@ -294,7 +294,9 @@ if defined VLT call :note "0.18.3 - a jammed missile is no longer set off, it is
 call :ver_lt "!INSTALLED!" "0.19.0"
 if defined VLT call :mig_dive
 call :ver_lt "!INSTALLED!" "0.20.0"
-if defined VLT call :note "0.20.0 - the dive is timed, stops its nose at 90 degrees, and ends the flight through the game's own routes. No files: all in the DLL."
+if defined VLT call :note "0.20.0 - the dive is timed and its nose stops at 90 degrees. No files: all in the DLL."
+call :ver_lt "!INSTALLED!" "0.21.0"
+if defined VLT call :note "0.21.0 - the dive uses the game's own lock-loss state, never nulls a reference, and lets the game's water-dip path remove the missile. No files: all in the DLL."
 exit /b 0
 
 
@@ -379,7 +381,9 @@ if defined VLT call :say "0.18.1  offensive ECM reaches 150 nm, ship to ship and
 call :ver_lt "!INSTALLED!" "0.19.0"
 if defined VLT call :say "0.19.0  a jammed missile is flown into the sea from 10 nm"
 call :ver_lt "!INSTALLED!" "0.20.0"
-if defined VLT call :say "0.20.0  the dive is timed and visible, the nose stops at 90 degrees, and the weapon is handed to the game's own end of flight"
+if defined VLT call :say "0.20.0  the dive is timed and visible, and the nose stops at 90 degrees"
+call :ver_lt "!INSTALLED!" "0.21.0"
+if defined VLT call :say "0.21.0  a jammed missile is flown into the water through the game's own flight model, and the game removes it there"
 exit /b 0
 
 

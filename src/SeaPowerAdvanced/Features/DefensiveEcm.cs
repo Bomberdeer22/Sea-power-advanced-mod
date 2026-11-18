@@ -287,9 +287,9 @@ internal static class DefensiveEcm
                         if (record.DiveStops <= MaxDiveLogs)
                         {
                             ModLog.Info("Defensive ECM: " + Name(ship) + " has " + name
-                                        + " down - " + (descent.Length > 0
+                                        + " at the waterline - " + (descent.Length > 0
                                             ? descent + "; " : "")
-                                        + "the game's own end of flight is being used from here");
+                                        + "the game's own water-dip removal takes it from here");
                         }
                     }
 
@@ -305,8 +305,8 @@ internal static class DefensiveEcm
                     {
                         ModLog.Info("Defensive ECM: " + Name(ship) + " is flying " + name
                                     + " down - " + (descent.Length > 0 ? descent
-                                        : "no height the mod can steer; the lock is broken and it "
-                                          + "is no longer correcting"));
+                                        : "nothing the mod can steer; the guidance link is broken "
+                                          + "and it is coasting"));
                     }
                 }
 

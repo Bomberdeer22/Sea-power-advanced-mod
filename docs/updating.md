@@ -73,6 +73,7 @@ just announcing it.
 | < 0.18.3 | the dive stops detonating the missile | nothing | note only |
 | < 0.19.0 | the dive starts at 10 nm and the game removes the missile | a settings file may still say `EcmDiveNm = 2` | **Reports it.** The mod moves exactly `2` to `10` at load. `EcmDiveNm = 0` means "you switched the dive off", and that is left exactly as it is |
 | < 0.20.0 | the dive is timed, the nose stops at 90 degrees, the flight is ended through the game's own routes | nothing - all in the DLL | note only |
+| < 0.21.0 | the dive uses the game's own lock-loss state and never nulls a reference | nothing - all in the DLL | note only |
 | every release | - | `SeaPowerAdvanced.dll`, `_info.ini` | **Replaces them**, after copying the old DLL to `uninstalled\before-<version>_<date>\` |
 
 ## 4. The settings file is never rewritten - on purpose

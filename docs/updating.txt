@@ -147,6 +147,12 @@ explains the version jump rather than just announcing it.
       On disk: nothing - all in the DLL
       What update.cmd does: note only
 
+  < 0.21.0
+      Release: the dive uses the game's own lock-loss state and never nulls
+        a reference
+      On disk: nothing - all in the DLL
+      What update.cmd does: note only
+
   every release
       Release: -
       On disk: SeaPowerAdvanced.dll, _info.ini

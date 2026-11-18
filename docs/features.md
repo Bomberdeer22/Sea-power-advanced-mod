@@ -279,50 +279,44 @@ rather than a ship — and it **never destroys one**.
 A sea-skimmer whose seeker loses lock loses its height reference, stops correcting, and the sea wins.
 So once an armed ship's jammer has a missile inside **`EcmDiveNm` (10 nm by default)**:
 
-1. **The weapon's own lock is broken** — the member it is homing on is set to `null`, so it cannot
-   correct what comes next.
-2. **A descent time is chosen once**, from the height it was found at: at least 2.5 s, never more
-   than 40 s. The height then follows a straight line over that time. A long frame cannot shorten it,
-   and a weapon at 10,000 m does not take fourteen minutes.
-3. **Its nose is pitched down** at 6°/s — **18°/s above 1,000 m**, because a high weapon's nose has a
-   long way to travel and the way down is the point — and it **stops at 90°**. It never keeps turning
-   past straight down, which would point a missile back at the sky.
-4. **The model follows the simulation.** The scene object is only ever moved *to* the height the
-   game reports, never below it. Dragging the model to sea level while the game still had the weapon
-   at 50 ft is exactly what produced a missile that looked sunk and stayed on the threat list.
-5. **The game's own end of flight is used.** At the waterline — or at the height this build refuses
-   to let a weapon go below — the weapon is handed to the game's own routes, one at a time, 1.5 s
-   apart: **fuel exhausted**, **life expired**, then **its own state machine** put into a finished
-   state.
+1. **The guidance link is broken *the way the game does it*** - `ConnectionLost` set true and
+   `_lostGuidanceTime` stamped with the mission clock. The missile then coasts on its last track,
+   which is a state its own code already understands for a jammed missile.
+2. **It is aimed at the water using the flight model's own numbers** - its orientation is assigned
+   every frame (pitch towards the sea, heading held) and its `_velocityVecInUnity` is written to
+   match, so the physics step integrates a real descent rather than a dragged model.
+3. **The nose stops at 90 degrees**, and gets there faster the higher the weapon is: 6 deg/s below
+   1,000 m, 18 deg/s to 5,000 m, 30 deg/s above. Past vertical it would be pointing at the sky.
+4. **The descent is metred.** A pitch is worked out from the height and the weapon's own speed, and
+   the height is walked down a straight line over 2.5 to 20 s. A sea-skimmer at 15 m noses over by
+   about a degree and takes a couple of seconds; one at 5,000 m pitches much harder.
+5. **The game removes it.** `Missile.OnUpdateEveryFrame` carries this game's own **water-dip
+   destruction path**; at the waterline the mod stops writing and that path does the rest.
 
-**10 nm, not 2, and that is about the descent.** The dive has to be visible, and a sea-skimmer closing
-at 600 knots covers two miles in twelve seconds. From ten miles it has about a minute; the descent is
-capped at forty seconds of it.
+**10 nm, not 2, and that is about the descent.** A sea-skimmer closing at 600 knots covers two miles
+in twelve seconds. From ten miles it has about a minute.
+
+**What 0.20.0 did wrong, and why this version exists.** "Breaking the lock" was implemented by
+finding any member whose name mentioned a target or a seeker and **setting it to null** - on this
+type, `_seeker` and `CurrentTarget`. `Missile.OnFixedUpdate` carries motion integration, guidance,
+seeker, fuse and state machine and dereferences both, so the game threw a `NullReferenceException`
+every physics tick: the "Repeated Exceptions" warning, a missile that stopped in mid-air, and the mod
+still rotating its transform, so it span on the spot. **This build never writes null to a
+reference.** The report says so, and lists every member it did write.
+
+Nothing here calls `Detonate`, `Explode`, `SelfDestruct` or `Destroy` either. Two earlier builds did,
+and the player saw both: a warhead going off two miles off the bow **once per tick**, and then - once
+that was narrowed to a plain `Destroy` - a `NullReferenceException` inside `GameMain.FixedUpdate`
+with the missile left sitting on the water, because the game was still walking an object that had been
+deleted from under it.
 
 | Needs | `Defensive ECM: off - click to arm automatic jamming` on that ship, or armed for the whole task force. A hull with no jammer never offers either |
 |---|---|
-| Range | `Features/EcmDiveNm`, **10 nm** by default (0–30). **0 switches the dive off** and leaves the jam alone |
+| Range | `Features/EcmDiveNm`, **10 nm** by default (0-30). **0 switches the dive off** and leaves the jam alone |
 | Not covered | **Guns and rockets.** A shell has no lock to break and no seeker to point down, so it is never touched |
-| Refused on | A multiplayer **client** — weapons are simulated by the host. Defensive ECM is not offered on a client at all |
-| Logged | `Defensive ECM: <ship> is flying <missile> down - height 1200 m at start, 900 m at 25 s`, then once more when the game takes it: `taken by the game (this build held it at 15 m)` |
-| Report | `ecm-dive.txt` — the members read off each weapon type, **its whole member list**, every end-of-flight route found and what happened when each was tried, which route moved it, and the session totals |
-
-### What this deliberately does not do
-
-Nothing here calls `Detonate`, `Explode` or `SelfDestruct`, and nothing here calls `Destroy`. Two
-earlier builds tried both, and the player saw exactly what that produces:
-
-- a warhead going off two miles off the bow, **once per tick**, because the object was not actually
-  removed and the next tick found it again;
-- then, once that was narrowed to a plain `Destroy`, a **`NullReferenceException` inside
-  `GameMain.FixedUpdate`** — the game was still walking a weapon that had been deleted from under it —
-  with the missile left sitting on the water, because the mod had removed the object but nothing else.
-
-**And this build does not remove a weapon at the surface.** That was 0.19.0's assumption, and the
-test settled it: the missile sat at 50 ft and stayed there. Hence step 5 — the mod no longer waits for
-an impact that never comes, it asks the game to end the flight the way the game ends one of its own.
-If every route is refused, `ecm-dive.txt` says so plainly (`every route was tried and the game kept
-it`) and the mod **stops touching it** rather than removing the object behind the game's back.
+| Refused on | A multiplayer **client** - weapons are simulated by the host. Defensive ECM is not offered on a client at all |
+| Logged | `Defensive ECM: <ship> is flying <missile> down - height 1200 m, nose 24 deg down, 4.6 u/s`, then once more when the game takes it: `taken by the game at the waterline` |
+| Report | `ecm-dive.txt` - the guidance, velocity, altitude and scene members found on each weapon type, **its whole member list**, any skimming floor the game refused to let the mod write under, which route moved it, and the session totals |
 
 ## 3. Commercial signature spoofing — `Deception`
 

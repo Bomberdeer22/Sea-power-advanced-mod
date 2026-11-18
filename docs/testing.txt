@@ -8,7 +8,7 @@ TEST PLAN
 Run this once per game version, and after any change to HatchControl,
 HatchMenu or the feature menus.
 
-Version under test: 0.20.0. Mod id io.github.bomberdeer22.seapoweradvanced.
+Version under test: 0.21.0. Mod id io.github.bomberdeer22.seapoweradvanced.
 
 Read the log, do not guess. Everything below is confirmed by two files:
 
@@ -245,36 +245,36 @@ Aircraft as ECM targets
   * [ ] A contact 100 nm out is offered, and the beam reaches it - the old 90
     nm limit is gone
 
-7B. POINTING A MISSILE AT THE SEA (DEFENSIVE ECM)
--------------------------------------------------
+7B. POINTING A MISSILE AT THE WATER (DEFENSIVE ECM)
+---------------------------------------------------
 
   * [ ] Arm a ship with a jammer: Sensors -> Defensive ECM: off - click to arm
     automatic jamming
   * [ ] The entry reads armed, waiting for a vampire and names what the dive
     has done
   * [ ] Fire a missile at that ship and let it cross 10 nm: the log shows
-    Defensive ECM: <ship> is flying <missile> down - height ... at start, ...
-    at N s, once
-  * [ ] Watch it descend. It must move down steadily rather than jump, it must
-    not explode in mid-air, and it must not explode twice. A low, slow missile
-    takes a couple of seconds to reach the water; one high up takes up to
-    forty
-  * [ ] Its nose pitches over and stops at 90°  -  it does not keep turning
-    past straight down
-  * [ ] It then disappears: taken by the game. If it does not, the totals say
-    left where this build puts them, and ecm-dive.txt lists which of the
-    game's end-of-flight routes were tried
+    Defensive ECM: <ship> is flying <missile> down - height ... m, nose N deg
+    down, ... u/s, once
+  * [ ] Watch it descend and keep flying. It must not stop in mid-air, must
+    not spin, must not explode, and must not jump straight to the water
+  * [ ] Its nose pitches over and stops at 90 degrees - it does not keep
+    turning past straight down
+  * [ ] It reaches the water and disappears: taken by the game at the
+    waterline. That is the game's own water-dip removal, not the mod deleting
+    anything
   * [ ] The ship is not hit
   * [ ] No exception in LogOutput.log - in particular none in
-    GameMain.FixedUpdate. If one appears, set Features/EcmDiveNm to 0,
-    restart, and send ecm-dive.txt: that narrows it to the lock break rather
-    than anything being handed over
-  * [ ] ecm-dive.txt names the weapon type's homing member, height member,
-    vertical member and every end-of-flight route found, plus the type's whole
+    GameMain.FixedUpdate, and no "Repeated Exceptions detected" warning. If
+    one appears, set Features/EcmDiveNm to 0, restart, and send ecm-dive.txt
+    and LogOutput.log
+  * [ ] ecm-dive.txt names the weapon type's guidance link, loss clock,
+    velocity vector, height member and scene object, and prints its whole
     member list
-  * [ ] If it is held at a fixed height instead of reaching the water, ecm-
-    dive.txt says the game holds it at N m - that number is the skimming
-    floor, and the report is what the next fix is written from
+  * [ ] If the missile is held at a fixed height instead of reaching the
+    water, ecm-dive.txt says FLOOR <N> m - that number is the skimming floor,
+    and the file is what the next fix is written from
+  * [ ] If it says the missile is not moving, the game has stopped integrating
+    it: send the file, that is the 0.20.0 failure mode reappearing
   * [ ] Set EcmDiveNm to 0 and restart: missiles are jammed but never dived
   * [ ] Disarm defensive ECM and repeat: the missile hits as before, so the
     arming is the difference

@@ -1,5 +1,56 @@
 # Changelog
 
+## 0.21.0 - the game's own flight model, and no nulls anywhere
+
+The player's test of 0.20.0: the exception warning came back, and the missile **stopped in mid-air and
+spun on the spot**. Both symptoms had one cause, and the research this version is built on names it.
+
+**What the game actually does**, read out of the decompiled assembly through two mods that work against
+it (Real Air Combat Tactics, SeaPowerMultiplayer):
+
+- `Missile.OnFixedUpdate` carries **motion integration, guidance, seeker, fuse and the state machine**.
+  It runs every physics tick.
+- `Missile.OnUpdateEveryFrame` carries the time-compression clamp and **a water-dip destruction
+  path** - so this game does remove a weapon that gets into the water. 0.19.0 never put one there: it
+  dragged the *model* down and left the simulation at its skimming height.
+- The flight state is plain data: `ConnectionLost` (`ReactiveProperty<bool>`), `_lostGuidanceTime`,
+  `_targetLost`, `_velocityVecInUnity`, `_velocityInUnity`, `_velocityInKnots`.
+- **When the guidance link is lost the missile coasts on its last track** - the game's own
+  `_lostGuidanceTime` extrapolation. That is the state a jammed missile is supposed to be in.
+
+**The bug, in the game's terms.** 0.20.0 "broke the lock" by finding any member whose name mentioned a
+target or a seeker and setting it to **null**. On this type that is `_seeker` and `CurrentTarget` -
+both dereferenced in `OnFixedUpdate`. So the game threw a `NullReferenceException` every physics tick:
+the repeated-exception warning; motion integration never ran again, so the missile froze; and the mod
+kept rotating its transform, so it span where it stopped.
+
+**So this build writes no null to any reference.** It does what the game does for a jammed missile -
+`ConnectionLost = true` and `_lostGuidanceTime` stamped with the mission clock, re-asserted every frame
+because the game's own update clears the flag - and then aims it at the water with the flight model's
+own numbers: the orientation is *assigned* each frame (pitch towards the sea, heading held) and
+`_velocityVecInUnity` is written to match, so the physics step integrates a real descent.
+
+- **The descent is metred, not stepped.** The pitch is worked out from the height and the weapon's own
+  speed, in the grid's units (about 67 m each - mixing the two is what turns a nudge into a vertical
+  dive), and the height is walked down a straight line over 2.5 to 20 s. A sea-skimmer at 15 m noses
+  over by about a degree; one at 5,000 m pitches much harder.
+- **The nose stops at 90 degrees**, and gets there faster the higher it is: 6 deg/s below 1,000 m,
+  18 deg/s to 5,000 m, 30 deg/s above. Orientation is assigned absolutely, so it can never wind itself
+  up into the spin 0.20.0 produced.
+- **The waterline is judged on the transform**, which is the map's own truth (the multiplayer mod
+  converts it straight to latitude, longitude and height). The weapon's own height member is written
+  as well and reported beside it, and if the game hands it back higher three times running, that is a
+  **floor**, and `ecm-dive.txt` records the number.
+- **The game removes it.** At the waterline the mod stops writing; `OnUpdateEveryFrame`'s water-dip
+  path does the rest. Only if that has not happened after six seconds does the last resort run - fuel,
+  life, the weapon's own state machine - and if those are refused, the totals say `left where this build
+  put it` rather than the mod removing an object behind the game's back.
+- **A half-metre of self-doubt**: if the missile stops moving while the mod is steering it, the log
+  says so by name. That is 0.20.0's failure mode, and it should never be silent again.
+
+`ecm-dive.txt` now prints every member of the weapon type, the guidance/velocity/altitude/scene members
+found, the floor if there is one, and the reason for every decision.
+
 ## 0.20.0 - flown down, then handed to the game
 
 The player's test of 0.19.0 found two things, and only one of them was a matter of taste.
