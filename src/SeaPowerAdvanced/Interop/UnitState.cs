@@ -89,6 +89,14 @@ internal sealed class UnitRecord
     /// </summary>
     internal object? EcmTarget;
 
+    /// <summary>How many missiles this ship's jammer was holding down on the last tick - the guidance
+    /// channels in use, counted so the ship stops at <c>EcmDiveChannels</c>.</summary>
+    internal int DiveChannels;
+
+    /// <summary>When the next missile is allowed to start its descent - the crew needs to see how the
+    /// last one went before the next solution settles.</summary>
+    internal float DiveNextAt;
+
     // --- strike --------------------------------------------------------------------------------
 
     /// <summary>This ship is waiting for its slot in a deconflicted salvo.</summary>

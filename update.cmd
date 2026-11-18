@@ -297,6 +297,8 @@ call :ver_lt "!INSTALLED!" "0.20.0"
 if defined VLT call :note "0.20.0 - the dive is timed and its nose stops at 90 degrees. No files: all in the DLL."
 call :ver_lt "!INSTALLED!" "0.21.0"
 if defined VLT call :note "0.21.0 - the dive uses the game's own lock-loss state, never nulls a reference, and lets the game's water-dip path remove the missile. No files: all in the DLL."
+call :ver_lt "!INSTALLED!" "0.22.0"
+if defined VLT call :note "0.22.0 - the dive gains four limits (guidance channels, engagement interval, reaction delay, radar-seeker filter). They are new settings with defaults; nothing in your config file is rewritten."
 exit /b 0
 
 
@@ -384,6 +386,8 @@ call :ver_lt "!INSTALLED!" "0.20.0"
 if defined VLT call :say "0.20.0  the dive is timed and visible, and the nose stops at 90 degrees"
 call :ver_lt "!INSTALLED!" "0.21.0"
 if defined VLT call :say "0.21.0  a jammed missile is flown into the water through the game's own flight model, and the game removes it there"
+call :ver_lt "!INSTALLED!" "0.22.0"
+if defined VLT call :say "0.22.0  the dive is limited like a real ship's: 2 guidance channels, 4 s between engagements, 2 s to react, radar seekers only"
 exit /b 0
 
 

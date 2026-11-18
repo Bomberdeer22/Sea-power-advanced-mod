@@ -213,6 +213,20 @@ Full description of each: [features.md](features.md). Right-click one of your sh
 - [ ] Set `EcmDiveNm` to `0` and restart: missiles are jammed but never dived
 - [ ] Disarm defensive ECM and repeat: the missile hits as before, so the arming is the difference
 - [ ] Fire a **gun** at the same ship with defensive ECM armed: the shell still hits - stated limit
+- [ ] **Channels:** fire a four-missile salvo at one armed ship. Two are flown down, then the log warns
+      `has all 2 guidance channel(s) committed - the rest of this salvo is not being decoyed`, and the
+      rest hit. The menu entry shows `1/2 channels` while it is working
+- [ ] **Interval:** the third missile's descent does not start until four seconds after the second.
+      Raise `Features/EcmDiveIntervalSeconds` to 12 and a two-missile salvo stops being stoppable
+- [ ] **Reaction:** a missile crossing 10 nm is not dived for about two seconds; the log says
+      `designating - the descent starts in 1.7 s` first. Set `EcmDiveReactionSeconds` to 8 and the
+      dive starts much later
+- [ ] **Seeker filter:** fire an **infrared** or **anti-radiation** missile at the same ship. It is
+      **not** dived - the log says `left a missile alone because of its seeker - IRHoming seeker -
+      radio jamming cannot blind that` - and `ecm-dive.txt` lists the seeker type it read. Set
+      `EcmDiveRadarSeekersOnly` to `false` and it is dived again
+- [ ] `ecm-dive.txt` prints a `seeker` line per weapon type, and the totals count
+      `left alone because their seeker is not radar`
 - [ ] In a session as a **client**: defensive ECM is not offered, with the host-simulates-weapons reason
 - [ ] A busy sky with many missiles does not flood the log - a handful of lines per ship at most
 

@@ -77,6 +77,13 @@ internal static class WeaponDive
         internal bool FloorFound;
         internal float Floor;
 
+        /// <summary>The seeker as the game names it, and whether radio jamming can do anything to it.</summary>
+        internal string Seeker = "";
+        internal bool SeekerKnown;
+        internal bool SeekerJammable;
+
+        internal bool RefusalLogged;
+
         /// <summary>Last-resort ways to end a flight, used only if the water dip does not happen.</summary>
         internal List<Handler> Endings = new();
 
@@ -119,6 +126,10 @@ internal static class WeaponDive
         /// <summary>True once the weapon is at the waterline; the game's water-dip path takes it then.</summary>
         internal bool InWater;
         internal float WaterAt;
+
+        /// <summary>When the crew is allowed to start the descent - the contact has to be seen and
+        /// the solution has to settle.</summary>
+        internal float ReadyAt;
 
         internal bool Announced;
 
@@ -186,6 +197,9 @@ internal static class WeaponDive
     internal static int WaterDipped { get; private set; }
     internal static int Confirmed { get; private set; }
     internal static int Left { get; private set; }
+
+    /// <summary>Missiles this build refused to decoy because their seeker is not a radar.</summary>
+    internal static int Immune { get; private set; }
 
     // --- the two steps ---------------------------------------------------------------------------
 
@@ -265,6 +279,16 @@ internal static class WeaponDive
         Hold(shape, weapon);
 
         if (dive.Done) return false;
+
+        // The reaction delay: the jammer is on the missile from the moment it is seen, but the
+        // descent - the part that kills it - waits for the contact to be designated and the
+        // solution to settle. This is the second thing that stopped the feature being a wall.
+        if (now < dive.ReadyAt)
+        {
+            note = "designating - the descent starts in "
+                   + (dive.ReadyAt - now).ToString("0.0") + " s";
+            return true;
+        }
 
         // --- in the water: the game owns it from here ---------------------------------------------
 
@@ -455,6 +479,48 @@ internal static class WeaponDive
         return false;
     }
 
+    /// <summary>True when this weapon already has a dive - so a ship is holding it, not picking it up.</summary>
+    internal static bool IsDiving(object? weapon) => weapon != null && Diving.ContainsKey(weapon);
+
+    /// <summary>
+    /// Whether radio jamming has anything to work on.
+    ///
+    /// A radar seeker does. An infrared, imaging, optical or anti-radiation seeker does not - radio
+    /// frequency jamming cannot blind a heat seeker, and an anti-radiation missile is homing on the
+    /// jammer. When the type cannot be read at all the answer is yes, and the report says so: the
+    /// mod does not get to claim a missile was immune on the strength of a missing member.
+    /// </summary>
+    internal static bool CanBeDecoyed(object? weapon, out string why)
+    {
+        why = "";
+
+        if (weapon == null) return true;
+        if (!ModSettings.EcmDiveRadarSeekersOnly) return true;
+
+        Shape shape = ShapeOf(weapon);
+
+        if (!shape.SeekerKnown)
+        {
+            why = "seeker type could not be read - treated as jammable";
+            return true;
+        }
+
+        if (shape.SeekerJammable) return true;
+
+        why = shape.Seeker + " seeker - radio jamming cannot blind that";
+
+        if (!shape.RefusalLogged)
+        {
+            shape.RefusalLogged = true;
+            Immune++;
+            ModLog.Info("Defensive ECM: left a missile alone because of its seeker - " + why
+                        + ". EcmDiveRadarSeekersOnly is on; see ecm-dive.txt for the type.");
+            WriteReport();
+        }
+
+        return false;
+    }
+
     /// <summary>Marks a weapon as being in the water, for the caller that saw it there first.</summary>
     internal static void AtSurface(object? weapon)
     {
@@ -488,6 +554,7 @@ internal static class WeaponDive
         if (WaterDipped > 0) line += ", " + WaterDipped + " taken by the game's water dip";
         if (Confirmed > WaterDipped) line += ", " + (Confirmed - WaterDipped) + " removed by the game";
         if (Left > 0) line += ", " + Left + " left where this build put them";
+        if (Immune > 0) line += ", " + Immune + " left alone because their seeker is not radar";
 
         return line;
     }
@@ -607,7 +674,14 @@ internal static class WeaponDive
     /// </summary>
     private static Dive Begin(object weapon, Shape shape, float now)
     {
-        var dive = new Dive { Started = now, LastStep = now, TryAt = now, LastMoved = now };
+        var dive = new Dive
+        {
+            Started = now,
+            LastStep = now,
+            TryAt = now,
+            LastMoved = now,
+            ReadyAt = now + ModSettings.EcmDiveReactionSeconds,
+        };
 
         GameObject? scene = Scene(weapon);
 
@@ -769,6 +843,7 @@ internal static class WeaponDive
             Classify(shape, property, property.PropertyType, property.Name);
 
         shape.Transform = Scene(weapon) != null;
+        ReadSeeker(weapon, shape);
 
         // The whole member list, because the next fix is written from this file rather than guessed.
         foreach (MemberInfo member in MemberProbe.All(type))
@@ -802,6 +877,11 @@ internal static class WeaponDive
                             + " - the first is the game's permanent-loss flag, the second is a"
                             + " readout; neither is needed to coast a missile into the water");
         shape.Found.Add("scene object   " + (shape.Transform ? "yes" : "no"));
+        shape.Found.Add("seeker         " + (shape.SeekerKnown
+                            ? shape.Seeker + (shape.SeekerJammable
+                                ? " - radar: the jammer can work on it"
+                                : " - not radar: this dive will leave it alone")
+                            : "<could not be read - the dive treats it as jammable>"));
 
         if (shape.FloorFound)
             shape.Found.Add("floor found    " + shape.Floor.ToString("0")
@@ -895,6 +975,73 @@ internal static class WeaponDive
             if (finished != null)
                 shape.Endings.Add(new Handler { Member = member, Kind = "state", Value = finished });
         }
+    }
+
+    /// <summary>
+    /// Reads the weapon's seeker type: <c>_seeker._guidanceType</c> on the weapon, or the same name
+    /// on its ammunition parameters. Only the enum's <i>name</i> is used, so a renamed or reordered
+    /// enum cannot make the mod think an infrared missile is a radar one - the words are checked.
+    /// </summary>
+    private static void ReadSeeker(object weapon, Shape shape)
+    {
+        try
+        {
+            object? seeker = MemberProbe.Read(Exact(weapon.GetType(), "seeker"), weapon);
+            object? kind = seeker == null
+                ? null
+                : MemberProbe.Read(Exact(seeker.GetType(), "guidanceType"), seeker);
+
+            if (kind == null)
+            {
+                object? ammo = MemberProbe.Read(Exact(weapon.GetType(), "ap"), weapon);
+                if (ammo != null)
+                    kind = MemberProbe.Read(Exact(ammo.GetType(), "guidanceType"), ammo);
+            }
+
+            if (kind == null) return;
+
+            shape.Seeker = kind.ToString() ?? "";
+            if (shape.Seeker.Length == 0) return;
+
+            shape.SeekerKnown = true;
+            shape.SeekerJammable = LooksJammable(shape.Seeker);
+        }
+        catch (Exception) { }
+    }
+
+    /// <summary>An exactly-named member, ignoring the underscore the game puts in front of fields.</summary>
+    private static MemberInfo? Exact(Type type, string name)
+    {
+        foreach (MemberInfo member in MemberProbe.All(type))
+        {
+            if (member is not FieldInfo && member is not PropertyInfo) continue;
+            if (string.Equals(member.Name.TrimStart('_'), name, StringComparison.OrdinalIgnoreCase))
+                return member;
+        }
+
+        return null;
+    }
+
+    /// <summary>
+    /// Whether a seeker named like this can be talked out of the sky.
+    ///
+    /// The words are the game's own enum names: <c>ActiveRadarHoming</c> and
+    /// <c>SemiActiveRadarHoming</c> are jammable; <c>IRHoming</c>, imaging, optical, laser and
+    /// television seekers are not; and an <c>AntiRadiation</c> seeker is homing on the emission, so
+    /// jamming it is helping it. Anything unrecognised counts as jammable, and the report says so.
+    /// </summary>
+    private static bool LooksJammable(string value)
+    {
+        string name = value.ToLowerInvariant();
+
+        if (name.Contains("infra") || name.Contains("imaging") || name.Contains("optical")
+            || name.Contains("television") || name.Contains("laser") || name.Contains("heat")
+            || name == "ir" || name.StartsWith("irh") || name.StartsWith("ir_"))
+            return false;
+
+        if (name.Contains("antirad") || name.Contains("radiation")) return false;
+
+        return true;
     }
 
     /// <summary>True for a <c>ReactiveProperty&lt;bool&gt;</c>, which is how the game stores its

@@ -153,6 +153,13 @@ explains the version jump rather than just announcing it.
       On disk: nothing - all in the DLL
       What update.cmd does: note only
 
+  < 0.22.0
+      Release: the dive is limited by guidance channels, an engagement
+        interval, a reaction delay and a radar-seeker filter
+      On disk: nothing - all in the DLL. New settings appear with defaults
+        and are read on the first start
+      What update.cmd does: note only
+
   every release
       Release: -
       On disk: SeaPowerAdvanced.dll, _info.ini

@@ -1,5 +1,37 @@
 # Changelog
 
+## 0.22.0 - it works, and it is too strong
+
+The player's verdict on 0.21.0: **it works perfectly, maybe too well, it seems overpowered**. Agreed.
+A jammer that kills every missile of every salvo does not just beat the enemy's anti-ship missiles, it
+makes them pointless - and the feature was unlimited in exactly the way a real ship is not: infinite
+guidance channels, no reaction time, no limit on how fast solutions could be settled, and it worked on
+seekers that radio jamming physically cannot touch.
+
+Four limits, all of them real, all of them settings:
+
+- **`Features/EcmDiveChannels`, default 2.** A ship defends on a handful of guidance channels -
+  illuminators and fire-control loops - not on unlimited attention. With two, a four-missile salvo
+  gets through. 99 is the old behaviour, kept so it is reachable rather than deleted.
+- **`Features/EcmDiveIntervalSeconds`, default 4.** The crew has to see how the first missile went
+  before the next solution settles, so only one new descent may start every four seconds.
+- **`Features/EcmDiveReactionSeconds`, default 2.** The jammer is on the missile the frame it is seen;
+  the *descent* waits for the contact to be designated and the solution to settle. The log says
+  `designating - the descent starts in 1.7 s` while it does.
+- **`Features/EcmDiveRadarSeekersOnly`, default true.** This is the big one, and it is physics rather
+  than difficulty: radio-frequency jamming does not blind an infrared, imaging or optical seeker, and
+  an **anti-radiation** missile is homing on the emission - jamming it is helping it. The seeker is
+  read from the game's own `_seeker._guidanceType` (name only, so a reordered enum cannot turn a heat
+  seeker into a radar one), and a missile that is left alone says so once in the log.
+
+The menu entry now shows the load - `armed, jamming now, 1/2 channels` - so a salvo overwhelming a
+ship is visible rather than mysterious, and `ecm-dive.txt` prints the seeker type it read per weapon
+type plus a count of missiles left alone because of their seeker.
+
+Defaults are the middle setting. Two other combinations are documented in `docs/features.md`: the
+0.21.0 wall (99 / 0 / 0 / false) and a **Strict** last-ditch (1 / 8 / 4 / true) under which a
+two-missile salvo has a real chance.
+
 ## 0.21.0 - the game's own flight model, and no nulls anywhere
 
 The player's test of 0.20.0: the exception warning came back, and the missile **stopped in mid-air and

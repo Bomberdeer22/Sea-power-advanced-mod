@@ -572,6 +572,74 @@ been deleted from under it.
         floor the game refused to let the mod write under, which route moved
         it, and the session totals
 
+Making it less powerful
+
+Worked perfectly, and too well: a jammer that kills every missile in a salvo
+makes the enemy's anti-ship missiles pointless. Four settings dial it back,
+and none of them is an artificial difficulty switch - each one is a thing that
+actually limits a ship's ability to do this.
+
+  Features/EcmDiveChannels
+      Default: 2
+      What it does: How many missiles one ship can hold down at once (1-99).
+        With two, a four-missile salvo gets through
+      The real-world reason: Ships defend on a handful of guidance channels
+        - illuminators and fire-control loops - not on unlimited attention
+
+  Features/EcmDiveIntervalSeconds
+      Default: 4
+      What it does: Seconds between one missile starting its descent and the
+        next being allowed to
+      The real-world reason: The crew has to see how the first one went
+        before the next solution settles
+
+  Features/EcmDiveReactionSeconds
+      Default: 2
+      What it does: Seconds between a missile crossing EcmDiveNm and its
+        dive starting. The jammer is on it immediately; the descent waits
+      The real-world reason: A contact has to be seen, designated, and the
+        fire-control solution allowed to settle
+
+  Features/EcmDiveRadarSeekersOnly
+      Default: true
+      What it does: Only radar seekers can be decoyed. Infrared, imaging,
+        optical and anti-radiation missiles are left alone
+      The real-world reason: RF jamming cannot blind a heat seeker, and an
+        anti-radiation missile is homing on the jammer itself
+
+Three combinations, all from the config file
+BepInEx\config\io.github.bomberdeer22.seapoweradvanced.cfg:
+
+  0.21.0 - the wall
+      Channels: 99
+      Interval: 0
+      Reaction: 0
+      Radar only: false
+      What it plays like: Every missile of every salvo dies. Kept only so
+        the old behaviour is reachable
+
+  Practical (default)
+      Channels: 2
+      Interval: 4
+      Reaction: 2
+      Radar only: true
+      What it plays like: Kills the leading pair of a salvo; the rest
+        arrive. A well-escorted strike still gets through
+
+  Strict
+      Channels: 1
+      Interval: 8
+      Reaction: 4
+      Radar only: true
+      What it plays like: Last-ditch self-defence. One missile, then a long
+        reset; a two-missile salvo has a real chance
+
+The dive itself is unchanged in all three: the same guidance-link break, the
+same metred descent, the same nose that stops at 90 degrees, the same water-
+dip removal by the game. The menu shows the channels in use - armed, jamming
+now, 1/2 channels - so it is visible when a salvo is overwhelming the ship
+rather than mysterious.
+
 3. COMMERCIAL SIGNATURE SPOOFING  -  DECEPTION
 ----------------------------------------------
 

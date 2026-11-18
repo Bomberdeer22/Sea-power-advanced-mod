@@ -318,6 +318,33 @@ deleted from under it.
 | Logged | `Defensive ECM: <ship> is flying <missile> down - height 1200 m, nose 24 deg down, 4.6 u/s`, then once more when the game takes it: `taken by the game at the waterline` |
 | Report | `ecm-dive.txt` - the guidance, velocity, altitude and scene members found on each weapon type, **its whole member list**, any skimming floor the game refused to let the mod write under, which route moved it, and the session totals |
 
+### Making it less powerful
+
+Worked perfectly, and too well: a jammer that kills every missile in a salvo makes the enemy's
+anti-ship missiles pointless. Four settings dial it back, and none of them is an artificial
+difficulty switch - each one is a thing that actually limits a ship's ability to do this.
+
+| Setting | Default | What it does | The real-world reason |
+|---|---|---|---|
+| `Features/EcmDiveChannels` | **2** | How many missiles one ship can hold down at once (1-99). With two, a four-missile salvo gets through | Ships defend on a handful of **guidance channels** - illuminators and fire-control loops - not on unlimited attention |
+| `Features/EcmDiveIntervalSeconds` | **4** | Seconds between one missile starting its descent and the next being allowed to | The crew has to see how the first one went before the next solution settles |
+| `Features/EcmDiveReactionSeconds` | **2** | Seconds between a missile crossing `EcmDiveNm` and its dive starting. The jammer is on it immediately; the *descent* waits | A contact has to be seen, designated, and the fire-control solution allowed to settle |
+| `Features/EcmDiveRadarSeekersOnly` | **true** | Only radar seekers can be decoyed. Infrared, imaging, optical and **anti-radiation** missiles are left alone | RF jamming cannot blind a heat seeker, and an anti-radiation missile is homing on the jammer itself |
+
+Three combinations, all from the config file
+`BepInEx\config\io.github.bomberdeer22.seapoweradvanced.cfg`:
+
+| | Channels | Interval | Reaction | Radar only | What it plays like |
+|---|---|---|---|---|---|
+| **0.21.0 - the wall** | `99` | `0` | `0` | `false` | Every missile of every salvo dies. Kept only so the old behaviour is reachable |
+| **Practical (default)** | `2` | `4` | `2` | `true` | Kills the leading pair of a salvo; the rest arrive. A well-escorted strike still gets through |
+| **Strict** | `1` | `8` | `4` | `true` | Last-ditch self-defence. One missile, then a long reset; a two-missile salvo has a real chance |
+
+The dive itself is unchanged in all three: the same guidance-link break, the same metred descent, the
+same nose that stops at 90 degrees, the same water-dip removal by the game. The menu shows the
+channels in use - `armed, jamming now, 1/2 channels` - so it is visible when a salvo is overwhelming
+the ship rather than mysterious.
+
 ## 3. Commercial signature spoofing — `Deception`
 
 The ship stops radiating, drops to a merchant's telegraph setting, and presents a civilian-looking

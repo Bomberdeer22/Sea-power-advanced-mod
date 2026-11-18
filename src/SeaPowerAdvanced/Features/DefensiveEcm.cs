@@ -228,6 +228,12 @@ internal static class DefensiveEcm
     /// off; the previous builds did both, and produced an explosion every tick and then a
     /// NullReferenceException inside the game's own update.
     ///
+    /// <b>Three things keep it from being a wall</b>, and all three are how the real thing works:
+    /// the ship has a limited number of <b>guidance channels</b> (<c>EcmDiveChannels</c>), a new dive
+    /// may only start every <c>EcmDiveIntervalSeconds</c>, and a missile whose seeker is not a radar
+    /// is left alone entirely, because jamming cannot blind a heat seeker
+    /// (<c>EcmDiveRadarSeekersOnly</c>). A four-missile salvo therefore gets through.
+    ///
     /// Returns true when a weapon is being brought down, which tells the caller this ship has
     /// nothing else to do this tick.
     /// </summary>
@@ -251,6 +257,11 @@ internal static class DefensiveEcm
         }
         catch (Exception) { return false; }
 
+        float now = Time.unscaledTime;
+        int channels = ModSettings.EcmDiveChannels;
+        int held = 0;
+        bool fullLogged = false;
+
         foreach (object weapon in weapons)
         {
             try
@@ -268,7 +279,52 @@ internal static class DefensiveEcm
                     continue;
                 }
 
+                bool already = WeaponDive.IsDiving(weapon);
+
+                // 1. A seeker that radio jamming cannot touch is not this feature's business. This
+                //    is physics, not difficulty: an infrared or anti-radiation seeker does not care
+                //    what the jammer is transmitting, and one of them is homing on it.
+                if (!WeaponDive.CanBeDecoyed(weapon, out string seeker))
+                {
+                    if (already) held++;
+                    if (record.DiveStops < MaxDiveLogs && seeker.Length > 0
+                        && ModSettings.VerboseLog)
+                        ModLog.Info("Defensive ECM: " + Name(ship) + " cannot decoy "
+                                    + Name(weapon, range) + " - " + seeker);
+                    continue;
+                }
+
+                // 2. The ship's guidance channels are finite. A jammer already holding its limit
+                //    watches the rest of the salvo arrive, which is the whole point of a salvo.
+                if (!already && held >= channels)
+                {
+                    if (!fullLogged)
+                    {
+                        fullLogged = true;
+                        record.DiveStops = record.DiveStops + 1;
+
+                        if (record.DiveStops <= MaxDiveLogs)
+                            ModLog.Warn("Defensive ECM: " + Name(ship) + " has all " + channels
+                                        + " guidance channel(s) committed - the rest of this salvo "
+                                        + "is not being decoyed");
+                    }
+                    continue;
+                }
+
+                // 3. The crew needs a moment between solutions.
+                if (!already && now < record.DiveNextAt) continue;
+
+                if (already) held++;
+
                 string name = Name(weapon, range);
+
+                // A new dive: this channel is now in use, and the next one has to wait.
+                if (!already)
+                {
+                    held++;
+                    record.DiveChannels = held;
+                    record.DiveNextAt = now + ModSettings.EcmDiveIntervalSeconds;
+                }
 
                 // 1. It cannot correct what comes next.
                 WeaponDive.BreakLock(weapon, out _);
@@ -317,6 +373,8 @@ internal static class DefensiveEcm
                 ModLog.Error("Defensive ECM could not put a missile down", error);
             }
         }
+
+        record.DiveChannels = busy ? Math.Min(held, channels) : 0;
 
         return busy;
     }
@@ -385,6 +443,14 @@ internal static class DefensiveEcm
         if (!record.DefensiveEcm) return "off";
 
         string state = record.EcmEngaged ? "armed, jamming now" : "armed, waiting for a vampire";
+
+        // How much of the ship's attention is in use, so the player can see a salvo overwhelming it
+        // rather than wondering why some missiles get through.
+        int channels = ModSettings.EcmDiveChannels;
+        int used = Math.Min(record.DiveChannels, channels);
+
+        if (used > 0) state += ", " + used + "/" + channels + " channels";
+
         return state + " (" + WeaponDive.Describe() + ")";
     }
 
