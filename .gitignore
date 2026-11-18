@@ -17,6 +17,7 @@ Directory.Build.local.props
 
 # Analysis toolchain (tools/analysis)
 tools/analysis/.venv/
+tools/analysis/feature-readiness.txt
 __pycache__/
 *.pyc
 analysis-report.txt

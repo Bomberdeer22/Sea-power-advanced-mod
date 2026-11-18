@@ -546,7 +546,7 @@ Three of the multiplayer mod's rules matter here:
         order on the host and on a client alike, which is exactly what the
         multiplayer mod forwards. The switch-off half is not attempted from a
         client: the target is simulated on the host, so there is nothing there
-        to switch off
+        to switch off, and the menu says so instead of offering the click
 
 What still works everywhere:
 

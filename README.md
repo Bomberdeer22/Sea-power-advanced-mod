@@ -4,7 +4,9 @@ An advanced mod for **Sea Power: Naval Combat in the Missile Age**, built as an
 [Anchor Chain](https://github.com/SeaPower-Modders/AnchorChain) code mod and loadable as a plain
 BepInEx plugin.
 
-**Version 0.20.0** — advanced features for your own ships, plus per-cell hatch control.
+**Version 0.23.0** — the first public release: fourteen advanced features for your own ships,
+plus per-cell hatch control. Everything is reached through the game's own right-click menus; there
+is no mod window and no hotkey.
 
 ### 1. Manual hatch control
 
@@ -27,7 +29,7 @@ Orders
       Log hatch report
 ```
 
-### 3. Fourteen advanced features, in the right-click menu
+### 2. Fourteen advanced features, in the right-click menu
 
 Right-click one of your ships. Each feature appears in the section of the menu where a player would
 look for it, rather than in one long submenu:
@@ -56,7 +58,7 @@ in an unexpected place.
 Every entry that is a toggle shows its current state in the label, and every one reports what
 happened through the game's own order-feedback text as well as the log.
 
-**Defensive ECM** is the newest one. Arm it on a ship (or on the whole task force) and its jammer
+**Defensive ECM** arms itself. Arm it on a ship (or on the whole task force) and its jammer
 comes up automatically the moment a vampire is in the air - pointing at the missile itself and
 holding the lock, at the price of radiating air search while it works, because a jammer needs a
 fire-control quality bearing to know where to point. It stands down six seconds after the sky is
@@ -71,6 +73,18 @@ seeker - and all four are settings, documented in `docs/features.md` under "Maki
 Nothing in the feature nulls a reference, destroys a weapon, or sets a warhead off; `ecm-report.txt` and `ecm-dive.txt` say exactly which members your install exposes and
 what the mod does with them, down to the weapon type's whole member list.
 
+**Offensive ECM** is the deliberate half. Right-click an enemy contact → **Jam with ECM** and the
+nearest of your ships that carries a jammer points it at that contact through the game's own jam
+order - identified or not, because an unidentified track is jammed on its bearing, which is the order
+the game provides for exactly that case. It runs on EMCON: the attacking ship never switches its own
+radar on. Ships are reached at 150 nm and aircraft at 150 nm. A second, separate order - *hold its
+sensors down* - switches the contact's own radar, sonar and towed array off and keeps them off, and
+that half is limited twice over: **two contacts held blind at a time across the task force**, and a
+**one minute window per hold**, after which the contact's crew get their sensors back for fifteen
+seconds before it can be held down again. Both are settings (`EcmJamChannels`, `EcmJamHoldSeconds`,
+`EcmJamRecoverySeconds`) and both are stated in the menu before you click. The game's own jam keeps
+running on every lock whether or not it has a channel.
+
 ### Multiplayer
 
 Works with the community multiplayer mod (`SeapowerMultiplayer`), host or client, and is unchanged
@@ -79,8 +93,11 @@ per radar group every ten seconds, so **radar blink slows to a 12 second half-cy
 on a client the host still has the final say on whether a radar radiates. `multiplayer.txt` in the mod
 folder records which side of the session this machine is on and every rule that followed from it.
 
-**Something not working? Run `diagnose.cmd`** — one double-click, one text file to send. Plain-text
-copies of this file and of the install guide are included: [README.txt](README.txt),
+**Something not working? Run `diagnose.cmd`** — one double-click, one text file to send. Then open an
+issue here and attach it; the [bug report template](.github/ISSUE_TEMPLATE/bug_report.md) lists the
+report files and what each one answers, so a report can be acted on rather than guessed at.
+
+Plain-text copies of this file and of the install guide are included: [README.txt](README.txt),
 [INSTALL.txt](INSTALL.txt).
 
 ---
@@ -89,7 +106,8 @@ copies of this file and of the install guide are included: [README.txt](README.t
 
 | Thing | Why | Who installs it |
 |---|---|---|
-| Sea Power 0.8.x | Built against the 0.8 generation of `Seapower-Scripts.dll`. | You |
+| Sea Power (Steam) | The mod compiles against **your** install's own DLLs, so it matches whatever
+version you run. It is written against the 0.8 generation of `Seapower-Scripts.dll`. | You |
 | **BepInEx + the Anchor Chain preloader** | Without them the game loads no code mods at all. | **`build.cmd`** — downloaded into the game folder for you |
 | Anchor Chain itself (Workshop) | Optional. A second loader for `StreamingAssets` mods. | Nobody, unless you want it |
 
@@ -125,7 +143,7 @@ that is there, does only what that version still needs, and writes down every de
 Both are described in [docs/updating.md](docs/updating.md).
 
 The DLL goes into `BepInEx\plugins\SeaPowerAdvanced\`, so **BepInEx loads it directly** — there is
-no mod-manager checkbox on this route. BepInEx's log then shows `Loading [Sea Power Advanced 0.20.0]`,
+no mod-manager checkbox on this route. BepInEx's log then shows `Loading [Sea Power Advanced 0.23.0]`,
 and the mod writes its own `seapoweradvanced.log` next to the DLL.
 
 ## Use it
@@ -180,10 +198,18 @@ Two details that matter in practice:
 * **The game still owns the hatches.** If the ship launches, the launch sequence opens and closes
   what it needs and may override your last manual order. That is expected; the check marks will
   reflect the result.
-* **Not tested in game yet.** The API is read from the actual shipping assembly rather than
-  guessed, but this build has not been flown. `Log hatch report` and `LogOutput.log` are there to
-  make the first session conclusive.
+* **Tested in game, on the developer's install.** Every feature has been exercised in a live
+  mission through 0.23.0, and each one has its own report file so a different install can be
+  compared line by line. Where something is still a guess it is named in
+  [docs/features.md](docs/features.md) under *Honest limit* rather than left to be discovered.
 * Gun and CIWS mounts have no silo hatches and are hidden unless `General/IncludeGuns` is on.
+* **The advanced features have limits, and every one is written down.** They are in
+  [docs/features.md](docs/features.md) under *Honest limit*, and the ones a player will notice first
+  are: the ECM reach of 150 nm is the mod's reach, not a promise the jam bites that far; radar blink
+  slows to a 12 second half-cycle in a session because the multiplayer mod throttles radar switches;
+  only missiles with a radar seeker can be talked out of the sky; replenishment moves ammunition and
+  no fuel, because this game has no fuel-transfer-at-sea member; and a jam started from a client
+  cannot be stopped from that client.
 
 ## Configuration
 
@@ -195,7 +221,31 @@ Two details that matter in practice:
 | General | `IncludeGuns` | `false` | Also list guns and CIWS (no silo hatch; only a mount cover if any). |
 | General | `AllowEnemyUnits` | `false` | Show the menu on enemy/neutral ships too. |
 | Menu | `ShowDiagnosticsItem` | `true` | Adds "Log hatch report". |
+| Menu | `ShowWhenNoMounts` | `true` | Show the hatch entry even on ships with no launchers, so it is obvious the mod is loaded. Set `false` once everything works. |
 | Diagnostics | `VerboseLog` | `true` | Log every hatch action with the game method used and its result. |
+
+The advanced features have their own section, and every one of the limits quoted above is here:
+
+| Key | Default | Meaning |
+|---|---|---|
+| `Features/Enabled` | `true` | Add the advanced features to the menus at all |
+| `Features/BlinkSeconds` | `6` | Seconds between radar blink flips (12 in a multiplayer session) |
+| `Features/SalvoSpacingSeconds` | `8` | Seconds between ships released in a deconflicted salvo |
+| `Features/JamRangeNm` | `150` | Reach of the focused offensive jammer against a ship (5-300) |
+| `Features/JamAirRangeNm` | `150` | The same against an aircraft or helicopter (5-300) |
+| `Features/ShowEcmCone` | `true` | Draw the ECM cones on the map |
+| `Features/EcmJamChannels` | `2` | How many contacts the task force may hold sensors down on at once |
+| `Features/EcmJamHoldSeconds` | `60` | How long one hold lasts. **0 = unlimited** |
+| `Features/EcmJamRecoverySeconds` | `15` | Seconds before the same contact can be held down again. **0 = free to renew** |
+| `Features/EcmDiveNm` | `10` | How far out an armed jammer starts putting an inbound missile in the sea. **0 = off** |
+| `Features/EcmDiveChannels` | `3` | How many missiles one ship's jammer can put down at once |
+| `Features/EcmDiveIntervalSeconds` | `2` | Seconds between one descent starting and the next being allowed |
+| `Features/EcmDiveReactionSeconds` | `1` | Seconds between a missile crossing `EcmDiveNm` and its descent starting |
+| `Features/EcmDiveRadarSeekersOnly` | `true` | Only radar-seeking missiles can be decoyed; IR, optical and anti-radiation are immune |
+
+Setting the old "unlimited" values (99 / 0 / 0 for the offensive limits, 99 / 0 / 0 / false for the
+dive) is how you get the pre-limit behaviour back. Every default is argued for in
+[docs/features.md](docs/features.md), in the two sections called "Making it less powerful".
 
 ## Troubleshooting
 
@@ -207,6 +257,10 @@ Two details that matter in practice:
 | Hatch opens then closes again | The game's own launch/reload cycle re-took control. Note what the ship was doing. |
 | "Orders" not found in the log | The localised menu label differs. Send the log. |
 | Game CTD on startup | Remove the mod folder and send `LogOutput.log`; every path in the mod is guarded, so a crash here matters. |
+| No advanced features in the right-click menu | `Features/Enabled` in the config is `true`? The entries appear the first time a menu is opened after a ship is selected - `menu-report.txt` lists where each one landed. |
+| An ECM entry missing or refused | `ecm-report.txt` and `offensive-ecm.txt` say which members your install exposes and which limit refused the click. In a session, `multiplayer.txt` explains what the host owns. |
+| A jammed missile did not go down | `ecm-dive.txt` names the weapon type, its seeker, and whether it was left alone on purpose (an IR, optical or anti-radiation seeker is immune by design). |
+| Anything else | Run `diagnose.cmd` and send `SeaPowerAdvanced-diagnose.txt`. |
 
 `hatch-report.txt` (mod folder, written by the menu item) lists per ship: each mount, its cells,
 hatch counts, live open state, ammo and pending auto-close flags.
@@ -254,8 +308,15 @@ $EDITOR Directory.Build.local.props
 | `tools/build-portable.*` | Fetch a portable SDK into `.dotnet/` and run the build script. |
 | `build.cmd` | Build and install, as a batch file. No PowerShell, so policy cannot block it. |
 | `check-features.cmd` | Double-click: checks which planned features this build of the game can support. |
+| `tools/check-source.py` | The mistakes that have actually broken a build: a missing `using`, a member that no longer exists, a game enum named in code. Runs in CI, and from `build.cmd` before it compiles. |
+| `tools/check-batch.py` | The same idea for the `.cmd` files: every label resolves, no unclosed block, no `%VAR%` that expands stale inside a block. Runs in CI. |
+| `tools/check-versions.py` | Fails when the version number disagrees between the source, the build, the changelog, the README, the install guide and the test document. |
+| `tools/check-docs.py` | Fails when a `.txt` twin has drifted from the Markdown it was generated from. `--write` regenerates them. |
 | `docs/capability-layer.md` | Why "missing" usually means misnamed, and how the mod finds levers at runtime. |
 | `docs/usage.md` | How to use the mod once it is installed. |
+| `docs/features.md` | Every feature, the member it drives, its settings and its honest limit. |
+| `docs/testing.md` | What to check in a mission, one line per thing worth looking at. |
+| `docs/releasing.md` | How a release is cut: the four checks, the version bump, the tag, and what must never be attached. |
 | `diagnose.cmd` | One double-click: collects system, game folder, mod files and game logs into `SeaPowerAdvanced-diagnose.txt`. Send that file when something breaks. |
 | `README.txt`, `INSTALL.txt` | Plain-text copies of this file and the install guide, for Notepad. Regenerate with `python tools/md2txt.py README.md README.txt`. |
 | `tools/analysis/` | **Read the game's API out of `Seapower-Scripts.dll`** — types, signatures, access flags and who calls what. Self-tested against ILDasm. See [tools/analysis/README.md](tools/analysis/README.md). |
@@ -299,6 +360,8 @@ python analyze.py find "_radarsActive" --callsites
 ```
 src/SeaPowerAdvanced/
   Plugin.cs                 Anchor Chain entry point
+  BepInExEntry.cs           BepInEx plugin entry point (the documented route)
+  Boot.cs                   the startup both entry points share; writes the log banner
   Menu/HatchMenu.cs         postfix on ObjectBaseViewModel.GetContextMenuItems → Orders submenu
   Hatches/HatchBay.cs       reads _obp._weaponSystems → _containers (_hatches per cell)
   Hatches/HatchControl.cs   open/close through WeaponContainer / WeaponSystem
@@ -340,9 +403,12 @@ src/SeaPowerAdvanced/
   Features/Replenishment.cs      ammunition from a supply ship alongside
   Features/DefensiveEcm.cs       automatic defensive jamming of missiles inbound to ship or force
   Features/OffensiveEcm.cs       two modes: the game's own, or focused jamming of one contact
-  Interop/WeaponDive.cs          a missile's lock broken and its height driven down, inside 2 nm
+  Interop/WeaponDive.cs          a missile's lock broken and its height driven down, from 10 nm
   Interop/OffensiveJam.cs        the game's jammer (a sensor system) and its own jam order
   Interop/ContactPicture.cs      the player's contacts, identified or not (plotting table)
+  Interop/Multiplayer.cs         host or client, and the rules that follow from it (multiplayer.txt)
+  Features/EcmBeam.cs            one beam's geometry, shared by the overlay and the reports
+  Menu/MenuLog.cs                what the menu did, line by line
   Features/FleetTicker.cs        the timers behind the timed features (no interface of its own)
   ModInfo.cs, ModLog.cs     identity and logging
 
@@ -369,14 +435,23 @@ check-features.cmd  what the game's own assembly can support
 ## Roadmap
 
 - [x] Open and close individual silo hatches without launching
+- [x] The fourteen advanced features, each in the game's own menu section
+- [x] Defensive ECM that jams a missile and flies it into the sea
+- [x] Offensive ECM through the game's own jam order, on unidentified contacts
 - [ ] Per-cell salvo selection: open cells 1–8 only, remembered for the next launch
 - [ ] Hatch state in the bottom bar next to the weapon list
 - [ ] Pre-launch warm-up: open selected cells ahead of an order so the first missile leaves sooner
 - [ ] Radar/mast/sonar raising as an explicit order
 - [ ] Damage-control and flooding control per compartment
 
+## License
+
+MIT - see [LICENSE](LICENSE). The mod is compiled against your own copy of the game and ships no
+game files.
+
 ## Credits
 
 Built on BepInEx, HarmonyX and Anchor Chain. Menu injection follows the pattern used by public Sea
 Power mods (Bulk Identification Requests, Real Air Combat Tactics). Not affiliated with Triassic
-Games; use at your own risk in single player.
+Games; use at your own risk. Multiplayer support is compatibility with the community multiplayer
+mod, not an official feature of either.

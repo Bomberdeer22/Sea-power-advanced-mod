@@ -1,0 +1,82 @@
+Plain-text copy of docs/releasing.md, kept in step with it by tools/md2txt.py.
+The Markdown version is the one that renders on GitHub; this one is for Notepad.
+
+==============================================================================
+CUTTING A RELEASE
+==============================================================================
+
+The mod is distributed as source. That is not an oversight: it compiles
+against the player's own Seapower-Scripts.dll, so a DLL built here would be a
+DLL for one game version, and would either refuse to load or - worse - load
+and misbehave on another. build.cmd is the install.
+
+So a release is: a tagged commit, a GitHub release whose notes are the
+changelog section, and nothing else attached except the source archives GitHub
+generates.
+
+BEFORE THE TAG
+--------------
+
+Four checks, all of them runnable without the game, all of them in CI:
+
+    python tools\check-source.py       :: missing usings, missing types, members that do not exist
+    python tools\check-batch.py        :: .cmd labels, blocks, stale %expansion%
+    python tools\check-versions.py     :: the version agrees in all seven places it is written
+    python tools\check-docs.py         :: every .txt twin still matches its Markdown
+
+All four must be clean. A clean source check is not a clean build - only the
+compiler against a real install can say that - so the release notes say which
+game build it was last flown on.
+
+THE STEPS
+---------
+
+  1. Bump the version in three places, by hand, because each one is a
+     decision:
+  * src/SeaPowerAdvanced/ModInfo.cs - Version, which build.cmd reads to write
+    version.txt;
+  * src/SeaPowerAdvanced/SeaPowerAdvanced.csproj - <Version> and
+    <AssemblyVersion>;
+  * CHANGELOG.md - the new ## x.y.z - <one line that says what changed>
+    heading.
+  2. Run python tools\check-versions.py. It names whichever document was left
+     behind. --fix rewrites the documentation copies (README.md, INSTALL.md,
+     docs/testing.md); the source and the changelog are never guessed at.
+  3. Regenerate the plain-text twins: python tools\check-docs.py --write. Read
+     the diff: the twins are what a player sees in Notepad.
+  4. Run the four checks again and commit.
+  5. Tag it: git tag -a v0.23.0 -m "0.23.0" (the tag is the version with a v,
+     the machinery reads the version without one) and push the tag.
+  6. Publish the release from the tag, with the changelog section as the body,
+     and one line at the top saying which Sea Power build it was last tested
+     against.
+  7. Say what to do from the previous version. update.cmd handles the files;
+     the release notes say what changes in behaviour, because a player who
+     does not read the changelog will otherwise report a limit as a bug.
+
+WHAT MUST BE TRUE BEFORE TAGGING
+--------------------------------
+
+  * Every check is clean, and the version line in README.md matches
+    version.txt that build.cmd would write.
+  * Anything that changed behaviour is in CHANGELOG.md and in
+    docs/features.md, with its limit stated. A feature that is stronger than
+    the thing it models is described as a setting, not shipped as a surprise.
+  * Every new setting has a default, a documented range, and a line in the
+    settings table of docs/features.md and README.md.
+  * Anything new that writes a report file is named in docs/testing.md under
+    What to send back.
+  * The .txt twins are current.
+
+WHAT NOT TO DO
+--------------
+
+  * No prebuilt DLL in the release. See the top of this file.
+  * No settings migration left out. BepInEx keeps whatever the config holds,
+    so a changed default does nothing on an installed copy unless the old
+    figure is recognised and moved once. Every default change so far has a
+    migration in ModSettings.Bind, keyed on the exact old value, and a
+    matching row in docs/updating.md.
+  * No release without the previous version being updatable. update.cmd must
+    be able to take the last public version to this one; if it cannot, that is
+    the bug to fix before the tag.

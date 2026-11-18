@@ -75,7 +75,7 @@ Expected output ends with:
 [3/6] Checking BepInEx in the game folder...
       already installed - nothing to do.
 [4/6] Checking the source before building...
-      clean: 43 file(s), no missing namespaces, UnitRecord consistent
+      clean: 53 file(s), no missing namespaces, UnitRecord consistent, no out-of-scope locals, no undeclared calls
 [5/6] Building the mod...
       build succeeded.
 [6/6] Packaging...
@@ -174,24 +174,32 @@ Two things to look at.
 **1. BepInEx's plugin list**, near the top of `BepInEx\LogOutput.log`. It must say:
 
 ```
-[Info   :   BepInEx] Loading [Sea Power Advanced 0.20.0]
+[Info   :   BepInEx] Loading [Sea Power Advanced 0.23.0]
 ```
 
 **2. The mod's own log**, `BepInEx\plugins\SeaPowerAdvanced\seapoweradvanced.log`. This file only
 exists if the code actually ran, which makes "did it load?" unambiguous:
 
 ```
-================ Sea Power Advanced 0.20.0 ================
+================ Sea Power Advanced 0.23.0 ================
 Entry point:  BepInEx plugin
 Settings: enabled=True includeGuns=False allowEnemyUnits=False showWhenNoMounts=True
 Patched MapUnitViewModel.GetContextMenuItems.
 Patched ObjectBaseViewModel.GetContextMenuItems.
 Hatch menu installed.
 Ready. Right-click a ship > Orders > Weapon hatches.
+Advanced features: on (Features/Enabled). They are added to the right-click menu the first time a
+menu is opened; menu-report.txt records where each one went.
 ```
 
-If you see `no patches installed` instead, the box in the Mod Manager is not ticked (or the game was
-not restarted). If you see nothing at all, Anchor Chain is not loading the DLL — re-check step 1.
+The versions in those two lines must match the release you installed. If they do not, an older DLL
+is still in place — run `update.cmd` again.
+
+If you see `Startup failed` with an exception instead, send `seapoweradvanced.log`: every path in the
+mod is guarded, so a startup exception is a real finding, not a broken install. If the mod's own log
+does not exist at all, BepInEx did not load the DLL — check that
+`BepInEx\plugins\SeaPowerAdvanced\SeaPowerAdvanced.dll` is there, and that step 2 ended with
+`build succeeded` rather than an error.
 
 ---
 

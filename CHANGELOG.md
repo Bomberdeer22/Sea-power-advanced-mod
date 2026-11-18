@@ -31,7 +31,9 @@ the target nothing and the log says so rather than leaving the limit looking lik
 
 Also fixed: taking a second lock on the same ship used to overwrite the first without standing it
 down, leaving the old assignment in place. It now releases the old lock properly - teardown and all -
-before taking the new one.
+before taking the new one. And *hold its sensors down* is no longer offered to a multiplayer client,
+where it could never have done anything: the menu says the host simulates the target instead of
+accepting an order that changed nothing.
 
 Nothing else about offensive ECM changed: it still runs on EMCON, still works on unidentified contacts
 through the game's bearing jam, still reaches 150 nm for ships and aircraft, and still reports every

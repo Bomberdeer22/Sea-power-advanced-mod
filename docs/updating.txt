@@ -64,12 +64,12 @@ In this order, because each one knows it more directly than the next:
 
   The mod's own log
       Where: ...\seapoweradvanced.log, the ================ Sea Power
-        Advanced 0.19.0 ==== banner
+        Advanced 0.23.0 ================ banner
       When it is there: Every install that has been started at least once.
         The last banner is the build that actually ran
 
   BepInEx's log
-      Where: BepInEx\LogOutput.log, Loading [Sea Power Advanced 0.19.0]
+      Where: BepInEx\LogOutput.log, Loading [Sea Power Advanced 0.23.0]
       When it is there: Any install the game has loaded
 
   nothing

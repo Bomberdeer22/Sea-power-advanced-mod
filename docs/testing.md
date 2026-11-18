@@ -298,6 +298,22 @@ mod folder is the file that answers everything below.
 - [ ] Stop jamming: the message says plainly that the host's jam task is its own and runs until it ends
 - [ ] ECM cones still draw on the client, from whatever jamming the host replicated in
 
+## Checks that run without the game
+
+Three of them, and they are the gate before anything is handed over. They need Python 3 and nothing
+else - no game DLLs, no compiler:
+
+```bat
+python tools\check-source.py       :: the mistakes that have actually broken builds
+python tools\check-batch.py        :: the .cmd files: labels, blocks, stale %expansion%
+python tools\check-versions.py     :: the version agrees in all seven places it is written
+python tools\check-docs.py         :: every .txt twin still matches its Markdown
+```
+
+All four run on every push (`.github/workflows/checks.yml`). They do not prove the mod compiles -
+only the compiler against your own game DLLs can do that - they prove the things a compiler does not
+look for. What has to be true before a release is tagged is in [releasing.md](releasing.md).
+
 ## What to send back
 
 - **Which numbered checks failed** — just the numbers, that is enough.

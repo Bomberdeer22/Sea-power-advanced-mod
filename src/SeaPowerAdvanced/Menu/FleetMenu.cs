@@ -434,10 +434,16 @@ internal static class FleetMenu
                     MenuRouting.Sensors);
             }
 
-            Add(Disabled("Offensive ECM: " + OffensiveEcm.ChannelLine(),
-                "The task force's suppression budget: how many contacts can have their own "
-                + "sensors held down at once. Every lock still gets the game's jam."),
-                MenuRouting.Sensors);
+            // The budget line is only worth the space once the focused mode is in use: in
+            // standard mode the mod does not hold anything down, so a channel count there would be
+            // noise on every hull that carries a jammer.
+            if (OffensiveEcm.ModeOf(unit) == OffensiveEcm.Mode.SignatureLock)
+            {
+                Add(Disabled("Offensive ECM: " + OffensiveEcm.ChannelLine(),
+                    "The task force's suppression budget: how many contacts can have their own "
+                    + "sensors held down at once. Every lock still gets the game's jam."),
+                    MenuRouting.Sensors);
+            }
 
             Add(Disabled("Offensive ECM: " + OffensiveEcm.Describe(unit),
                 "What the focused jammer is doing right now - its own state and the game's."),

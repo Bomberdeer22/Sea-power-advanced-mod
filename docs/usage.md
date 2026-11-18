@@ -2,6 +2,10 @@
 
 How to open hatches by hand. Thirty seconds of clicking, plus what the menu is telling you.
 
+The fourteen advanced features - radar blink, the two ECM features, salvo deconfliction, readiness,
+formations, air operations and the rest - are documented feature by feature, with the settings and the
+limits, in [features.md](features.md). What to check after installing is in [testing.md](testing.md).
+
 ## Before you start
 
 The mod has to be installed **and loaded**:

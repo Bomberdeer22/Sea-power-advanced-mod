@@ -46,8 +46,8 @@ In this order, because each one knows it more directly than the next:
 | Source | Where | When it is there |
 |---|---|---|
 | `version.txt` | `BepInEx\plugins\SeaPowerAdvanced\version.txt` | Every install made by this build of `build.cmd`. The most reliable: it says what was *installed*, whether or not the game has been started since |
-| The mod's own log | `...\seapoweradvanced.log`, the `================ Sea Power Advanced 0.19.0 ====` banner | Every install that has been started at least once. The last banner is the build that actually ran |
-| BepInEx's log | `BepInEx\LogOutput.log`, `Loading [Sea Power Advanced 0.19.0]` | Any install the game has loaded |
+| The mod's own log | `...\seapoweradvanced.log`, the `================ Sea Power Advanced 0.23.0 ================` banner | Every install that has been started at least once. The last banner is the build that actually ran |
+| BepInEx's log | `BepInEx\LogOutput.log`, `Loading [Sea Power Advanced 0.23.0]` | Any install the game has loaded |
 | nothing | - | A copy put in by hand, or an install from before any of this existed. Treated as **0.1.0** and every change is checked, because each one looks for the files it would alter and skips when they are not there |
 
 `version.txt` did not exist before this change, so an older install falls through to the two logs,

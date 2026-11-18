@@ -40,7 +40,7 @@ and every other dependency before it could list a single type. Metadata plus IL 
 first run (it needs Python 3 on the machine; `survey.cmd` says so if it cannot find it).
 
 ```bat
-cd "C:\Users\you\Downloads\Sea-power-advanced-mod-arena-..."
+cd "C:\Users\you\Downloads\Sea-power-advanced-mod"
 tools\analysis\survey.cmd
 ```
 

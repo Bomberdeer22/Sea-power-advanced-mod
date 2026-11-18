@@ -296,7 +296,7 @@ Three of the multiplayer mod's rules matter here:
 |---|---|
 | It throttles radar switches to one per ship per radar group per 10 seconds, and a throttled switch does not move locally either | **Radar blink** raises its half-cycle to 12 seconds in a session, whatever `BlinkSeconds` says. A six second blink would lose every second flip and leave the radar stuck |
 | The client does not decide its own emissions - the host's radar picture is re-imposed every frame | **Radar blink** checks each flip four seconds later. If the switch did not take, the blink **stops itself and says so** rather than pretending. **Auto-ARM** and **defensive ECM** are not offered on a client at all, and the menu says why |
-| Jamming is an order the host runs, not a member write | **Offensive ECM** issues the game's own jam order on the host and on a client alike, which is exactly what the multiplayer mod forwards. The switch-off half is not attempted from a client: the target is simulated on the host, so there is nothing there to switch off |
+| Jamming is an order the host runs, not a member write | **Offensive ECM** issues the game's own jam order on the host and on a client alike, which is exactly what the multiplayer mod forwards. The switch-off half is not attempted from a client: the target is simulated on the host, so there is nothing there to switch off, and the menu says so instead of offering the click |
 
 What still works everywhere:
 

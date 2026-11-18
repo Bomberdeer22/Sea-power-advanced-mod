@@ -792,6 +792,15 @@ internal static class OffensiveEcm
             return false;
         }
 
+        // On a client the target is simulated by the host: writing its switches here would be
+        // overwritten on the next frame, and the lock's game jam is the whole effect there.
+        if (Multiplayer.IsClient)
+        {
+            report = "the target is simulated by the host, so the mod cannot switch its sensors "
+                     + "off from this machine - the game's own ECM is what this lock gets";
+            return false;
+        }
+
         // The crew's own recovery window, which a re-order does not skip: without it the hold would
         // simply be renewed every time it lapsed and the target would never see anything again.
         float recovering = RecoveringFor(hold.Target);
@@ -833,29 +842,18 @@ internal static class OffensiveEcm
             return false;
         }
 
-        // The second half, and only where it is real: a target whose sensor fit can be read has its
-        // sets held down as well. A client cannot do that - the target is simulated by the host -
-        // so the game's own jam is the whole effect there, which is what the report says.
-        string extra;
+        // The second half, and only where it is real: the target's own sets are held down from
+        // here. A client was refused above, so this machine simulates the target.
+        List<SensorSet.Reading> readings = SensorSet.Silence(hold.Target);
+        EcmControl.Engage(ship, hold.Target, false, out string legacy);
 
-        if (Multiplayer.IsClient)
-        {
-            extra = "the target is simulated by the host, so the game's own ECM decides the effect";
-            Multiplayer.Note("jamming " + Name(hold.Target) + " from " + Name(ship));
-        }
-        else
-        {
-            List<SensorSet.Reading> readings = SensorSet.Silence(hold.Target);
-            EcmControl.Engage(ship, hold.Target, false, out string legacy);
+        string extra = readings.Count > 0
+            ? (SensorSet.FullyBlind(readings)
+                ? "every sensor off"
+                : "NOT all sensors off - " + Stubborn(readings))
+            : "no sensor fit readable, so the game's radar model alone";
 
-            extra = readings.Count > 0
-                ? (SensorSet.FullyBlind(readings)
-                    ? "every sensor off"
-                    : "NOT all sensors off - " + Stubborn(readings))
-                : "no sensor fit readable, so the game's radar model alone";
-
-            if (legacy.Length > 0) extra += " | " + legacy;
-        }
+        if (legacy.Length > 0) extra += " | " + legacy;
 
         report = "jamming " + Name(hold.Target) + " on EMCON: " + order + "; " + extra
                  + ". The hold lasts "
@@ -1090,18 +1088,38 @@ internal static class OffensiveEcm
         }
 
         int up = 0;
+        int unknown = 0;
+
         foreach (SensorSet.Reading reading in readings)
         {
             if (reading.Radiating == true) up++;
+            else if (reading.Radiating == null) unknown++;
+        }
+
+        // Three answers, not two. "Nothing came back" is only a finding when the game actually said
+        // so for every family: a build that does not expose a state must not be reported as a
+        // crew that never recovered.
+        string verdict;
+
+        if (up > 0)
+        {
+            verdict = ". Its crew have their sensors back, which is what the window is for";
+        }
+        else if (unknown > 0)
+        {
+            verdict = ". Nothing read as radiating, but " + unknown + " famil(ies) do not expose "
+                      + "their state on this build, so a crew that did not recover cannot be told "
+                      + "apart from a state the mod cannot read - send this line";
+        }
+        else
+        {
+            verdict = ". Nothing came back: the mod switched nothing on for it, so the window is "
+                      + "not giving this target anything on this build - send this line";
         }
 
         ModLog.Info("Offensive ECM: " + (int)RecoveryCheckSeconds + " s after the hold on "
                     + Name(target) + " ended: " + up + " of " + readings.Count
-                    + " sensor famil(ies) radiating - " + SensorSet.Describe(readings)
-                    + (up == 0
-                        ? ". Nothing came back: the mod switched nothing on for it, so the window is "
-                          + "not giving this target anything on this build - send this line"
-                        : ". Its crew have their sensors back, which is what the window is for"));
+                    + " sensor famil(ies) radiating - " + SensorSet.Describe(readings) + verdict);
     }
 
     // --- the tick --------------------------------------------------------------------------------
@@ -1266,6 +1284,11 @@ internal static class OffensiveEcm
             if (ContactPicture.Identified(hold.Target) == false)
             {
                 return "locked on " + what + " - not identified, so the jam is on its bearing";
+            }
+
+            if (Multiplayer.IsClient)
+            {
+                return "locked on " + what + " - the host simulates it, so only the game's ECM";
             }
 
             if (ChannelsInUse() >= Channels)
