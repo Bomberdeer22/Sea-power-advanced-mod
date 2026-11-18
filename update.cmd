@@ -298,7 +298,28 @@ if defined VLT call :note "0.20.0 - the dive is timed and its nose stops at 90 d
 call :ver_lt "!INSTALLED!" "0.21.0"
 if defined VLT call :note "0.21.0 - the dive uses the game's own lock-loss state, never nulls a reference, and lets the game's water-dip path remove the missile. No files: all in the DLL."
 call :ver_lt "!INSTALLED!" "0.22.0"
-if defined VLT call :note "0.22.0 - the dive gains four limits (guidance channels, engagement interval, reaction delay, radar-seeker filter). They are new settings with defaults; nothing in your config file is rewritten."
+if defined VLT call :note "0.22.0 - the dive gains four limits (guidance channels, engagement interval, reaction delay, radar-seeker filter). They are new settings with defaults."
+call :ver_lt "!INSTALLED!" "0.22.1"
+if defined VLT call :mig_dive_limits
+exit /b 0
+
+:mig_dive_limits
+set "_MIGRATED="
+call :cfg_value EcmDiveChannels 2
+if defined HASVAL call :say "0.22.1 APPLY  EcmDiveChannels is still 2; the mod moves it to 3 on the next start"
+if defined HASVAL call :logline "APPLY 0.22.1 - EcmDiveChannels is still 2, moved to 3 at load"
+if defined HASVAL set "_MIGRATED=1"
+call :cfg_value EcmDiveIntervalSeconds 4
+if defined HASVAL call :say "0.22.1 APPLY  EcmDiveIntervalSeconds is still 4; the mod moves it to 2 on the next start"
+if defined HASVAL call :logline "APPLY 0.22.1 - EcmDiveIntervalSeconds is still 4, moved to 2 at load"
+if defined HASVAL set "_MIGRATED=1"
+call :cfg_value EcmDiveReactionSeconds 2
+if defined HASVAL call :say "0.22.1 APPLY  EcmDiveReactionSeconds is still 2; the mod moves it to 1 on the next start"
+if defined HASVAL call :logline "APPLY 0.22.1 - EcmDiveReactionSeconds is still 2, moved to 1 at load"
+if defined HASVAL set "_MIGRATED=1"
+if defined _MIGRATED exit /b 0
+call :say "0.22.1 ok     dive limits need no change"
+>> "%LOG%" echo   skip 0.22.1 - dive limits are not the old defaults
 exit /b 0
 
 
@@ -387,7 +408,9 @@ if defined VLT call :say "0.20.0  the dive is timed and visible, and the nose st
 call :ver_lt "!INSTALLED!" "0.21.0"
 if defined VLT call :say "0.21.0  a jammed missile is flown into the water through the game's own flight model, and the game removes it there"
 call :ver_lt "!INSTALLED!" "0.22.0"
-if defined VLT call :say "0.22.0  the dive is limited like a real ship's: 2 guidance channels, 4 s between engagements, 2 s to react, radar seekers only"
+if defined VLT call :say "0.22.0  the dive is limited like a real ship's: guidance channels, an engagement interval, a reaction delay, radar seekers only"
+call :ver_lt "!INSTALLED!" "0.22.1"
+if defined VLT call :say "0.22.1  the shipped setting is now 3 channels, 2 s between engagements, 1 s to react"
 exit /b 0
 
 

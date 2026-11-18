@@ -326,18 +326,21 @@ difficulty switch - each one is a thing that actually limits a ship's ability to
 
 | Setting | Default | What it does | The real-world reason |
 |---|---|---|---|
-| `Features/EcmDiveChannels` | **2** | How many missiles one ship can hold down at once (1-99). With two, a four-missile salvo gets through | Ships defend on a handful of **guidance channels** - illuminators and fire-control loops - not on unlimited attention |
-| `Features/EcmDiveIntervalSeconds` | **4** | Seconds between one missile starting its descent and the next being allowed to | The crew has to see how the first one went before the next solution settles |
-| `Features/EcmDiveReactionSeconds` | **2** | Seconds between a missile crossing `EcmDiveNm` and its dive starting. The jammer is on it immediately; the *descent* waits | A contact has to be seen, designated, and the fire-control solution allowed to settle |
+| `Features/EcmDiveChannels` | **3** | How many missiles one ship can hold down at once (1-99). At three, a two-missile shot is stopped and a four-missile salvo is not | Ships defend on a handful of **guidance channels** - illuminators and fire-control loops - not on unlimited attention |
+| `Features/EcmDiveIntervalSeconds` | **2** | Seconds between one missile starting its descent and the next being allowed to | The crew has to see how the first one went before the next solution settles |
+| `Features/EcmDiveReactionSeconds` | **1** | Seconds between a missile crossing `EcmDiveNm` and its dive starting. The jammer is on it immediately; the *descent* waits | A contact has to be seen, designated, and the fire-control solution allowed to settle |
 | `Features/EcmDiveRadarSeekersOnly` | **true** | Only radar seekers can be decoyed. Infrared, imaging, optical and **anti-radiation** missiles are left alone | RF jamming cannot blind a heat seeker, and an anti-radiation missile is homing on the jammer itself |
 
 Three combinations, all from the config file
-`BepInEx\config\io.github.bomberdeer22.seapoweradvanced.cfg`:
+`BepInEx\config\io.github.bomberdeer22.seapoweradvanced.cfg`. The player picked **3 / 2 / 1 / true**
+as the shipped default: strict enough that a salvo means something, generous enough that a lone
+missile is still dead.
 
 | | Channels | Interval | Reaction | Radar only | What it plays like |
 |---|---|---|---|---|---|
 | **0.21.0 - the wall** | `99` | `0` | `0` | `false` | Every missile of every salvo dies. Kept only so the old behaviour is reachable |
-| **Practical (default)** | `2` | `4` | `2` | `true` | Kills the leading pair of a salvo; the rest arrive. A well-escorted strike still gets through |
+| **Shipped default** | `3` | `2` | `1` | `true` | **The chosen setting.** A two-missile shot is stopped; a four-missile salvo loses three and the last one arrives |
+| **Practical** | `2` | `4` | `2` | `true` | Kills the leading pair; a well-escorted strike usually gets through |
 | **Strict** | `1` | `8` | `4` | `true` | Last-ditch self-defence. One missile, then a long reset; a two-missile salvo has a real chance |
 
 The dive itself is unchanged in all three: the same guidance-link break, the same metred descent, the

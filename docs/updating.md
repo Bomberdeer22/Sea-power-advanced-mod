@@ -75,6 +75,7 @@ just announcing it.
 | < 0.20.0 | the dive is timed, the nose stops at 90 degrees, the flight is ended through the game's own routes | nothing - all in the DLL | note only |
 | < 0.21.0 | the dive uses the game's own lock-loss state and never nulls a reference | nothing - all in the DLL | note only |
 | < 0.22.0 | the dive is limited by guidance channels, an engagement interval, a reaction delay and a radar-seeker filter | nothing - all in the DLL. **New settings appear with defaults** and are read on the first start | note only |
+| < 0.22.1 | the shipped dive limits became 3 channels / 2 s / 1 s | a settings file may still hold `EcmDiveChannels = 2`, `EcmDiveIntervalSeconds = 4`, `EcmDiveReactionSeconds = 2` | **Reports them.** The mod moves exactly those old figures to 3 / 2 / 1 at load; anything you chose yourself is left alone |
 | every release | - | `SeaPowerAdvanced.dll`, `_info.ini` | **Replaces them**, after copying the old DLL to `uninstalled\before-<version>_<date>\` |
 
 ## 4. The settings file is never rewritten - on purpose

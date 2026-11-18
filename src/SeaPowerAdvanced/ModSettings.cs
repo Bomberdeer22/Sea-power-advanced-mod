@@ -85,30 +85,31 @@ internal static class ModSettings
     /// <summary>
     /// How many missiles one ship's jammer can hold down at the same time.
     ///
-    /// Two, and this is the number that stops the feature being a wall. Real ships defend on
-    /// *guidance channels* - a handful of illuminators and fire-control loops that can be committed
-    /// to a handful of threats - not on an unlimited attention span. With two, a four-missile salvo
-    /// gets through, and the player who wants the old behaviour sets it to 99.
+    /// **Three**, which is the player's chosen middle: enough that a two-missile shot is stopped,
+    /// not so many that a salvo is pointless. Real ships defend on *guidance channels* - a handful
+    /// of illuminators and fire-control loops that can be committed to a handful of threats - not on
+    /// an unlimited attention span. A four-missile salvo still gets through; 99 is the old
+    /// unbeatable version, kept so it remains reachable.
     /// </summary>
-    internal static int EcmDiveChannels => Math.Max(1, Math.Min(99, ecmDiveChannels?.Value ?? 2));
+    internal static int EcmDiveChannels => Math.Max(1, Math.Min(99, ecmDiveChannels?.Value ?? 3));
 
     /// <summary>
     /// Seconds between one missile starting its descent and the next one being allowed to.
     ///
-    /// The crew has to see the result of the first one before the next solution is settled. Four
-    /// seconds is a watch working quickly; zero is the unbeatable version.
+    /// The crew has to see the result of the first one before the next solution is settled. **Two
+    /// seconds** is a watch working quickly; zero is the unbeatable version.
     /// </summary>
     internal static float EcmDiveIntervalSeconds =>
-        Math.Max(0f, Math.Min(60f, ecmDiveIntervalSeconds?.Value ?? 4f));
+        Math.Max(0f, Math.Min(60f, ecmDiveIntervalSeconds?.Value ?? 2f));
 
     /// <summary>
     /// Seconds between a missile crossing the dive range and the dive starting.
     ///
     /// A jammer does not react in the same frame: the contact has to be seen, designated and the
-    /// fire-control solution allowed to settle. Two seconds is brisk; zero is the arcade version.
+    /// fire-control solution allowed to settle. **One second** is brisk; zero is the arcade version.
     /// </summary>
     internal static float EcmDiveReactionSeconds =>
-        Math.Max(0f, Math.Min(30f, ecmDiveReactionSeconds?.Value ?? 2f));
+        Math.Max(0f, Math.Min(30f, ecmDiveReactionSeconds?.Value ?? 1f));
 
     /// <summary>
     /// Only missiles with a radar seeker can be talked out of the sky.
@@ -191,16 +192,16 @@ internal static class ModSettings
             // anything the player chose themselves is left alone.
             if (Math.Abs(ecmDiveNm.Value - 2f) < 0.01f) ecmDiveNm.Value = 10f;
 
-            ecmDiveChannels = file.Bind("Features", "EcmDiveChannels", 2,
+            ecmDiveChannels = file.Bind("Features", "EcmDiveChannels", 3,
                 "How many missiles one armed ship's jammer can hold down at once (1-99). Real ships "
-                + "defend on a handful of guidance channels, not on unlimited attention: at 2 a "
-                + "four-missile salvo gets through. 99 is the unbeatable version.");
+                + "defend on a handful of guidance channels, not on unlimited attention: at 3 a "
+                + "four-missile salvo still gets through. 99 is the unbeatable version.");
 
-            ecmDiveIntervalSeconds = file.Bind("Features", "EcmDiveIntervalSeconds", 4f,
+            ecmDiveIntervalSeconds = file.Bind("Features", "EcmDiveIntervalSeconds", 2f,
                 "Seconds between one missile starting its descent and the next being allowed to "
                 + "(0-60). The crew has to see the first result before the next solution settles.");
 
-            ecmDiveReactionSeconds = file.Bind("Features", "EcmDiveReactionSeconds", 2f,
+            ecmDiveReactionSeconds = file.Bind("Features", "EcmDiveReactionSeconds", 1f,
                 "Seconds between a missile crossing EcmDiveNm and its dive starting (0-30). The "
                 + "contact has to be seen, designated and the fire-control solution allowed to "
                 + "settle; 0 is the arcade version.");
@@ -210,6 +211,14 @@ internal static class ModSettings
                 + "anti-radiation seekers are immune - radio jamming cannot blind them, and an "
                 + "anti-radiation missile homes on the jammer itself. Set false to let the dive "
                 + "work on every homing missile, which is the unrealistic version.");
+
+            // 0.22.0 shipped 2 / 4 / 2. The player chose 3 / 2 / 1 as the shipped defaults, and
+            // BepInEx keeps whatever is stored, so the exact old figures are moved once - the same
+            // rule as the jam-range and dive-range migrations above. A player who chose their own
+            // numbers is left exactly as they set them.
+            if (ecmDiveChannels.Value == 2) ecmDiveChannels.Value = 3;
+            if (Math.Abs(ecmDiveIntervalSeconds.Value - 4f) < 0.01f) ecmDiveIntervalSeconds.Value = 2f;
+            if (Math.Abs(ecmDiveReactionSeconds.Value - 2f) < 0.01f) ecmDiveReactionSeconds.Value = 1f;
 
             salvoSpacingSeconds = file.Bind("Features", "SalvoSpacingSeconds", 8f,
                 "Seconds between ships being released to fire in a deconflicted salvo (1-60).");

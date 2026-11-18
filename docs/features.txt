@@ -580,21 +580,22 @@ and none of them is an artificial difficulty switch - each one is a thing that
 actually limits a ship's ability to do this.
 
   Features/EcmDiveChannels
-      Default: 2
+      Default: 3
       What it does: How many missiles one ship can hold down at once (1-99).
-        With two, a four-missile salvo gets through
+        At three, a two-missile shot is stopped and a four-missile salvo is
+        not
       The real-world reason: Ships defend on a handful of guidance channels
         - illuminators and fire-control loops - not on unlimited attention
 
   Features/EcmDiveIntervalSeconds
-      Default: 4
+      Default: 2
       What it does: Seconds between one missile starting its descent and the
         next being allowed to
       The real-world reason: The crew has to see how the first one went
         before the next solution settles
 
   Features/EcmDiveReactionSeconds
-      Default: 2
+      Default: 1
       What it does: Seconds between a missile crossing EcmDiveNm and its
         dive starting. The jammer is on it immediately; the descent waits
       The real-world reason: A contact has to be seen, designated, and the
@@ -608,7 +609,9 @@ actually limits a ship's ability to do this.
         anti-radiation missile is homing on the jammer itself
 
 Three combinations, all from the config file
-BepInEx\config\io.github.bomberdeer22.seapoweradvanced.cfg:
+BepInEx\config\io.github.bomberdeer22.seapoweradvanced.cfg. The player picked
+3 / 2 / 1 / true as the shipped default: strict enough that a salvo means
+something, generous enough that a lone missile is still dead.
 
   0.21.0 - the wall
       Channels: 99
@@ -618,13 +621,21 @@ BepInEx\config\io.github.bomberdeer22.seapoweradvanced.cfg:
       What it plays like: Every missile of every salvo dies. Kept only so
         the old behaviour is reachable
 
-  Practical (default)
+  Shipped default
+      Channels: 3
+      Interval: 2
+      Reaction: 1
+      Radar only: true
+      What it plays like: The chosen setting. A two-missile shot is stopped;
+        a four-missile salvo loses three and the last one arrives
+
+  Practical
       Channels: 2
       Interval: 4
       Reaction: 2
       Radar only: true
-      What it plays like: Kills the leading pair of a salvo; the rest
-        arrive. A well-escorted strike still gets through
+      What it plays like: Kills the leading pair; a well-escorted strike
+        usually gets through
 
   Strict
       Channels: 1

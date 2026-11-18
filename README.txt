@@ -72,8 +72,8 @@ the way the game itself does, and flies it into the water over a planned 2.5
 to 20 seconds with the nose stopping at ninety degrees - using the flight
 model's own numbers, its orientation and velocity vector, not a dragged model.
 At the waterline the game's own water-dip path removes it. It is limited the
-way a real ship is - two guidance channels, four seconds between engagements,
-two seconds to react, and radar seekers only, because jamming cannot blind a
+way a real ship is - three guidance channels, two seconds between engagements,
+one second to react, and radar seekers only, because jamming cannot blind a
 heat seeker - and all four are settings, documented in docs/features.md under
 "Making it less powerful". Nothing in the feature nulls a reference, destroys
 a weapon, or sets a warhead off; ecm-report.txt and ecm-dive.txt say exactly

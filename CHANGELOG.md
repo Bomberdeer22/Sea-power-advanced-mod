@@ -1,5 +1,20 @@
 # Changelog
 
+## 0.22.1 - 3 / 2 / 1 as the shipped setting
+
+The player played 0.22.0's middle setting and chose a line: **three guidance channels, two seconds
+between engagements, one second to react, radar seekers only**. That is the default now.
+
+It is the setting that makes a salvo an exchange rather than a formality: a two-missile shot is
+stopped, and a four-missile salvo loses three and puts the last one in. The old 2 / 4 / 2 is still
+documented as "Practical" and the last-ditch 1 / 8 / 4 as "Strict", both one edit away in
+`docs/features.md`.
+
+A config written by 0.22.0 keeps whatever it stored, so the exact old figures are moved once on load -
+the same rule as the jam-range and dive-range migrations: `EcmDiveChannels` 2 becomes 3,
+`EcmDiveIntervalSeconds` 4 becomes 2, `EcmDiveReactionSeconds` 2 becomes 1. Anything the player set
+themselves is left exactly as it is.
+
 ## 0.22.0 - it works, and it is too strong
 
 The player's verdict on 0.21.0: **it works perfectly, maybe too well, it seems overpowered**. Agreed.

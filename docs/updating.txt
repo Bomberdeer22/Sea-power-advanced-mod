@@ -160,6 +160,14 @@ explains the version jump rather than just announcing it.
         and are read on the first start
       What update.cmd does: note only
 
+  < 0.22.1
+      Release: the shipped dive limits became 3 channels / 2 s / 1 s
+      On disk: a settings file may still hold EcmDiveChannels = 2,
+        EcmDiveIntervalSeconds = 4, EcmDiveReactionSeconds = 2
+      What update.cmd does: Reports them. The mod moves exactly those old
+        figures to 3 / 2 / 1 at load; anything you chose yourself is left
+        alone
+
   every release
       Release: -
       On disk: SeaPowerAdvanced.dll, _info.ini
