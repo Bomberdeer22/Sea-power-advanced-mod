@@ -423,10 +423,24 @@ internal static class FleetMenu
 
         // --- ECM: only on hulls that actually carry it --------------------------------------
         // A submarine has no jammer, so it gets no ECM entries at all - not a disabled one, nothing.
-        // The wording here also stops promising that this mode radiates: it runs on EMCON.
-        bool carriesEcm = UnitFit.HasEcm(unit);
+        // The same is now true of a surface hull with no set: a Huak class carries a radar and an
+        // RWR, and an ECM entry on it could only ever radiate for nothing.
+        //
+        // "No jammer" has to be read, not assumed. The fit is asked once here and the group is built
+        // from the answer: a hull that positively carries no set gets no ECM submenu - the same rule
+        // a submarine has always had - and a hull whose fit could not be read gets the group and one
+        // line saying so, instead of entries that would act on a maybe.
+        OffensiveJam.JammerFit fit = UnitFit.EcmFit(unit, out string fitEvidence);
+        bool carriesEcm = fit != OffensiveJam.JammerFit.None;
 
-        if (carriesEcm)
+        if (carriesEcm && fit != OffensiveJam.JammerFit.Fitted)
+        {
+            Grouped(EcmGroup, Disabled("ECM: this hull's jammer fit could not be read",
+                fitEvidence + ". An ecm-report.txt written from this menu lists everything the mod "
+                + "could see on this install."), MenuRouting.Sensors);
+        }
+
+        if (carriesEcm && fit == OffensiveJam.JammerFit.Fitted)
         {
             if (Multiplayer.IsClient)
             {
@@ -528,7 +542,12 @@ internal static class FleetMenu
 
         if (UnitFit.IsSurfaceHull(unit))
         {
-            Grouped(EcmGroup, Action("ECM: what this build exposes",
+            // Always offered on a surface hull, whether or not a jammer was found: this is the entry
+            // that says which it is, and it is how a hull the mod has got wrong can be shown in one
+            // file without a debugger. On a hull with no set it is the only ECM entry there is.
+            Grouped(EcmGroup, Action(fit == OffensiveJam.JammerFit.None
+                    ? "ECM: no jammer on this hull - click for the report"
+                    : "ECM: what this build exposes",
                 "Writes ecm-report.txt and logs what the jammer interface looks like in this install.",
                 () =>
                 {

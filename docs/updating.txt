@@ -178,10 +178,13 @@ explains the version jump rather than just announcing it.
 
   < 0.24.0
       Release: the Sensors menu is two submenus (Radars and sonar, ECM)
-        instead of twenty-odd entries, and every multiplayer client path is
-        declared in one table and reports whether it was tried
+        instead of twenty-odd entries; every multiplayer client path is
+        declared in one table and reports whether it was tried; and ECM is
+        only offered on a hull whose own sensor list carries a jammer
       On disk: nothing - all in the DLL, and no setting changes meaning
-      What update.cmd does: note only
+      What update.cmd does: note only. A ship that was armed for defensive
+        ECM and has no jammer is disarmed by the mod itself, and its ECM
+        entries disappear from the menu
 
   every release
       Release: -

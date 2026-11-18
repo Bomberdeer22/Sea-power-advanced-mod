@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Reflection;
 using System.Text;
 using SeaPower;
+using SeaPowerAdvanced.Features;
 
 namespace SeaPowerAdvanced.Interop;
 
@@ -231,6 +232,15 @@ internal static class EcmControl
         if (!HasSwitch && !CanHoldLock)
         {
             note = "this build exposes no ECM switch or jam target (see ecm-report.txt)";
+            return false;
+        }
+
+        // Nor should a ship give its position away for a jammer it does not carry. The members above
+        // are on the unit type, so they exist for every hull in the game; whether *this* hull has a
+        // set is a different question, and it is answered from its own sensor list.
+        if (OffensiveJam.Fit(unit, out string fit) != OffensiveJam.JammerFit.Fitted)
+        {
+            note = "this hull cannot jam - " + fit;
             return false;
         }
 
@@ -519,8 +529,48 @@ internal static class EcmControl
             if (TypeHits.Count == 0) text.AppendLine("  (none)");
             foreach (string hit in TypeHits) text.AppendLine("  " + hit);
             text.AppendLine();
+            text.AppendLine("Jammer fit by hull, from each ship's own sensor list");
+            text.AppendLine("--------------------------------------------------");
+
+            var seen = new List<string>();
+            int reported = 0;
+
+            foreach (ObjectBase ship in FleetTicker.Tracked())
+            {
+                try
+                {
+                    string hull = ship.GetType().Name;
+                    if (seen.Contains(hull)) continue;
+
+                    seen.Add(hull);
+                    reported++;
+
+                    OffensiveJam.JammerFit fit = UnitFit.EcmFit(ship, out string evidence);
+
+                    text.AppendLine("  " + hull + ": "
+                                    + (fit == OffensiveJam.JammerFit.Fitted ? "JAMMER FITTED - "
+                                       : fit == OffensiveJam.JammerFit.None ? "no jammer - "
+                                       : "fit unreadable - ")
+                                    + evidence);
+                }
+                catch (Exception) { }
+            }
+
+            if (reported == 0)
+            {
+                text.AppendLine("  no player hulls found to ask. Open the menu on a ship and run this");
+                text.AppendLine("  again: the fit is read from the ship, not from the game assembly.");
+            }
+
+            text.AppendLine();
             text.AppendLine("What the mod does with it");
             text.AppendLine("-------------------------");
+            text.AppendLine("  Only on a hull whose own sensor list holds an ECM set. The members above are");
+            text.AppendLine("  on the unit type, so every hull in the game has them; a Huak class has a radar");
+            text.AppendLine("  and an RWR and no jammer, and an earlier build armed defensive ECM on it, put");
+            text.AppendLine("  its air-search radar on for a set it does not carry, and reported a jam that");
+            text.AppendLine("  was never transmitted. See the fit list above for what this fleet answers now.");
+            text.AppendLine();
             text.AppendLine("  On a vampire: air-search radar on (that is the cost - a lock needs a");
             text.AppendLine("  fire-control emission), the missile handed to the jammer as its target, the");
             text.AppendLine("  switch thrown, and the target re-pointed every quarter second for as long as");

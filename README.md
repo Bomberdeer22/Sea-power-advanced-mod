@@ -41,7 +41,9 @@ Sensors                     EMCON profiles, radar blink, commercial disguise, an
                             "Radars and sonar" (radars, air/surface search only, active sonar,
                             towed array) and "ECM" (auto-ARM, defensive ECM, offensive ECM in
                             two modes - works on unidentified contacts, with a suppression
-                            budget and a time limit)
+                            budget and a time limit; offered only on hulls whose own sensor
+                            list carries a jammer, so a ship with just a radar and an RWR gets
+                            a line saying so instead of a button that cannot work)
 Engage                      deconflict the salvo, release everyone
 Rules of engagement         action stations / cold cruise, crew fatigue status
 Formation                   sprint and drift (this ship or the whole force),

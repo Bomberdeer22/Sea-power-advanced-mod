@@ -2,7 +2,9 @@
 
 ## 0.24.0 - a menu that can be read, and a client path that admits what it has not proved
 
-Two debts paid, and neither of them is a new feature.
+Two debts paid, and neither of them is a new feature. A bug report against a Huak class came in
+while they were being paid, and it is fixed here too - see *a ship with no jammer is no longer
+given one* at the end of this section.
 
 **The menu.** On a hull that carries a jammer, Sensors was carrying twenty-three entries - not a menu,
 a hunt. There is now one rule, and it is deliberately not "a submenu once a section passes N": a named
@@ -36,6 +38,45 @@ when it is used - count, unit, whether it reported success - and `multiplayer.tx
 of the twelve are still untried this session. A client that flies three of them shows nine unproven.
 That number is meant to be uncomfortable; it is the only honest way to present code that only a client
 can prove.
+
+### And a ship with no jammer is no longer given one
+
+Reported against a base-game **Huak class**: a radar and an RWR, no ECM set - and defensive ECM armed
+itself on it anyway, put its air-search radar on for the first inbound missile, and logged a jam that
+was never transmitted.
+
+The cause was the answer to "does this hull carry a jammer", and it was wrong in two places at once:
+
+- `UnitFit.HasEcm` ended with **"it is a surface hull, so a jammer is fitted"**, so anything that did
+  not positively deny it was treated as a jammer;
+- the fitted-object probe before that matched by **name prefix**, and the first member on the unit type
+  starting with `_ECM` is `_ECMSystemsTryingToJamMe` - the list of *other people's jammers pointed at
+  this ship*. Every unit in the game has that field.
+
+Both are gone. The question is now answered from **the ship's own sensor list**, read from the installed
+game, and the answer "none" is an answer:
+
+- **the sensor list is asked first** and its answer is final, including no;
+- a **receiver is not a transmitter**: an ESM, RWR, intercept or warning entry in the list does not
+  count as a jammer, whatever its class is called;
+- and when the list and the game disagree - a set named like ECM that the game's own
+  `isOffensiveEcmSystemAvailable` says cannot jam offensively - **the game wins**;
+- the game's own `isOffensiveEcmSystemAvailable` / `HasSelfScreeningJammer` flags are the fallback for a
+  build whose parameter block cannot be reached;
+- and if nothing can be read, the answer is **unknown, which is not a yes** - the menu says the fit
+  could not be read and **nothing is armed automatically**.
+
+A hull with no set now gets no ECM entries at all in its menu, the same rule a submarine has always
+had, plus one line - *ECM: no jammer on this hull, click for the report*. `ECM: what this build exposes`
+writes `ecm-report.txt`, which now ends with **a jammer fit by hull**: one line per hull class in your
+fleet, saying fitted / no jammer / unreadable, with the sensor families that decided it.
+
+Two consequences worth stating rather than discovering:
+
+- **The close-in dive is part of defensive ECM**, so a hull with no jammer no longer gets it. The dive
+  is driven by the jammer's lock on the missile; without a set there is no lock to break.
+- **Arming the whole task force now reports what it skipped**, and disarms a ship that was armed by an
+  earlier build instead of leaving it armed and silently doing nothing.
 
 ## 0.23.0 - a jammer has channels, and a hold runs out
 

@@ -146,9 +146,42 @@ default and opt-in per ship.
 -------------------------------------------------
 
 Every ship that carries a jammer also defends itself and its formation with
-it, without being asked twice. When a vampire - a weapon the game is tracking
-against this ship, or against any ship of the task force within 25 nm -
-appears, the mod:
+it, without being asked twice.
+
+"Carries a jammer" is read from the ship, not assumed from its shape. A jammer
+is one entry in a hull's own sensor list, so the mod asks that ship's list and
+takes the answer - and the answer "none" is an answer. A Huak class, with a
+radar and an RWR and no set, therefore gets no ECM entries at all in its menu
+and is never armed: an earlier build fell back to "it is a surface hull, so a
+jammer is fitted", which armed defensive ECM on every ship in the game, put
+the air-search radar on for a set that was not there, and logged a jam that
+was never transmitted. A receiver cannot jam, so an RWR or ESM entry in the
+list does not count as one either.
+
+There are three possible answers, and only the first lets the feature act:
+
+  Fitted - an ECM set is in the ship's sensor list (or, if the list cannot be read, the game's own isOffensiveEcmSystemAvailable says yes)
+      What the mod does: everything works as described below. If the list
+        holds something named like ECM but the game's own availability flag
+        says this hull cannot jam offensively, the answer is no - the game's
+        own flag is the one its AI and weapons panel ask
+
+  None - the sensor list was read and holds no ECM set, or the game's own flag says no
+      What the mod does: no ECM entries on that hull at all, and ArmFleet
+        skips it and says so
+
+  Unreadable - neither the list nor a flag could be read
+      What the mod does: the ECM entries appear, with one line saying the
+        fit could not be read, but nothing is armed automatically - the
+        automatic defence never acts on a maybe, and ecm-report.txt records
+        exactly what could not be read
+
+ecm-report.txt (written from ECM: what this build exposes in the menu) now
+ends with a jammer fit by hull list, one line per hull class in your fleet,
+saying which of the three it is and what said so. That is the file to send if
+a ship with a jammer is treated as having none, or the reverse. When a vampire
+- a weapon the game is tracking against this ship, or against any ship of the
+task force within 25 nm - appears, the mod:
 
   1. puts the air-search radar on. A jammer needs a fire-control quality
      bearing to know where to point, and that bearing comes from radiating.
@@ -315,6 +348,10 @@ picture".
 
 What the lock actually does
 
+  0. Only from a ship that carries a jammer - the same per-hull fit as
+     defensive ECM (§2b). A hull with no ECM set in its sensor list is never
+     chosen as the jammer, so a contact menu will say no ship with ECM is in
+     range rather than offering a jam from a ship that cannot transmit.
   1. Issues the game's own jam order - setOrder(Order.Type.Jam, target,
      displayOrderText) for a contact the picture has identified, or the
      bearing form of the same order for one it has not. This is the order the

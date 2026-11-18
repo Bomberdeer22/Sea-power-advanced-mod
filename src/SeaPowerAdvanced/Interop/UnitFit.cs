@@ -39,36 +39,48 @@ internal static class UnitFit
     }
 
     /// <summary>
-    /// Whether this unit carries electronic countermeasures of its own.
+    /// What the mod can say about this hull's jammer.
     ///
-    /// Three answers, in order of confidence: a per-unit flag the game exposes (a <c>HasEcm</c>-style
-    /// boolean or an ECM object that is not null); the absence of either but a surface hull, which is
-    /// where jammers live; and never on a submarine or an aircraft, whatever the flags say.
+    /// Positive evidence only. The sensor list of the unit's own parameter block is asked first,
+    /// because it is this hull's actual fit read from the installed game; the game's own unit flags
+    /// are the fallback for a build whose parameter block cannot be reached; and when neither
+    /// answers, this says <see cref="OffensiveJam.JammerFit.Unknown"/> rather than yes.
+    ///
+    /// The previous version answered "it is a surface hull, so a jammer is fitted", and any unit that
+    /// did not positively deny it was therefore treated as a jammer - a Huak class, with a radar and
+    /// an RWR and nothing else, got defensive ECM armed on it, radiated air search for a set it does
+    /// not carry, and reported a jam that was never transmitted.
+    ///
+    /// A submarine is excluded whatever the flags say. An aircraft is not: a pod the hull's own
+    /// sensor list holds as an ECM set is a jammer, and the list answers for itself.
     /// </summary>
-    internal static bool HasEcm(ObjectBase? unit)
+    internal static OffensiveJam.JammerFit EcmFit(ObjectBase? unit, out string evidence)
     {
-        if (unit == null) return false;
+        evidence = "no unit";
+        if (unit == null) return OffensiveJam.JammerFit.Unknown;
 
-        // The real answer first: the game keeps a jammer as a sensor system in the unit's parameter
-        // block, so a hull that carries one says so itself. Everything below this is the guesswork
-        // that preceded being able to read that, kept only for a build where the sensor list cannot
-        // be reached at all.
-        if (OffensiveJam.HasEcm(unit)) return true;
+        try
+        {
+            if (IsSubmarine(unit))
+            {
+                evidence = "a submarine carries no jammer";
+                return OffensiveJam.JammerFit.None;
+            }
 
-        if (!EcmControl.Available) return false;
-        if (IsSubmarine(unit)) return false;
-
-        bool? known = Flag(unit, "HasEcm", "HasECM", "HasJammer", "HasElectronicWarfare", "CanJam");
-        if (known.HasValue) return known.Value;
-
-        bool? fitted = Fitted(unit, "_ecm", "ECM", "Ecm", "_ecmSystem", "EcmSystem", "_jammer",
-                              "Jammer", "_ecmLauncher", "_electronicWarfare");
-        if (fitted.HasValue) return fitted.Value;
-
-        // Nothing readable: fall back to the hull, because that is where jammers are fitted and a
-        // hidden feature is worse than an entry that reports "no effect" when clicked.
-        return IsSurfaceHull(unit);
+            // An aircraft is not excluded: a pod that the hull's own sensor list holds as an ECM set
+            // is a jammer, and an EA-6B carries one. A fighter's list holds no set, so it answers
+            // for itself.
+            return OffensiveJam.Fit(unit, out evidence);
+        }
+        catch (Exception error)
+        {
+            evidence = "the fit could not be read (" + error.GetType().Name + ")";
+            return OffensiveJam.JammerFit.Unknown;
+        }
     }
+
+    /// <summary>True only when a jammer is positively fitted on this hull.</summary>
+    internal static bool HasEcm(ObjectBase? unit) => EcmFit(unit, out _) == OffensiveJam.JammerFit.Fitted;
 
     /// <summary>
     /// Whether this unit can put an aircraft up. Same shape of answer: a per-unit flag or a fitted

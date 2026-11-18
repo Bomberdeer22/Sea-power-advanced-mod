@@ -164,7 +164,14 @@ Full description of each: features.md. Right-click one of your ships.
   * [ ] Sensors -> Defensive ECM: ... - click to arm arms one ship; the label
     then reads armed, waiting for a vampire
   * [ ] Sensors -> Defensive ECM for the whole task force arms every ship at
-    once
+    once, and the report names any ship it skipped because its sensor fit
+    could not be read
+  * [ ] A hull with no jammer gets no ECM entries. Right-click a ship whose
+    only electronic warfare fit is a receiver - the Huak class is one: a radar
+    and an RWR - and there is no Defensive ECM, no Offensive ECM and no
+    channel line. All it has is one entry, ECM: no jammer on this hull - click
+    for the report, and ecm-report.txt lists that hull as no jammer with the
+    sensor families it does carry
   * [ ] With a missile fired at the task force: the log shows Defensive ECM:
     <ship> engaging a missile inbound to <ship> - air search on, lock on the
     missile via <member>, jamming, the ship's air-search radar comes on, and

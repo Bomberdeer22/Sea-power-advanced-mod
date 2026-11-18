@@ -81,17 +81,37 @@ internal static class DefensiveEcm
         }
 
         UnitRecord record = UnitState.Of(unit);
-        record.DefensiveEcm = !record.DefensiveEcm;
 
-        if (!record.DefensiveEcm)
+        // Disarming is always allowed, whatever the fit says: a ship armed by an earlier build - when
+        // anything that was not a submarine counted as having a jammer - must be able to be stood
+        // down, and the ticker stands those down by itself anyway.
+        if (record.DefensiveEcm)
         {
+            record.DefensiveEcm = false;
             if (record.EcmEngaged) Stop(unit, record, "disarmed");
             report = "defensive ECM off";
             return true;
         }
 
+        // A hull with no jammer cannot defend with one. This is the check that was missing: the
+        // feature used to be armed on anything that was not positively a submarine, so a Huak -
+        // radar and an RWR, no set - radiated air search on the first inbound missile and reported
+        // an engagement that could not have happened.
+        OffensiveJam.JammerFit fit = UnitFit.EcmFit(unit, out string evidence);
+
+        if (fit != OffensiveJam.JammerFit.Fitted)
+        {
+            report = Name(unit) + (fit == OffensiveJam.JammerFit.Unknown
+                ? " - the mod cannot read this hull's sensor fit: "
+                : " carries no jammer: ") + evidence;
+            ModLog.Warn("Defensive ECM: " + report);
+            return false;
+        }
+
+        record.DefensiveEcm = true;
+
         report = EcmControl.Available
-            ? "armed: " + EcmControl.Summary() + ". Air search will radiate while it jams."
+            ? "armed: " + evidence + ". Air search will radiate while it jams."
             : "armed, but this build exposes no ECM to drive - see ecm-report.txt";
         return true;
     }
@@ -100,6 +120,7 @@ internal static class DefensiveEcm
     internal static int ArmFleet(bool on, out string report)
     {
         int changed = 0;
+        int unreadable = 0;
 
         // Same reason as Toggle: the host decides missile defence in a session.
         string? refused = Multiplayer.RefusedTo("Defensive ECM");
@@ -114,15 +135,38 @@ internal static class DefensiveEcm
         {
             try
             {
-                // Only hulls that carry ECM. A submarine or an unarmed auxillary is not armed with
-                // a jammer, and arming one would put a feature in a menu that cannot work.
-                if (!UnitFit.HasEcm(ship)) continue;
-
                 UnitRecord record = UnitState.Of(ship);
-                if (record.DefensiveEcm == on) continue;
 
-                record.DefensiveEcm = on;
-                if (!on && record.EcmEngaged) Stop(ship, record, "task force disarmed");
+                // Standing down is never conditional on the fit: a ship armed by an earlier build has
+                // to be able to be disarmed by the same click that disarms the rest.
+                if (!on)
+                {
+                    if (!record.DefensiveEcm) continue;
+
+                    record.DefensiveEcm = false;
+                    if (record.EcmEngaged) Stop(ship, record, "task force disarmed");
+                    changed++;
+                    continue;
+                }
+
+                // Arming is: only hulls that carry a jammer, and only on positive evidence. A hull
+                // whose fit could not be read is counted separately rather than armed - an automatic
+                // feature that radiates on a maybe is worse than one that does nothing.
+                OffensiveJam.JammerFit fit = UnitFit.EcmFit(ship, out string evidence);
+
+                if (fit == OffensiveJam.JammerFit.Unknown) unreadable++;
+
+                if (fit != OffensiveJam.JammerFit.Fitted)
+                {
+                    if (fit == OffensiveJam.JammerFit.Unknown && ModSettings.VerboseLog)
+                        ModLog.Warn("Defensive ECM: " + Name(ship) + " skipped - " + evidence);
+
+                    continue;
+                }
+
+                if (record.DefensiveEcm) continue;
+
+                record.DefensiveEcm = true;
                 changed++;
             }
             catch (Exception error)
@@ -131,9 +175,10 @@ internal static class DefensiveEcm
             }
         }
 
-        report = on
-            ? "defensive ECM armed on " + changed + " ship(s)"
-            : "defensive ECM disarmed on " + changed + " ship(s)";
+        report = (on ? "defensive ECM armed on " : "defensive ECM disarmed on ") + changed
+                 + " ship(s)" + (on && unreadable > 0
+                     ? ", " + unreadable + " skipped: their sensor fit could not be read"
+                     : "");
         return changed;
     }
 
@@ -164,9 +209,26 @@ internal static class DefensiveEcm
                     continue;
                 }
 
-                // A hull with no jammer cannot defend with one: leave it alone rather than reporting
-                // an engagement that could not have happened.
-                if (!UnitFit.HasEcm(ship)) continue;
+                // A hull with no jammer cannot defend with one. If it is somehow armed anyway - an
+                // older build armed it, or the record came from a save - it is stood down here rather
+                // than reported as engaging.
+                OffensiveJam.JammerFit fit = UnitFit.EcmFit(ship, out string evidence);
+
+                if (fit != OffensiveJam.JammerFit.Fitted)
+                {
+                    if (record.EcmEngaged) Stop(ship, record, "this hull carries no jammer");
+
+                    // Only a definite "no" turns the feature off. "Could not read it" leaves the
+                    // record alone: it is a transient, and disarming on it would flip the feature
+                    // on and off as the game loads a hull.
+                    if (fit == OffensiveJam.JammerFit.None && record.DefensiveEcm)
+                    {
+                        record.DefensiveEcm = false;
+                        ModLog.Warn("Defensive ECM: " + Name(ship) + " disarmed - " + evidence);
+                    }
+
+                    continue;
+                }
 
                 // Close in, before anything else: a missile inside the dive range is finished with
                 // the sea, not with the jammer.

@@ -187,25 +187,42 @@ internal static class OffensiveJam
     /// A hull without one gets an empty list, which is how "no ECM on subs" is answered by the game
     /// itself rather than by a guess about the hull type.
     /// </summary>
-    internal static List<Set> Systems(ObjectBase? unit)
+    internal static List<Set> Systems(ObjectBase? unit) => Walk(unit, out _);
+
+    /// <summary>
+    /// The same walk, but it also says whether the sensor list could be read at all.
+    ///
+    /// That distinction is the whole of the jammer-fit question. "Read the list and found no ECM" is
+    /// the game saying this hull carries none - the Huak, with an RWR and a radar, is exactly that.
+    /// "Could not read the list" says nothing about the hull at all, and treating it as a no is the
+    /// mistake that made the menu hide every ECM entry on a correctly fitted ship.
+    /// </summary>
+    private static List<Set> Walk(ObjectBase? unit, out bool readable)
     {
         var found = new List<Set>();
+        readable = false;
         if (unit == null) return found;
 
         Discover();
 
-        object? sensors = null;
+        object? sensors;
         try
         {
             object? parameters = Capabilities.ParametersOf(unit);
             if (parameters == null) parameters = unit._obp;
             if (parameters == null) return found;
 
-            sensors = MemberProbe.Read(SensorField(parameters.GetType()), parameters);
+            FieldInfo? field = SensorField(parameters.GetType());
+            if (field == null) return found;
+
+            sensors = MemberProbe.Read(field, parameters);
         }
         catch (Exception) { return found; }
 
         if (sensors is not IEnumerable list) return found;
+
+        // Past this point the list itself was in hand, so an empty answer is the game's answer.
+        readable = true;
 
         int index = 0;
         foreach (object? entry in list)
@@ -270,8 +287,190 @@ internal static class OffensiveJam
     private static bool IsJammer(object system)
     {
         string name = system.GetType().Name;
+
+        // A receiver is not a transmitter. The RWR and the ESM sets are what tell a ship it is being
+        // painted; they cannot jam anything, and a hull that carries only those carries no jammer -
+        // which is exactly the hull this test used to get wrong.
+        if (IsReceiverName(name)) return false;
+
         return name.IndexOf("ECM", StringComparison.OrdinalIgnoreCase) >= 0
                || name.IndexOf("Jam", StringComparison.OrdinalIgnoreCase) >= 0;
+    }
+
+    /// <summary>Class names that mean "listens to other people's radar" rather than "transmits".</summary>
+    private static bool IsReceiverName(string name) =>
+        name.IndexOf("ESM", StringComparison.OrdinalIgnoreCase) >= 0
+        || name.IndexOf("RWR", StringComparison.OrdinalIgnoreCase) >= 0
+        || name.IndexOf("Intercept", StringComparison.OrdinalIgnoreCase) >= 0
+        || name.IndexOf("Receiver", StringComparison.OrdinalIgnoreCase) >= 0
+        || name.IndexOf("Warning", StringComparison.OrdinalIgnoreCase) >= 0
+        || name.IndexOf("Detector", StringComparison.OrdinalIgnoreCase) >= 0
+        || name.IndexOf("Detection", StringComparison.OrdinalIgnoreCase) >= 0;
+
+    // --- does this hull carry a jammer at all? ---------------------------------------------------
+
+    /// <summary>What the mod can say about a hull's jammer fit.</summary>
+    internal enum JammerFit
+    {
+        /// <summary>The sensor list could not be read and the game's own flags said nothing: this
+        /// says nothing about the hull, and nothing may be claimed either way.</summary>
+        Unknown = 0,
+
+        /// <summary>The game answered no - the sensor list was read and holds no ECM set, or its own
+        /// flag said so. This hull carries no jammer, and must not be offered one.</summary>
+        None = 1,
+
+        /// <summary>A jammer is fitted.</summary>
+        Fitted = 2,
+    }
+
+    /// <summary>The fit, remembered per hull type: a class's sensor fit does not change mid-mission,
+    /// and this is asked once per ship per frame by the automatic defence.</summary>
+    private static readonly Dictionary<Type, JammerFit> FitCache = new();
+
+    private static readonly Dictionary<Type, string> FitEvidence = new();
+
+    /// <summary>Hull types whose fit was unreadable, so the warning is written once per type.</summary>
+    private static readonly List<string> warnedUnreadable = new();
+
+    /// <summary>
+    /// Whether this hull carries a jammer, and what says so.
+    ///
+    /// The order of the evidence is deliberate:
+    ///
+    /// <list type="number">
+    /// <item><b>The sensor list</b>, when it can be read. It is this hull's actual fit, read from the
+    ///   installed game, and its answer is final - including the answer "none". A hull whose list is
+    ///   one radar and one RWR has no jammer, whatever any unit-level flag says.</item>
+    /// <item><b>The game's own unit flags</b> (<c>isOffensiveEcmSystemAvailable</c>,
+    ///   <c>HasSelfScreeningJammer</c>), for a build whose parameter block cannot be reached.</item>
+    /// <item><b>Nothing</b> - <see cref="JammerFit.Unknown"/>, which is not a yes.</item>
+    /// </list>
+    ///
+    /// The old answer here was "it is a surface hull, so it has a jammer", which armed defensive ECM
+    /// on every ship in the game and made the mod radiate for a set that was not fitted.
+    /// </summary>
+    internal static JammerFit Fit(ObjectBase? unit, out string evidence)
+    {
+        evidence = "no unit";
+        if (unit == null) return JammerFit.Unknown;
+
+        Type type = unit.GetType();
+
+        if (FitCache.TryGetValue(type, out JammerFit known) && FitEvidence.TryGetValue(type, out string? why))
+        {
+            evidence = why;
+            return known;
+        }
+
+        JammerFit fit = Decide(unit, out evidence);
+
+        // Only a definite answer is remembered. "Could not read it" is a transient - a parameter block
+        // that has not loaded yet, a unit spawned this frame - and caching that for the session would
+        // switch the whole feature off for the hull on the strength of one bad moment.
+        if (fit != JammerFit.Unknown)
+        {
+            FitCache[type] = fit;
+            FitEvidence[type] = evidence;
+
+            if (fit == JammerFit.None)
+                ModLog.Info("ECM: " + type.Name + " carries no jammer - " + evidence);
+        }
+        else if (!warnedUnreadable.Contains(type.Name))
+        {
+            warnedUnreadable.Add(type.Name);
+            ModLog.Warn("ECM: " + type.Name + " - jammer fit could not be read: " + evidence);
+        }
+
+        return fit;
+    }
+
+    private static JammerFit Decide(ObjectBase unit, out string evidence)
+    {
+        List<Set> sets = Walk(unit, out bool readable);
+
+        bool? available = Flag(unit, "isOffensiveEcmSystemAvailable", "IsOffensiveEcmSystemAvailable");
+
+        if (readable)
+        {
+            if (sets.Count > 0)
+            {
+                // The list and the game can disagree, and when they do the game wins: this is the
+                // flag its own AI and weapons panel ask before offering a jam. A hull whose list
+                // holds something named like an ECM set but which the game says cannot jam
+                // offensively - a receiver filed under the same word, which is how an RWR gets
+                // counted as a jammer - is not a jammer.
+                if (available == false)
+                {
+                    evidence = "its sensor list holds " + sets.Count + " set(s) named like ECM ("
+                               + sets[0].System.GetType().Name + ") but the game's own "
+                               + "isOffensiveEcmSystemAvailable says this hull cannot jam with them";
+                    return JammerFit.None;
+                }
+
+                evidence = sets.Count + " ECM set(s) in the sensor list ("
+                           + sets[0].System.GetType().Name + " at index " + sets[0].Index + ")"
+                           + (available == true ? ", which the game agrees can jam offensively" : "");
+                return JammerFit.Fitted;
+            }
+
+            evidence = "its sensor list was read and holds no ECM set ("
+                       + Summarise(unit) + ")";
+            return JammerFit.None;
+        }
+
+        if (available == true)
+        {
+            evidence = "the sensor list could not be read; the game's own "
+                       + "isOffensiveEcmSystemAvailable says yes";
+            return JammerFit.Fitted;
+        }
+
+        if (available == false)
+        {
+            evidence = "the sensor list could not be read; the game's own "
+                       + "isOffensiveEcmSystemAvailable says no";
+            return JammerFit.None;
+        }
+
+        bool? screening = Flag(unit, "HasSelfScreeningJammer", "HasNoiseJammerSystem");
+        if (screening.HasValue)
+        {
+            evidence = "the sensor list could not be read; the game's own self-screening flag says "
+                       + (screening.Value ? "yes" : "no");
+            return screening.Value ? JammerFit.Fitted : JammerFit.None;
+        }
+
+        evidence = "this build exposes neither the sensor list nor a jammer flag the mod can read";
+        return JammerFit.Unknown;
+    }
+
+    /// <summary>The sensor families that were found, for the report - names only, no interpretation.</summary>
+    private static string Summarise(ObjectBase unit)
+    {
+        try
+        {
+            object? parameters = Capabilities.ParametersOf(unit);
+            if (parameters == null) parameters = unit._obp;
+            if (parameters == null) return "no parameter block";
+
+            FieldInfo? field = SensorField(parameters.GetType());
+            if (field == null) return "no sensor field";
+            if (MemberProbe.Read(field, parameters) is not IEnumerable list) return "no sensor list";
+
+            var names = new List<string>();
+            foreach (object? entry in list)
+            {
+                if (entry == null) continue;
+                names.Add(entry.GetType().Name);
+            }
+
+            return names.Count == 0 ? "the list is empty" : string.Join(", ", names.ToArray());
+        }
+        catch (Exception)
+        {
+            return "the list could not be walked";
+        }
     }
 
     /// <summary>
@@ -281,18 +480,7 @@ internal static class OffensiveJam
     /// <c>HasSelfScreeningJammer</c> are the game's own tests, and they are the ones its AI and its
     /// weapons panel use. Only when neither is readable does the sensor list get walked.
     /// </summary>
-    internal static bool HasEcm(ObjectBase? unit)
-    {
-        if (unit == null) return false;
-
-        bool? available = Flag(unit, "isOffensiveEcmSystemAvailable", "IsOffensiveEcmSystemAvailable");
-        if (available == true) return true;
-
-        bool? fitted = Flag(unit, "HasSelfScreeningJammer", "HasNoiseJammerSystem");
-        if (fitted.HasValue) return fitted.Value;
-
-        return Systems(unit).Count > 0;
-    }
+    internal static bool HasEcm(ObjectBase? unit) => Fit(unit, out _) == JammerFit.Fitted;
 
     /// <summary>
     /// A boolean the unit reports, asked through a method or a property: the game exposes some of
