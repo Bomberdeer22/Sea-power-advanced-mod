@@ -112,8 +112,10 @@ send. Then open an issue here and attach it; the bug report template
 (.github/ISSUE_TEMPLATE/bug_report.md) lists the report files and what each
 one answers, so a report can be acted on rather than guessed at.
 
-Plain-text copies of this file and of the install guide are included:
-README.txt, INSTALL.txt.
+Plain-text copies are included for every document a player might open in
+Notepad - this file (README.txt), the install guide (INSTALL.txt), and the
+player-facing documents in docs/ - each .txt next to its .md, kept in step by
+a check that runs on every push.
 
 ------------------------------------------------------------------------------
 
