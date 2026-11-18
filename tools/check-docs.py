@@ -27,6 +27,7 @@ PAIRS = [
     ("docs/features.md", "docs/features.txt"),
     ("docs/testing.md", "docs/testing.txt"),
     ("docs/updating.md", "docs/updating.txt"),
+    ("docs/usage.md", "docs/usage.txt"),
     ("docs/releasing.md", "docs/releasing.txt"),
 ]
 

@@ -596,6 +596,8 @@ LAYOUT
                                 blocks, %VAR% read inside the block that set it, a for /f that would
                                 silently read its quoted path as a string
       md2txt.py                 writes the .txt twins of the documentation
+      check-versions.py         the version number, compared across the seven places it is written
+      check-docs.py             the .txt twins, compared byte for byte with their Markdown
 
 Outside src/ and tools/, the scripts a player double-clicks:
 

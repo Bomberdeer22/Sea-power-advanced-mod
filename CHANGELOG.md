@@ -918,8 +918,8 @@ New feature: random civilian traffic, spawned into an area you draw yourself.
 - New reference: `Noesis.NoesisGUI` (only because the editor's polygon state is declared there;
   the mod never draws through Noesis), plus optional Unity module references for IMGUI input.
 
-See [docs/civilian-traffic.md](docs/civilian-traffic.md) for the mission-file format and the
-verified API details.
+The document that went with it (`docs/civilian-traffic.md`) was deleted with the feature in 0.15.1,
+so this line is history rather than a link.
 
 ## 0.5.1 — reference UnityEngine
 
