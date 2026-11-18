@@ -168,6 +168,14 @@ explains the version jump rather than just announcing it.
         figures to 3 / 2 / 1 at load; anything you chose yourself is left
         alone
 
+  < 0.23.0
+      Release: offensive ECM's sensor hold is limited by a task-force
+        channel budget and a hold window with a recovery period
+      On disk: nothing - all in the DLL. New settings appear with defaults
+        (EcmJamChannels 2, EcmJamHoldSeconds 60, EcmJamRecoverySeconds 15) and
+        are read on the first start
+      What update.cmd does: note only
+
   every release
       Release: -
       On disk: SeaPowerAdvanced.dll, _info.ini

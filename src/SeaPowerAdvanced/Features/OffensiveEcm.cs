@@ -35,6 +35,24 @@ namespace SeaPowerAdvanced.Features;
 /// assertions, and this re-asserts. It is sustained suppression, not a permanent state change. And
 /// if a sensor family cannot be reached on this build of the game, the menu and
 /// <c>offensive-ecm.txt</c> name it instead of calling the target blind.
+///
+/// <b>Two limits on the second half</b>, because holding a stranger's whole sensor fit down for as
+/// long as the player likes, on as many contacts as the fleet can reach, was the strongest thing in
+/// the mod:
+///
+/// <list type="number">
+/// <item><b>Channels</b> - the task force can keep <c>EcmJamChannels</c> contacts blind at once
+///   (two by default). A ship holds one contact, because the game gives a jammer one assignment; the
+///   budget is what limits how many *blinded* contacts exist at any moment. Every lock keeps the
+///   game's own jam whether or not it has a channel.</item>
+/// <item><b>Recovery</b> - a hold lasts <c>EcmJamHoldSeconds</c> (a minute), after which the mod
+///   stops holding the sets down and the contact's crew get them back. For the next
+///   <c>EcmJamRecoverySeconds</c> (fifteen) the same contact cannot be held down again. Nothing is
+///   switched back on for the enemy: the mod stops, and the game's own crew decides.</item>
+/// </list>
+///
+/// Both are settings, both are off at their old values, and both are stated in the menu and in the
+/// report rather than left for the player to discover.
 /// </summary>
 internal static class OffensiveEcm
 {
@@ -61,9 +79,37 @@ internal static class OffensiveEcm
         /// target's switches down is a separate, deliberate order.
         /// </summary>
         internal bool Jamming;
+
+        /// <summary>When this hold runs out and the contact's crew get their sensors back. Zero
+        /// means the window is switched off (<c>EcmJamHoldSeconds</c> 0) and it runs indefinitely,
+        /// which is the old behaviour.</summary>
+        internal float HeldUntil;
+
+        /// <summary>How many hold windows this lock has already used up, for the report.</summary>
+        internal int Windows;
     }
 
     private static readonly Dictionary<ObjectBase, Hold> Held = new();
+
+    /// <summary>
+    /// One contact's recovery window. Kept per contact rather than per lock, so releasing and
+    /// re-locking cannot skip it, and so the mod can look at the contact's sensors a few seconds
+    /// later and say in the log whether its own side actually brought anything back up.
+    /// </summary>
+    private sealed class Recovery
+    {
+        internal float Started;
+        internal float Until;
+        internal bool Checked;
+    }
+
+    /// <summary>When each contact may be held down again, by contact. Unity's == reports true for a
+    /// destroyed object, so entries are expired by time as well as by target.</summary>
+    private static readonly Dictionary<ObjectBase, Recovery> Recovering = new();
+
+    /// <summary>How long after a hold ends the contact's own sensors are read once, so the log can
+    /// say whether the window is buying the target anything on this build.</summary>
+    private const float RecoveryCheckSeconds = 5f;
     private static bool pictureReported;
     private static readonly Dictionary<ObjectBase, Mode> Modes = new();
 
@@ -91,6 +137,165 @@ internal static class OffensiveEcm
     internal static float Reach(ObjectBase? contact) =>
         UnitFit.IsAir(contact) ? AirRangeNm : RangeNm;
 
+    // --- the two limits --------------------------------------------------------------------------
+
+    /// <summary>How many contacts the task force may keep blind at once.</summary>
+    private static int Channels => ModSettings.EcmJamChannels;
+
+    /// <summary>How long one hold lasts, or zero for the unlimited version.</summary>
+    private static float HoldSeconds => ModSettings.EcmJamHoldSeconds;
+
+    /// <summary>How long a contact's crew are left alone after a hold ends.</summary>
+    private static float RecoverySeconds => ModSettings.EcmJamRecoverySeconds;
+
+    /// <summary>How many locks are holding a contact's sets down right now.</summary>
+    private static int ChannelsInUse()
+    {
+        int used = 0;
+
+        // A client cannot switch a host-simulated ship's sensors off, so a hold ordered from a
+        // client occupies nothing: counting it would take a channel from the machine that can
+        // actually use it.
+        bool here = !Multiplayer.IsClient;
+
+        foreach (KeyValuePair<ObjectBase, Hold> entry in Held)
+        {
+            if (here && entry.Value.Jamming) used++;
+        }
+
+        return used;
+    }
+
+    /// <summary>Who is holding the channels, so the menu can name what is occupying them.</summary>
+    private static string ChannelUsers()
+    {
+        var names = new List<string>();
+
+        bool here = !Multiplayer.IsClient;
+
+        foreach (KeyValuePair<ObjectBase, Hold> entry in Held)
+        {
+            if (!here || !entry.Value.Jamming) continue;
+            names.Add(Name(entry.Key) + " on " + Name(entry.Value.Target));
+        }
+
+        return names.Count > 0 ? string.Join(", ", names) : "nothing";
+    }
+
+    /// <summary>One line for the menu: the budget and what is using it.</summary>
+    internal static string ChannelLine()
+    {
+        int used = ChannelsInUse();
+
+        return used + " of " + Channels + " suppression channel(s) in use"
+               + (used > 0 ? " - " + ChannelUsers() : "");
+    }
+
+    /// <summary>Seconds left on this contact's recovery window, or zero when it is free.</summary>
+    private static float RecoveringFor(ObjectBase? target)
+    {
+        if (target == null) return 0f;
+        if (!Recovering.TryGetValue(target, out Recovery recovery)) return 0f;
+
+        float left = recovery.Until - Time.unscaledTime;
+        return left > 0f ? left : 0f;
+    }
+
+    /// <summary>Seconds left on this ship's hold, or zero when it is not holding anything.</summary>
+    internal static int HoldLeft(ObjectBase? ship)
+    {
+        if (ship == null || !Held.TryGetValue(ship, out Hold hold)) return 0;
+        if (!hold.Jamming || hold.HeldUntil <= 0f) return 0;
+
+        float left = hold.HeldUntil - Time.unscaledTime;
+        return left > 0f ? (int)Math.Ceiling(left) : 0;
+    }
+
+    /// <summary>
+    /// Ends a hold: the mod stops switching the contact's sets off, and the contact cannot be held
+    /// down again until its recovery window closes. Nothing is switched back on for the enemy - what
+    /// it does with its own radars afterwards is the game's own crew, not this mod pretending.
+    /// </summary>
+    private static void EndHold(ObjectBase ship, Hold hold, string why)
+    {
+        if (!hold.Jamming) return;
+
+        hold.Jamming = false;
+        hold.HeldUntil = 0f;
+        hold.Windows++;
+        hold.Reported = false;
+
+        ObjectBase? target = hold.Target;
+        if (target != null)
+        {
+            Recovering[target] = new Recovery
+            {
+                Started = Time.unscaledTime,
+                Until = Time.unscaledTime + RecoverySeconds,
+            };
+        }
+
+        ModLog.Info("Offensive ECM: " + Name(ship) + " stopped holding " + Name(target) + " down - "
+                    + why + (hold.Windows > 1 ? " (hold " + hold.Windows + " on this contact)" : "")
+                    + "; its crew have their sensors back"
+                    + (RecoverySeconds > 0f
+                        ? " and it cannot be held down again for " + (int)RecoverySeconds + " s"
+                        : "")
+                    + ". The game's own jam continues.");
+    }
+
+    /// <summary>
+    /// Whether this ship's lock could be switched to holding the contact's sensors down right now,
+    /// with the reason when it could not. The menu uses this so a refused order is never a click
+    /// that appears to do nothing.
+    /// </summary>
+    internal static bool CanHold(ObjectBase? ship, out string why)
+    {
+        why = "";
+
+        if (ship == null || !Held.TryGetValue(ship, out Hold hold) || hold.Target == null)
+        {
+            why = "no lock to hold - lock a contact first";
+            return false;
+        }
+
+        if (hold.Jamming)
+        {
+            why = "already holding " + Name(hold.Target) + " down";
+            return true;
+        }
+
+        ObjectBase target = hold.Target;
+
+        if (ContactPicture.Identified(target) == false)
+        {
+            why = Name(target) + " is not identified";
+            return false;
+        }
+
+        if (Multiplayer.IsClient)
+        {
+            why = "the host simulates the target";
+            return false;
+        }
+
+        float recovering = RecoveringFor(target);
+        if (recovering > 0f)
+        {
+            why = Name(target) + "'s crew are back up for another "
+                  + (int)Math.Ceiling(recovering) + " s";
+            return false;
+        }
+
+        if (ChannelsInUse() >= Channels)
+        {
+            why = "all " + Channels + " suppression channel(s) are in use (" + ChannelUsers() + ")";
+            return false;
+        }
+
+        return true;
+    }
+
     // --- mode ------------------------------------------------------------------------------------
 
     internal static Mode ModeOf(ObjectBase? unit)
@@ -102,8 +307,10 @@ internal static class OffensiveEcm
     internal static bool IsLocked(ObjectBase? unit) =>
         unit != null && Held.TryGetValue(unit, out Hold hold) && hold.Target != null;
 
-    internal static ObjectBase? TargetOf(ObjectBase? unit) =>
-        unit != null && Held.TryGetValue(unit, out Hold hold) ? hold.Target : null;
+    /// <summary>Whether this ship's jammer is locked on this particular contact.</summary>
+    internal static bool IsLockedOn(ObjectBase? unit, ObjectBase? contact) =>
+        unit != null && contact != null
+        && Held.TryGetValue(unit, out Hold hold) && ReferenceEquals(hold.Target, contact);
 
     /// <summary>Switches between the game's own ECM and the focused, signature-lock mode.</summary>
     internal static bool SetMode(ObjectBase unit, Mode mode, out string report)
@@ -414,6 +621,11 @@ internal static class OffensiveEcm
 
         // 2. The lock itself: hold the track and point the jammer.
         Modes[ship] = Mode.SignatureLock;
+        // A second lock on the same ship must not orphan the first: the old one is released the way
+        // the menu releases it, so its hold ends under the recovery rule and the game's own teardown
+        // takes its jam down instead of leaving it transmitting at nothing.
+        if (Held.ContainsKey(ship)) Release(ship, out _);
+
         Held[ship] = new Hold
         {
             Target = target,
@@ -421,6 +633,7 @@ internal static class OffensiveEcm
             Assertions = 0,
             Reported = false,
             Jamming = false,
+            HeldUntil = 0f,
         };
 
         report = "locked on " + Name(target)
@@ -446,6 +659,22 @@ internal static class OffensiveEcm
             report += " In a session the jam goes to the host as the game's own jam order, so the"
                       + " game's ECM decides the effect - the mod cannot hold a host unit's switches"
                       + " down from here.";
+        }
+
+        // Two limits, named at the moment the lock is taken rather than discovered on the click that
+        // does not work: how many contacts the force may keep blind, and whether this one is still
+        // recovering from the last hold.
+        if (ChannelsInUse() >= Channels)
+        {
+            report += " All " + Channels + " suppression channel(s) are in use, so the game's jam is "
+                      + "all this contact gets until one is freed.";
+        }
+
+        float recovering = RecoveringFor(target);
+        if (recovering > 0f)
+        {
+            report += " Its crew are back up for another " + (int)Math.Ceiling(recovering)
+                      + " s, so it cannot be held down yet.";
         }
 
         // Point the jammer now. The lock's whole purpose is that the game's own ECM is working on
@@ -533,6 +762,10 @@ internal static class OffensiveEcm
     /// It needs the contact to be identified. There is nothing to hold down on a track nobody has
     /// named - the mod will not name a stranger's sensor fit for them - so an unidentified contact
     /// gets the game's own jam and this order declines, in words, rather than pretending.
+    ///
+    /// Two limits gate it, and both are stated in the refusal rather than hidden: a contact still
+    /// inside its recovery window cannot be held down again, and the task force only has
+    /// <c>EcmJamChannels</c> holds to give out at once. The lock's own jam is unaffected by either.
     /// </summary>
     internal static bool JamNow(ObjectBase ship, out string report)
     {
@@ -546,7 +779,9 @@ internal static class OffensiveEcm
 
         if (hold.Jamming)
         {
-            report = "already holding " + Name(hold.Target) + " down";
+            int left = HoldLeft(ship);
+            report = "already holding " + Name(hold.Target) + " down"
+                     + (left > 0 ? " - " + left + " s left in this window" : "");
             return true;
         }
 
@@ -557,9 +792,31 @@ internal static class OffensiveEcm
             return false;
         }
 
+        // The crew's own recovery window, which a re-order does not skip: without it the hold would
+        // simply be renewed every time it lapsed and the target would never see anything again.
+        float recovering = RecoveringFor(hold.Target);
+        if (recovering > 0f)
+        {
+            report = Name(hold.Target) + "'s crew are back up for another "
+                     + (int)Math.Ceiling(recovering) + " s - the mod will not hold the same contact "
+                     + "down again until that window closes. The game's jam on it is still running";
+            return false;
+        }
+
+        // The channel budget: the expensive half is what is rationed, not the jam.
+        if (ChannelsInUse() >= Channels)
+        {
+            report = "no suppression channel free - all " + Channels + " are in use ("
+                     + ChannelUsers() + "). The game's jam on " + Name(hold.Target)
+                     + " is already running; release one of those to hold this one's sensors down";
+            ModLog.Warn("Offensive ECM: " + Name(ship) + " " + report);
+            return false;
+        }
+
         hold.Jamming = true;
         hold.NextAssertAt = Time.unscaledTime + AssertSeconds;
         hold.Reported = false;
+        hold.HeldUntil = HoldSeconds > 0f ? Time.unscaledTime + HoldSeconds : 0f;
 
         // The jam itself: the game's own order, so the game's own ECM model decides the effect -
         // range, the cone, the degraded radar picture, and in a session the host that runs it.
@@ -570,6 +827,7 @@ internal static class OffensiveEcm
         if (!aimed)
         {
             hold.Jamming = false;
+            hold.HeldUntil = 0f;
             report = "the jammer would not take the order on " + Name(hold.Target) + ": " + order;
             ModLog.Warn("Offensive ECM: " + report);
             return false;
@@ -599,7 +857,13 @@ internal static class OffensiveEcm
             if (legacy.Length > 0) extra += " | " + legacy;
         }
 
-        report = "jamming " + Name(hold.Target) + " on EMCON: " + order + "; " + extra;
+        report = "jamming " + Name(hold.Target) + " on EMCON: " + order + "; " + extra
+                 + ". The hold lasts "
+                 + (HoldSeconds > 0f
+                        ? (int)HoldSeconds + " s, then its crew get their sensors back for "
+                          + (int)RecoverySeconds + " s"
+                        : "until it is stopped (no window)")
+                 + "; " + ChannelLine() + ".";
 
         ModLog.Info("Offensive ECM: " + Name(ship) + " " + report);
         return true;
@@ -666,14 +930,19 @@ internal static class OffensiveEcm
 
         // Only the second half is stopped here. The game's own jam belongs to the lock and keeps
         // running - "release" is the order that takes it down.
-        hold.Jamming = false;
+        //
+        // Stopping by hand starts the same recovery window as a window running out, otherwise the
+        // limit would be free to skip: stop and re-order would renew the hold for ever.
+        EndHold(ship, hold, "stopped by hand");
         EcmControl.StandDown(ship, out _);
 
         report = Multiplayer.IsClient
             ? "stopped holding " + Name(hold.Target) + " down here; the lock and the game's jam "
               + "stay, and the host's sim is the one that ran them"
-            : "stopped holding " + Name(hold.Target) + " down; the game's jam and the lock stay";
-        ModLog.Info("Offensive ECM: " + Name(ship) + " " + report);
+            : "stopped holding " + Name(hold.Target) + " down; the game's jam and the lock stay"
+              + (RecoverySeconds > 0f
+                    ? ", and its crew have " + (int)RecoverySeconds + " s with their sensors back"
+                    : "");
         return true;
     }
 
@@ -723,6 +992,11 @@ internal static class OffensiveEcm
         if (ship == null || !Held.TryGetValue(ship, out Hold hold)) return false;
 
         string target = Name(hold.Target);
+
+        // If a hold was running, releasing ends it the same way a window running out does: the
+        // contact's crew get the recovery window, so releasing and re-locking cannot be used to
+        // start a fresh hold on the same ship a moment later.
+        EndHold(ship, hold, "the lock was released");
         Held.Remove(ship);
 
         // Nothing to restore on the radar front: this mode never switched it on. Offensive jamming
@@ -752,6 +1026,84 @@ internal static class OffensiveEcm
         return released;
     }
 
+    /// <summary>
+    /// Drops recovery windows that have closed, and forgets contacts that are gone. Written as its
+    /// own pass because the dictionary is keyed by the contact, not by the lock: a window that
+    /// outlives the lock that created it is the point.
+    /// </summary>
+    private static void ExpireRecovery()
+    {
+        if (Recovering.Count == 0) return;
+
+        float now = Time.unscaledTime;
+
+        foreach (KeyValuePair<ObjectBase, Recovery> entry in
+                 new List<KeyValuePair<ObjectBase, Recovery>>(Recovering))
+        {
+            try
+            {
+                // Unity's == is true for a destroyed object, and the key that is in the map is the
+                // one to remove - the same rule the lock loop follows.
+                if (entry.Key == null || entry.Key.IsDestroyed)
+                {
+                    Recovering.Remove(entry.Key);
+                    continue;
+                }
+
+                // Once, a few seconds after the hold ended: was anything switched back on? The mod
+                // switched nothing on for the enemy, so this is the target's own side doing it -
+                // and if nothing came back, the window is not buying it anything on this build and
+                // the log says so instead of leaving the limit looking like it works.
+                Recovery recovery = entry.Value;
+
+                if (!recovery.Checked && now >= recovery.Started + RecoveryCheckSeconds)
+                {
+                    recovery.Checked = true;
+                    NoteRecovery(entry.Key);
+                }
+
+                if (recovery.Checked && now >= recovery.Until) Recovering.Remove(entry.Key);
+            }
+            catch (Exception)
+            {
+                Recovering.Remove(entry.Key);
+            }
+        }
+    }
+
+    /// <summary>
+    /// Reads the contact's own sensors a few seconds after a hold ended and writes the answer down.
+    /// The mod switches nothing back on for the enemy, so this is the only honest way to know
+    /// whether the recovery window is doing anything: if its crew brought the sets back up, the
+    /// limit is real; if they did not, the log says so and the limit needs revisiting.
+    /// </summary>
+    private static void NoteRecovery(ObjectBase target)
+    {
+        List<SensorSet.Reading> readings = SensorSet.Read(target);
+
+        if (readings.Count == 0)
+        {
+            ModLog.Info("Offensive ECM: " + (int)RecoveryCheckSeconds + " s after the hold on "
+                        + Name(target) + " ended its sensor fit could not be read, so whether its "
+                        + "crew brought anything back is not visible to the mod");
+            return;
+        }
+
+        int up = 0;
+        foreach (SensorSet.Reading reading in readings)
+        {
+            if (reading.Radiating == true) up++;
+        }
+
+        ModLog.Info("Offensive ECM: " + (int)RecoveryCheckSeconds + " s after the hold on "
+                    + Name(target) + " ended: " + up + " of " + readings.Count
+                    + " sensor famil(ies) radiating - " + SensorSet.Describe(readings)
+                    + (up == 0
+                        ? ". Nothing came back: the mod switched nothing on for it, so the window is "
+                          + "not giving this target anything on this build - send this line"
+                        : ". Its crew have their sensors back, which is what the window is for"));
+    }
+
     // --- the tick --------------------------------------------------------------------------------
 
     /// <summary>
@@ -761,6 +1113,10 @@ internal static class OffensiveEcm
     /// </summary>
     internal static void Tick()
     {
+        // The recovery clocks run whether or not anything is locked, so a contact that has just been
+        // let go keeps its window even after the lock that created it has gone.
+        ExpireRecovery();
+
         if (Held.Count == 0) return;
         if (!ModSettings.FeaturesEnabled)
         {
@@ -799,6 +1155,15 @@ internal static class OffensiveEcm
                                 + " at " + (int)range + " nm - out of range");
                     Release(ship, out _);
                     continue;
+                }
+
+                // The window runs out on its own. This is the limit that makes the hold a burst of
+                // suppression rather than a permanent state: the mod stops holding the contact's
+                // sets down, and switches nothing back on for it - that is the game's own crew.
+                if (hold.Jamming && hold.HeldUntil > 0f && now >= hold.HeldUntil)
+                {
+                    EndHold(ship, hold, (int)HoldSeconds + " s window used up");
+                    EcmControl.StandDown(ship, out _);
                 }
 
                 if (now < hold.NextAssertAt) continue;
@@ -881,8 +1246,34 @@ internal static class OffensiveEcm
         if (Held.TryGetValue(unit, out Hold hold) && hold.Target != null)
         {
             double range = SafeRange(Position(unit), hold.Target);
-            return (hold.Jamming ? "holding " : "locked on ") + Name(hold.Target)
-                   + " (" + (int)range + " nm, game: " + OffensiveJam.Status(unit) + ")";
+
+            string what = Name(hold.Target) + " (" + (int)range + " nm, game: "
+                          + OffensiveJam.Status(unit) + ")";
+
+            if (hold.Jamming)
+            {
+                int left = HoldLeft(unit);
+                return "holding " + what + (left > 0 ? ", " + left + " s left" : "");
+            }
+
+            float recovering = RecoveringFor(hold.Target);
+            if (recovering > 0f)
+            {
+                return "locked on " + what + " - its crew are up for "
+                       + (int)Math.Ceiling(recovering) + " s";
+            }
+
+            if (ContactPicture.Identified(hold.Target) == false)
+            {
+                return "locked on " + what + " - not identified, so the jam is on its bearing";
+            }
+
+            if (ChannelsInUse() >= Channels)
+            {
+                return "locked on " + what + " - no suppression channel free";
+            }
+
+            return "locked on " + what + " - its sensors are up, click to hold them down";
         }
 
         return "signature lock, no lock taken yet";
@@ -987,7 +1378,23 @@ internal static class OffensiveEcm
             text.AppendLine("switch off; the menu says 'NOT all sensors off' and names it rather than");
             text.AppendLine("claiming otherwise.");
             text.AppendLine("The hold is re-asserted ten times a second - it is sustained suppression, not");
-            text.AppendLine("a permanent state change, and it stops the moment the lock is released.");
+            text.AppendLine("a permanent state change, and it stops when the lock is released or when the");
+            text.AppendLine("hold window below runs out.");
+            text.AppendLine();
+            text.AppendLine("The two limits on holding a contact down");
+            text.AppendLine("---------------------------------------");
+            text.AppendLine("  suppression channels : " + ChannelsInUse() + " of " + Channels + " in use ("
+                            + ChannelUsers() + ")");
+            text.AppendLine("  hold window          : " + (HoldSeconds > 0f
+                            ? (int)HoldSeconds + " s, then its crew get their sensors back"
+                            : "off - the hold runs until it is stopped"));
+            text.AppendLine("  recovery window      : " + (RecoverySeconds > 0f
+                            ? (int)RecoverySeconds + " s before the same contact can be held down again"
+                            : "off - the hold can be renewed immediately"));
+            text.AppendLine();
+            text.AppendLine("Neither limit switches anything back on for the enemy. When a hold ends the");
+            text.AppendLine("mod simply stops holding the sets down, and the contact's own crew decide");
+            text.AppendLine("what to radiate next - which is why a jam buys time rather than silence.");
 
             string path = ModFolders.AppendText("offensive-ecm.txt", text.ToString());
             ModLog.Info("Offensive ECM report written to " + path);

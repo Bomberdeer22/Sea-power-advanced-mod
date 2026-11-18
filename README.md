@@ -36,8 +36,9 @@ look for it, rather than in one long submenu:
 Orders                      Weapon hatches (feature 1)
 Sensors                     radars, air/surface search only, active sonar, towed array,
                             EMCON profiles, radar blink, auto-ARM, defensive ECM,
-                            offensive ECM (two modes, works on unidentified contacts), commercial
-                            disguise, and the close-in dive that flies jammed missiles down
+                            offensive ECM (two modes, works on unidentified contacts, and a
+                            suppression budget with a time limit), commercial disguise, and the
+                            close-in dive that flies jammed missiles down
 Engage                      deconflict the salvo, release everyone
 Rules of engagement         action stations / cold cruise, crew fatigue status
 Formation                   sprint and drift (this ship or the whole force),

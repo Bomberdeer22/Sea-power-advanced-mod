@@ -161,35 +161,57 @@ internal static class FleetMenu
 
             // Already locked on this contact? Then the manual transmit order belongs here too, next
             // to the lock it acts on.
-            bool locked = OffensiveEcm.IsLocked(jammer) &&
-                          ReferenceEquals(OffensiveEcm.TargetOf(jammer), contact);
+            bool locked = OffensiveEcm.IsLockedOn(jammer, contact);
 
             if (locked)
             {
                 bool holding = OffensiveEcm.IsHolding(jammer);
 
-                bool named = ContactPicture.Identified(contact) != false;
+                // The limit is named before the click, not after it: either the window is running
+                // out, the contact's crew have their own window, or the force has no channel left.
+                bool allowed = OffensiveEcm.CanHold(jammer, out string canHold);
 
-                var transmit = named ? new ContextMenuItem(
-                    label: holding
-                        ? "Offensive ECM: hold its sensors down - on, click to stop"
-                        : "Offensive ECM: hold its sensors down",
-                    items: null,
-                    command: new DelegateCommand(_ => Report(contact,
-                        holding ? "stop holding" : "hold down",
-                        holding ? OffensiveEcm.StopJam(jammer, out string s2)
-                                : OffensiveEcm.JamNow(jammer, out s2), s2)),
-                    tooltip: holding
-                        ? "Stops holding the contact's individual sets down. The game's own jam "
-                          + "order stays, so the jam itself continues."
-                        : "The game's jam is already working on it. This adds the second half: "
-                          + "switch the contact's own sensors off and keep them off. Needs the "
-                          + "contact to be identified, because there is nothing to hold down on a "
-                          + "track nobody has named.")
-                    : Disabled("Offensive ECM: hold its sensors down - needs it identified",
-                        "An unidentified contact is jammed on its bearing, which is the game's own "
-                        + "jam and is already running. Its sensor fit cannot be held down until the "
-                        + "picture knows whose it is.");
+                string left = holding && OffensiveEcm.HoldLeft(jammer) > 0
+                    ? " (" + OffensiveEcm.HoldLeft(jammer) + " s)"
+                    : "";
+
+                ContextMenuItem transmit;
+
+                if (holding)
+                {
+                    transmit = new ContextMenuItem(
+                        label: "Offensive ECM: holding its sensors down" + left + " - click to stop",
+                        items: null,
+                        command: new DelegateCommand(_ => Report(contact, "stop holding",
+                            OffensiveEcm.StopJam(jammer, out string s2), s2)),
+                        tooltip: "Stops holding the contact's individual sets down. The game's own "
+                                 + "jam order stays, so the jam itself continues. Its crew get the "
+                                 + "recovery window with their sensors back, because stopping by "
+                                 + "hand must not be a way round the limit.");
+                }
+                else if (allowed)
+                {
+                    transmit = new ContextMenuItem(
+                        label: "Offensive ECM: hold its sensors down",
+                        items: null,
+                        command: new DelegateCommand(_ => Report(contact, "hold down",
+                            OffensiveEcm.JamNow(jammer, out string s2), s2)),
+                        tooltip: "The game's jam is already working on it. This adds the second "
+                                 + "half: switch the contact's own sensors off and keep them off. "
+                                 + "It needs the contact to be identified, and it is a burst: the "
+                                 + "hold runs for a set time, then its crew get their sensors back "
+                                 + "for a while before it can be held down again.");
+                }
+                else
+                {
+                    transmit = Disabled(
+                        "Offensive ECM: cannot hold it down - "
+                        + (canHold.Length > 0 ? canHold : "it is not identified"),
+                        "The game's jam on this contact is already running and does not need "
+                        + "either of these. Holding its own sets down needs it identified, needs "
+                        + "a suppression channel free in the task force, and needs its crew to "
+                        + "have finished recovering from the last hold. The menu says which.");
+                }
 
                 MenuRouting.Place(roots, live, transmit, Array.Empty<string>());
                 MenuRouting.Placements.Add(transmit.Label + "  ->  top level");
@@ -387,23 +409,35 @@ internal static class FleetMenu
             {
                 // Two halves, and the menu says which one it is offering. The game's own jam order
                 // is already running from the lock; this second half holds the target's own sets
-                // down as well.
-                bool lockNamed = ContactPicture.Identified(OffensiveEcm.TargetOf(unit)) != false;
+                // down as well - as a burst, because a jammer that blinds a ship for ever is not a
+                // model of anything.
+                int held = OffensiveEcm.HoldLeft(unit);
+                bool canHold = OffensiveEcm.CanHold(unit, out string why);
 
                 Add(OffensiveEcm.IsHolding(unit)
-                    ? Action("Offensive ECM: holding its sensors down - click to stop",
-                        "Stops holding the contact's sets down. The game's own jam continues.",
+                    ? Action("Offensive ECM: holding its sensors down"
+                             + (held > 0 ? " (" + held + " s)" : "") + " - click to stop",
+                        "Stops holding the contact's sets down. The game's own jam continues, and "
+                        + "its crew get the recovery window with their sensors back.",
                         () => Report(unit, "stop holding", OffensiveEcm.StopJam(unit, out string r), r))
-                    : lockNamed
+                    : canHold
                         ? Action("Offensive ECM: hold its sensors down too",
                             "Switches the contact's own sensors off and keeps them off, on top of "
-                            + "the game's jam.",
+                            + "the game's jam - for one window, after which its crew get their "
+                            + "sensors back for a while.",
                             () => Report(unit, "hold down", OffensiveEcm.JamNow(unit, out string r), r))
-                        : Disabled("Offensive ECM: hold its sensors down - needs it identified",
-                            "The game's jam is already running on this contact. Its own sensor fit "
-                            + "can only be held down once the picture knows whose it is."),
+                        : Disabled("Offensive ECM: cannot hold it down - " + why,
+                            "The game's jam on this contact is running anyway. Holding its own "
+                            + "sets down also needs a free suppression channel in the task force "
+                            + "and the contact's crew to have finished recovering from the last "
+                            + "hold; both limits are in the mod's settings."),
                     MenuRouting.Sensors);
             }
+
+            Add(Disabled("Offensive ECM: " + OffensiveEcm.ChannelLine(),
+                "The task force's suppression budget: how many contacts can have their own "
+                + "sensors held down at once. Every lock still gets the game's jam."),
+                MenuRouting.Sensors);
 
             Add(Disabled("Offensive ECM: " + OffensiveEcm.Describe(unit),
                 "What the focused jammer is doing right now - its own state and the game's."),

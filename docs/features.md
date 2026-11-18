@@ -189,7 +189,10 @@ mod could not see the picture".
    *extra* half: instead of only degrading what the target sees, the mod switches the target's own
    radar families, sonar and towed array off and keeps them off, re-asserted ten times a second.
    This half needs the contact to be identified - there is nothing to hold down on a track nobody has
-   named - and it is offered only when the picture says the contact is identified.
+   named - and it is offered only when the picture says the contact is identified. It is a **burst**,
+   not a switch: it runs for one window and then the contact's crew get their sensors back for a
+   while. A menu line under the lock reports `N of M suppression channel(s) in use` and names the
+   ships using them.
 4. **`stop`** stops that second half and leaves the game's jam running;
    **`Release the ECM lock`** takes the jam down through the game's own teardown
    (`ceaseOffensiveJam`), which is the only thing that also removes the set from every victim's list.
@@ -202,7 +205,47 @@ mod could not see the picture".
 | Range | `Features/JamRangeNm`, default **150 nm** against ships; `Features/JamAirRangeNm`, default **150 nm** against aircraft. Both go to 300 |
 | Cost | **None in emissions.** This mode runs on EMCON: it never switches the attacking ship's radar on, so the jammer gives away nothing while it works. (The defensive feature does need air search - it is locking onto a missile, not a contact.) |
 | Result you will see | The game's jam, immediately, from the lock. Then, if the second half is ordered: *every sensor off*, or *NOT all sensors off - <sensor> would not switch off on this build*. The second is not a bug in the lock: it means the game gives no way to reach that one sensor family, so it is still working. The menu names it and `offensive-ecm.txt` lists it as `STILL`. The mod does not edit the target's picture to hide that. On an unidentified contact there is no second half to order, and the menu says so rather than offering a button that cannot do anything. |
-| Honest limit | The effect lasts as long as the lock is held. It is not a permanent state change to the other ship's data, and it stops the moment the lock is released - which is why the mod re-asserts rather than setting it once. |
+| Honest limit | The game's jam lasts as long as the lock is held. The second half - the switch-off - is a **burst**: it runs for a set window, then the contact's crew get their sensors back for a recovery period before it can be held down again. There is also a limit on how many contacts the task force can hold blind at once. See below. |
+
+### Making it less powerful
+
+The second half was the strongest thing in the mod, and it was unlimited in the two ways a real jammer
+is not: it never ran out, and there was no limit on how many contacts were kept blind at the same
+time. Two limits now, both settings, both stated in the menu before the click and in
+`offensive-ecm.txt` afterwards:
+
+| Setting | Default | What it means |
+|---|---|---|
+| `Features/EcmJamChannels` | **2** | How many contacts the task force may hold **blind** at once. This is the expensive half only: every lock still gets the game's own jam, so a lock with no channel free is a jam without the blinding, and the menu says which ships are using the channels |
+| `Features/EcmJamHoldSeconds` | **60** | How long one hold lasts. When it runs out the mod simply stops switching the contact's sensors off - it switches nothing back on for the enemy, the game's own crew does that - and the game's jam continues |
+| `Features/EcmJamRecoverySeconds` | **15** | After a hold ends, the same contact cannot be held down again for this long. Without it the window would be a formality: the player would re-order the instant it lapsed and the target would never get a sensor back |
+
+**Why the channel budget is the task force's, not one ship's.** A ship's jammer already holds one
+contact - the game gives a set one assignment - so a per-ship figure above one would be a promise the
+simulation would not keep, and the mod does not make those. What is finite is the expensive half: a
+few tracks held blind at a time, staffed and run from the force's electronic attack cell, with
+everything else getting the game's own jam. A player who sets `99` gets the 0.22.1 behaviour back;
+`1` makes it a single-track weapon.
+
+The recovery window is not skippable: stopping a hold by hand, releasing the lock, and running out of
+window all start it. Re-ordering during it is refused with the seconds named. The defensive dive's
+guidance channels (§2f) are a separate budget: defending a ship and blinding someone else's do not
+compete for the same number.
+
+**And it checks itself.** Five seconds after a hold ends the mod reads the contact's sensors once and
+writes down whether anything came back up. It cannot switch them on for the enemy - that would be
+radiating on someone else's behalf - so the target's own side has to do it, and if it does not, the
+window is not buying the target anything on that build. The log line is
+`5 s after the hold on <target> ended: N of M sensor famil(ies) radiating - ...`, and a zero after it
+says the limit needs another look. Send that line with the report.
+
+Three settings, three presets:
+
+| Preset | Channels | Hold | Recovery | What it feels like |
+|---|---|---|---|---|
+| **Shipped** | 2 | 60 | 15 | Two tracks blind at a time; a target is off the air for a minute, then has a quarter of a minute with its radar back |
+| Single track | 1 | 45 | 30 | One contact at a time, and it gets a long look between windows |
+| 0.22.1, unlimited | 99 | 0 | 0 | Every lock blinds its contact for as long as it is held - the version that was too strong |
 
 `offensive-ecm.txt` in the mod folder records every lock, appended rather than overwritten: which
 kind of target it was, which contact lists the picture was read from, the signatures read off the
@@ -457,7 +500,14 @@ more slowly than tiring, so there is a real cost to leaving the fleet closed up 
 | `JamRangeNm` | `150` | Reach of the focused offensive jammer against a ship |
 | `JamAirRangeNm` | `150` | Reach against an aircraft or helicopter |
 | `ShowEcmCone` | `true` | Draw the ECM cones on the map |
+| `EcmJamChannels` | `2` | How many contacts the task force may hold sensors down on at once. The game's jam is unaffected |
+| `EcmJamHoldSeconds` | `60` | How long one hold lasts before the contact's crew get their sensors back. **0 = unlimited** |
+| `EcmJamRecoverySeconds` | `15` | Seconds before the same contact can be held down again. **0 = free to renew** |
 | `EcmDiveNm` | `10` | How far out an armed jammer starts pointing an inbound missile at the sea. **0 = off** |
+| `EcmDiveChannels` | `3` | How many missiles one ship's jammer can put down at once (§2f) |
+| `EcmDiveIntervalSeconds` | `2` | Seconds between one descent starting and the next being allowed (§2f) |
+| `EcmDiveReactionSeconds` | `1` | Seconds between a missile crossing `EcmDiveNm` and its descent starting (§2f) |
+| `EcmDiveRadarSeekersOnly` | `true` | Only radar-seeking missiles can be decoyed - IR, optical and anti-radiation are immune (§2f) |
 
 ## What to send back if something misbehaves
 

@@ -3,7 +3,7 @@
 Run this once per game version, and after any change to `HatchControl`, `HatchMenu` or the
 feature menus.
 
-Version under test: **0.22.1**. Mod id `io.github.bomberdeer22.seapoweradvanced`.
+Version under test: **0.23.0**. Mod id `io.github.bomberdeer22.seapoweradvanced`.
 
 **Read the log, do not guess.** Everything below is confirmed by two files:
 
@@ -147,6 +147,27 @@ Full description of each: [features.md](features.md). Right-click one of your sh
       `offensive-ecm.txt` shows the picture with `not identified` counted
 - [ ] The target's radars go dark and stay dark while the lock is held (watch its emissions); the
       log repeats `holding <target> ... blind` only when the picture changes
+- [ ] **The window (limit 1).** The hold label counts down - `holding its sensors down (43 s)` - and
+      the menu line under the lock reads `N of M suppression channel(s) in use`. When it reaches
+      zero the log reads `stopped holding <target> down - 60 s window used up; its crew have their
+      sensors back and it cannot be held down again for 15 s`, the target's radar comes back on its
+      own (the game's crew, not the mod), and **hold its sensors down** reads
+      `cannot hold it down - <target>'s crew are back up for another N s`
+- [ ] Wait out the recovery window and order it again: it is allowed, and the log records
+      `(hold 2 on this contact)` so a second window is visible in the report
+- [ ] **Does the window actually do anything?** Five seconds after a hold ends the log gains
+      `5 s after the hold on <target> ended: N of M sensor famil(ies) radiating - ...`. If N is
+      zero, the target's own side never brought its sets back, so the window is not giving it
+      anything yet - **send that line**, it is the one that decides whether the limit is real
+- [ ] **The channel budget (limit 2).** Lock a second and third contact and order the hold on each:
+      with the shipped 2, the third reads
+      `cannot hold it down - all 2 suppression channel(s) are in use (<ship> on <target>, ...)`.
+      **The game's jam on it keeps running** - only the blinding is refused
+- [ ] Stop one hold by hand: the channel frees at once, the log reads `stopped by hand`, and that
+      contact starts its own recovery window - stopping by hand is not a way round the limit
+- [ ] Releasing the lock on a contact that was being held also starts its recovery window
+- [ ] Set `EcmJamHoldSeconds = 0` and `EcmJamChannels = 99` in the config, restart: the countdown is
+      gone and every lock can blind its contact, which is the 0.22.1 behaviour
 - [ ] **Release the lock** (or switching back to standard) stops the suppression, logs
       `released <target> after N assertion(s)`, and puts the jammer ship's air search back as found
 - [ ] The lock runs **on EMCON**: the attacking ship's air-search radar does *not* come on, and the

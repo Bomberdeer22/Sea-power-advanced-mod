@@ -29,6 +29,9 @@ internal static class ModSettings
     private static ConfigEntry<float>? ecmDiveIntervalSeconds;
     private static ConfigEntry<float>? ecmDiveReactionSeconds;
     private static ConfigEntry<bool>? ecmDiveRadarSeekersOnly;
+    private static ConfigEntry<int>? ecmJamChannels;
+    private static ConfigEntry<float>? ecmJamHoldSeconds;
+    private static ConfigEntry<float>? ecmJamRecoverySeconds;
 
     internal static bool Enabled => enabled?.Value ?? true;
     internal static bool IncludeGuns => includeGuns?.Value ?? false;
@@ -120,6 +123,41 @@ internal static class ModSettings
     /// difficulty setting - which is why it defaults on and is worth leaving on.
     /// </summary>
     internal static bool EcmDiveRadarSeekersOnly => ecmDiveRadarSeekersOnly?.Value ?? true;
+
+    /// <summary>
+    /// How many contacts the task force's jammers can hold sensors down on at the same time.
+    ///
+    /// **Two**, and it is a budget for the whole force rather than a per-ship number, because a
+    /// ship's jammer already holds one contact - the game gives a set one assignment - so a
+    /// per-ship figure above one could only ever be a promise the simulation will not keep. What
+    /// this counts is the expensive half: switching a contact's own sets off and keeping them off.
+    /// Every lock still gets the game's own jam, whatever the budget says; a lock with no channel
+    /// free is a jam without the blinding, and the menu says so. Electronic attack is a staffed,
+    /// finite thing - a handful of tracks at once - and 99 is the old unlimited version.
+    /// </summary>
+    internal static int EcmJamChannels => Math.Max(1, Math.Min(99, ecmJamChannels?.Value ?? 2));
+
+    /// <summary>
+    /// How long one hold lasts before the target's crew get their sensors back, in seconds.
+    ///
+    /// **Sixty**. A crew is not paralysed by a jammer: it notices the set has gone, works out it is
+    /// being jammed, and starts switching things back on. The mod models that by simply stopping,
+    /// which is the honest way round - it does not switch anything back on for the enemy, it stops
+    /// holding it down. Zero is the old, unlimited version.
+    /// </summary>
+    internal static float EcmJamHoldSeconds =>
+        Math.Max(0f, Math.Min(300f, ecmJamHoldSeconds?.Value ?? 60f));
+
+    /// <summary>
+    /// Seconds after a hold ends during which the same contact cannot be held down again.
+    ///
+    /// **Fifteen**. Without this the window above is a formality: the player would click again the
+    /// instant it lapsed and the target would never get a sensor back. With it, the target has a
+    /// real quarter of a minute with its radar up - long enough for it to see, shoot or call
+    /// something in - and the jammer has to wait it out. Zero makes the window free to renew.
+    /// </summary>
+    internal static float EcmJamRecoverySeconds =>
+        Math.Max(0f, Math.Min(120f, ecmJamRecoverySeconds?.Value ?? 15f));
 
     /// <summary>Seconds between ships being released in a deconflicted salvo.</summary>
     internal static float SalvoSpacingSeconds => salvoSpacingSeconds?.Value ?? 8f;
@@ -219,6 +257,24 @@ internal static class ModSettings
             if (ecmDiveChannels.Value == 2) ecmDiveChannels.Value = 3;
             if (Math.Abs(ecmDiveIntervalSeconds.Value - 4f) < 0.01f) ecmDiveIntervalSeconds.Value = 2f;
             if (Math.Abs(ecmDiveReactionSeconds.Value - 2f) < 0.01f) ecmDiveReactionSeconds.Value = 1f;
+
+            ecmJamChannels = file.Bind("Features", "EcmJamChannels", 2,
+                "How many contacts the task force's jammers can hold sensors down on at once (1-99). "
+                + "This is the expensive half of offensive ECM - switching a contact's own sets off "
+                + "and keeping them off. Every lock still gets the game's own jam; a lock with no "
+                + "channel free is a jam without the blinding, and the menu says so. 2 by default; "
+                + "99 is the old unlimited version.");
+
+            ecmJamHoldSeconds = file.Bind("Features", "EcmJamHoldSeconds", 60f,
+                "How long one hold on a contact lasts before its crew get their sensors back, in "
+                + "seconds (0-300). 60 by default: a crew notices the set has gone and starts "
+                + "switching things back on. The mod does not switch anything back on for the "
+                + "enemy - it simply stops holding it down. 0 is the old unlimited version.");
+
+            ecmJamRecoverySeconds = file.Bind("Features", "EcmJamRecoverySeconds", 15f,
+                "Seconds after a hold ends during which the same contact cannot be held down again "
+                + "(0-120). 15 by default, so the target gets a real window with its radar up - long "
+                + "enough to see, shoot or call something in. 0 makes the window free to renew.");
 
             salvoSpacingSeconds = file.Bind("Features", "SalvoSpacingSeconds", 8f,
                 "Seconds between ships being released to fire in a deconflicted salvo (1-60).");

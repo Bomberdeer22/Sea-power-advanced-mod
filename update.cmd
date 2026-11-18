@@ -301,6 +301,8 @@ call :ver_lt "!INSTALLED!" "0.22.0"
 if defined VLT call :note "0.22.0 - the dive gains four limits (guidance channels, engagement interval, reaction delay, radar-seeker filter). They are new settings with defaults."
 call :ver_lt "!INSTALLED!" "0.22.1"
 if defined VLT call :mig_dive_limits
+call :ver_lt "!INSTALLED!" "0.23.0"
+if defined VLT call :note "0.23.0 - offensive ECM's sensor hold gains two limits: a task-force channel budget and a hold window with a recovery period. They are new settings with defaults."
 exit /b 0
 
 :mig_dive_limits
@@ -411,6 +413,8 @@ call :ver_lt "!INSTALLED!" "0.22.0"
 if defined VLT call :say "0.22.0  the dive is limited like a real ship's: guidance channels, an engagement interval, a reaction delay, radar seekers only"
 call :ver_lt "!INSTALLED!" "0.22.1"
 if defined VLT call :say "0.22.1  the shipped setting is now 3 channels, 2 s between engagements, 1 s to react"
+call :ver_lt "!INSTALLED!" "0.23.0"
+if defined VLT call :say "0.23.0  offensive ECM holds a contact's sensors down only so long, only on so many contacts, and then they get them back"
 exit /b 0
 
 

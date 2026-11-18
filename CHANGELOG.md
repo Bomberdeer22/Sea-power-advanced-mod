@@ -1,5 +1,42 @@
 # Changelog
 
+## 0.23.0 - a jammer has channels, and a hold runs out
+
+The player's verdict on the offensive ECM, asked for and answered honestly: the game's own jam is
+fine, but the second half - switching an identified contact's whole sensor fit off and keeping it off -
+had no limit at all. One click, a contact blind for as long as the lock was held, and a fleet's worth
+of ships doing it to a fleet's worth of contacts at once. That is the same "too well" as the dive had
+before 0.22.0, and it gets the same treatment.
+
+Two limits, both settings, both stated in the menu before the click and in `offensive-ecm.txt`
+afterwards:
+
+- **`Features/EcmJamChannels`, default 2.** How many contacts the task force may hold **blind** at
+  once. A ship's jammer already holds one contact - the game gives a set one assignment - so a
+  per-ship figure above one would be a promise the simulation would not keep. What is finite is the
+  expensive half: a few tracks held blind at a time, staffed from the force's electronic attack cell.
+  **Every lock still gets the game's own jam**, so a lock with no channel free is a jam without the
+  blinding, and the menu names the ships using them. `99` is the old version.
+- **`Features/EcmJamHoldSeconds`, default 60, and `Features/EcmJamRecoverySeconds`, default 15.** A
+  hold is now a burst: a minute of suppression, then the mod stops holding the sets down - it switches
+  nothing back on for the enemy, the game's own crew does that - and the same contact cannot be held
+  down again for fifteen seconds. Stopping a hold by hand and releasing the lock both start the same
+  recovery window, so the limit cannot be skipped by clicking twice.
+
+The mod also checks its own second limit. Five seconds after a hold ends it reads the contact's
+sensors once and writes down whether anything came back up (`5 s after the hold on <target> ended: N
+of M sensor famil(ies) radiating`). It will not switch them on for the enemy - that would be radiating
+on someone else's behalf - so the target's own side has to, and if it does not, the window is buying
+the target nothing and the log says so rather than leaving the limit looking like it works.
+
+Also fixed: taking a second lock on the same ship used to overwrite the first without standing it
+down, leaving the old assignment in place. It now releases the old lock properly - teardown and all -
+before taking the new one.
+
+Nothing else about offensive ECM changed: it still runs on EMCON, still works on unidentified contacts
+through the game's bearing jam, still reaches 150 nm for ships and aircraft, and still reports every
+lock to `offensive-ecm.txt`.
+
 ## 0.22.1 - 3 / 2 / 1 as the shipped setting
 
 The player played 0.22.0's middle setting and chose a line: **three guidance channels, two seconds
