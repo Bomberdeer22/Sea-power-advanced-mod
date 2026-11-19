@@ -38,13 +38,23 @@ reader's self-test. Nobody runs it; it existed so the reader could be pinned aga
 output. An unsigned `.exe` inside a small project's zip is precisely what a browser is built to stop,
 so it stopped the whole archive.
 
-- **The fixture is now base64 text** (`hello.exe.b64`, with its sha256 in the header). `selftest.py`
-  decodes it to a temporary file, checks the hash, runs the same nine checks and deletes it again.
-- **The repository now contains no binary of any kind** - only `.cs`, `.cmd`, `.ps1`, `.md`, `.txt`,
-  `.ini` and `.py`, all text that opens in Notepad.
-- **`check-source.py` enforces it**: a committed `.exe`/`.dll`/`.zip`/`.msi` fails the check, and so
-  does any script outside the tooling allowlist. Tested by putting the `.exe` back - the gate names it
-  and exits 1 - and by dropping in a stray `.cmd`, which it also names.
+- **The fixture is not shipped at all.** The first attempt stored it as base64 text (`hello.exe.b64`),
+  and the report came back unchanged - "still showing up as a virus" - which is the right answer:
+  scanners look for an encoded `MZ` header as readily as for the `.exe` itself, so hiding the
+  bytes only hid them from a person reading the file. `selftest.py` now ships the **expected output**
+  (`hello.ildasm.txt`, MIT, text) and fetches the sample on demand with
+  `python tools/analysis/selftest.py --fetch`, which checks its sha256 before use. With no sample the
+  self-test skips and exits 2; with one, all nine checks pass.
+- **The repository now contains no binary of any kind, encoded or not** - only `.cs`, `.cmd`, `.ps1`,
+  `.md`, `.txt`, `.ini` and `.py`, all text that opens in Notepad.
+- **`tools/build-portable.ps1` no longer runs a downloaded script.** It fetched `dotnet-install.ps1`
+  from dot.net and executed it with `-ExecutionPolicy Bypass` - download-a-script-and-run-it is a
+  dropper signature, and it was the one pattern in this repository that deserved to be flagged. It now
+  downloads Microsoft's SDK **ZIP** and unpacks it with `Expand-Archive`, exactly what `build.cmd`
+  already did with `curl` and `tar`.
+- **`check-source.py` enforces it**: a committed `.exe`/`.dll`/`.zip`/`.msi` fails the check, a file
+  whose first two bytes are `MZ` fails whatever its name, a text file containing a base64 `MZ` fails,
+  and so does any script outside the tooling allowlist. Each one was tested by planting it.
 - **`INSTALL.md` now explains the refusal** instead of leaving a player to guess: what was in the
   archive, what the tools actually do line by line, and three ways to get the files when a browser will
   not hand them over (a git clone, GitHub's own zip, or the individual files).

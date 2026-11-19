@@ -6,8 +6,8 @@
   Installs dnfile and dncil into tools/analysis/.venv. Nothing is installed system-wide and no
   settings are changed; delete the .venv folder to undo it.
 
-  Blocked by the PowerShell execution policy? Use survey.cmd instead, or:
-      powershell -ExecutionPolicy Bypass -File tools\analysis\setup.ps1
+  Blocked by the PowerShell execution policy? Run survey.cmd instead: it sets the
+  same environment up with cmd.exe, no script host involved.
 #>
 [CmdletBinding()]
 param(

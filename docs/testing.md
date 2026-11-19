@@ -343,10 +343,15 @@ python tools\check-docs.py         :: every .txt twin still matches its Markdown
 
 `check-source.py` is the one that grows: every time a build fails on something a compiler sees and
 Python could have, a rule is added for it - and one rule is there because of a *download* failure
-rather than a build one. **No binaries in the tree**: a committed `.exe`/`.dll`/`.zip`/`.msi` fails the
-check, as does any batch or PowerShell file that is not one of the repository's own tools. That rule
-exists because 0.24.0's archive carried one compiled test fixture and every browser refused to download
-it; the fixture is base64 text now, and the check keeps it that way. The newest covers the **imports of BCL types** - `List`,
+rather than a build one. **No executable bytes in the tree, in any form**: a committed
+`.exe`/`.dll`/`.zip`/`.msi` fails the check, so does any file whose first bytes are `MZ` whatever it is
+called, so does any text carrying an encoded program header, and so does any batch or PowerShell file
+that is not one of the repository's own tools. That rule exists because 0.24.0's archive carried one
+compiled test fixture and every browser refused to download it - and because encoding that fixture as
+text did not help: the archive still held a program in disguise, and the download was still refused.
+The fixture now lives nowhere in the tree. `selftest.py --fetch` downloads it, checks its SHA-256
+against the constant in the script, and writes it to `testdata/` locally (never committed); without it
+the selftest skips and exits 2, so the rest of the gate still runs. The newest rule covers the **imports of BCL types** - `List`,
 `Dictionary`, `HashSet`, `IEnumerable`, `StringBuilder`, `Regex`, `BindingFlags`, `Path` and the rest -
 because 0.24.0 shipped a file that used `List<>` and `Dictionary<>` without importing the namespace
 that declares them, and that cost a build. `--fix` puts the missing line back by itself.

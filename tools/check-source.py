@@ -536,11 +536,22 @@ def binary_problems() -> list[str]:
 
         # A PE with no suffix at all is still a PE: trust the header, not the name.
         try:
-            if path.stat().st_size > 8 and path.read_bytes()[:2] == b"MZ":
-                problems.append(f"{relative}: is a Windows executable (MZ header) - store it as "
-                                f"base64 text, or do not commit it")
+            head = path.read_bytes()[:4096]
         except OSError:
-            pass
+            continue
+
+        if len(head) > 8 and head[:2] == b"MZ":
+            problems.append(f"{relative}: is a Windows executable (MZ header) - do not commit it")
+            continue
+
+        # An encoded one is the same problem wearing a hat. "TVqQAAMAAAAE" is base64's spelling of an
+        # "MZ" header and the DOS stub that follows it, and a text file containing it is a packed
+        # executable however harmless it looks - exactly the pattern a scanner is trained to find,
+        # and exactly what this repository tried as its first fix. The token is long enough that
+        # prose about it (in a changelog, say) cannot trip the rule.
+        if b"TVqQAAMAAAAE" in head:
+            problems.append(f"{relative}: contains a base64-encoded Windows executable - scanners "
+                            f"flag that as readily as the binary itself; do not commit it")
 
     return problems
 

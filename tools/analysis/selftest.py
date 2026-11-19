@@ -5,24 +5,33 @@ A metadata reader is easy to get subtly wrong (offsets, member tokens, string to
 mistakes only show up as confusing results much later. This pins the behaviour: if the decoder can
 reproduce ILDasm's own output for a known method, it can be trusted on the game.
 
-The fixture in testdata/ is a 3.5 KB compiled "hello world" from the dnfile project's test files
-(https://github.com/malwarefrank/dnfile-testfiles, MIT), stored together with its ILDasm listing.
+The fixture is a 3.5 KB compiled "hello world" from the dnfile project's test files
+(https://github.com/malwarefrank/dnfile-testfiles, MIT), and the expected output is ILDasm's own
+listing of it, which IS shipped here (`testdata/hello.ildasm.txt`) together with the EXPECTED_MAIN
+table below.
 
-It is stored as **base64 text**, not as the .exe itself, and decoded to a temporary file here. A
-compiled, unsigned executable committed to the repository made browsers and antivirus products refuse
-to download the release archive at all - "couldn't download, virus detected" - which stops the mod
-reaching the people it is for. Nothing else in this repository is a binary, and that is the rule:
-`check-repo.py` enforces it.
+**The sample itself is not shipped.** A compiled, unsigned executable in the tree made browsers and
+antivirus products refuse to download the release archive - "couldn't download, virus detected" - and
+base64-encoding it only hid the same bytes inside a text file, which scanners look for just as hard.
+So the repository holds the expected output and nothing executable.
+
+To run these checks, put the sample in place once:
+
+    python tools/analysis/selftest.py --fetch
+
+or copy it there yourself from
+https://github.com/malwarefrank/dnfile-testfiles/blob/main/hello-world/hello-world.exe
+
+With no sample the self-test says so and exits 2 - a skip, not a failure. `git status` in this
+repository should never show an executable; tools/check-source.py fails if one is committed.
 """
 
 from __future__ import annotations
 
-import base64
 import hashlib
 import os
 import re
 import sys
-import tempfile
 
 from gameapi import Assembly
 
@@ -39,36 +48,52 @@ EXPECTED_MAIN = [
 ]
 
 
-def unpack(here: str) -> str | None:
-    """The fixture as a path on disk, decoding the stored copy when there is no local .exe.
+SAMPLE_URL = ("https://raw.githubusercontent.com/malwarefrank/dnfile-testfiles/main/"
+              "hello-world/hello-world.exe")
 
-    A reader can also drop their own `testdata/hello.exe` in place; that is used as-is and not
-    hash-checked, because they may be testing against a different assembly on purpose.
+
+def fetch(here: str) -> str | None:
+    """Put the sample where the checks expect it, verifying it is the one they were written for."""
+    import urllib.request
+
+    target = os.path.join(here, "testdata", "hello.exe")
+    os.makedirs(os.path.dirname(target), exist_ok=True)
+
+    print(f"fetching {SAMPLE_URL} ...")
+    with urllib.request.urlopen(SAMPLE_URL, timeout=30) as response:  # noqa: S310 - fixed https
+        data = response.read()
+
+    digest = hashlib.sha256(data).hexdigest()
+    if digest != FIXTURE_SHA256:
+        print(f"BAD download: sha256 {digest}, expected {FIXTURE_SHA256}")
+        return None
+
+    with open(target, "wb") as out:
+        out.write(data)
+
+    print(f"wrote {target} ({len(data)} bytes)")
+    return target
+
+
+def unpack(here: str) -> str | None:
+    """The sample's path, or None when it is not present.
+
+    It is deliberately absent from the repository - see the note at the top of this file - so a fresh
+    checkout skips these checks rather than failing them. `SEAPOWER_SELFTEST_SAMPLE` points at a copy
+    somewhere else, for anyone who keeps one.
     """
-    sample = os.path.join(here, "testdata", "hello.exe")
+    sample = os.environ.get("SEAPOWER_SELFTEST_SAMPLE") or os.path.join(here, "testdata", "hello.exe")
+
     if os.path.isfile(sample):
         return sample
 
-    packed = sample + ".b64"
-    if not os.path.isfile(packed):
-        print(f"MISSING fixture: neither {sample} nor {packed}")
-        return None
-
-    with open(packed, encoding="ascii") as handle:
-        text = "".join(line for line in handle if not line.startswith("#"))
-
-    data = base64.b64decode(text)
-    digest = hashlib.sha256(data).hexdigest()
-
-    if digest != FIXTURE_SHA256:
-        print(f"BAD fixture: {packed} decodes to sha256 {digest}, expected {FIXTURE_SHA256}")
-        return None
-
-    handle_to, path = tempfile.mkstemp(prefix="seapower-selftest-", suffix=".exe")
-    with os.fdopen(handle_to, "wb") as out:
-        out.write(data)
-
-    return path
+    print("SKIPPED: the sample assembly is not present.")
+    print()
+    print("  python tools/analysis/selftest.py --fetch")
+    print()
+    print("or copy testdata/hello.exe in yourself from:")
+    print("  " + SAMPLE_URL)
+    return None
 
 
 def run(here: str) -> int:
@@ -126,12 +151,12 @@ def run(here: str) -> int:
         return 1
 
     print("All checks passed: the reader reproduces ILDasm's output.")
-
-    # The decoded copy is a temporary file; a reader who dropped in their own .exe keeps it.
-    if sample.endswith(".exe") and "seapower-selftest-" in os.path.basename(sample):
-        try:
-            os.remove(sample)
-        except OSError:
-            pass
-
     return 0
+
+if __name__ == "__main__":
+    here = os.path.dirname(os.path.abspath(__file__))
+
+    if "--fetch" in sys.argv:
+        sys.exit(0 if fetch(here) else 1)
+
+    sys.exit(run(here))

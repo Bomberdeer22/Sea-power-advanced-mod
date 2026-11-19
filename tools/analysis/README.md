@@ -134,7 +134,7 @@ entry per feature, so a new feature is a new entry there.
 
 ## Is the reader trustworthy?
 
-`analyze.py selftest` reads `testdata/hello.exe.b64` (decoded to a temporary file) and compares its disassembly against
+`analyze.py selftest` reads `testdata/hello.exe` (fetched on demand, never committed) and compares its disassembly against
 `testdata/hello.ildasm.txt`, the listing ILDasm produced for the same file:
 
 ```
@@ -185,5 +185,5 @@ plausible-looking nonsense rather than an error:
 | `selftest.py` | The check described above. |
 | `setup.ps1` / `setup.sh` | Create `.venv` and install dependencies. |
 | `survey.ps1` / `survey.cmd` / `survey.sh` | Setup if needed, then run the survey. |
-| `testdata/hello.exe.b64` | The 3.5 KB compiled "hello world" from the dnfile project's test files (MIT), **stored as base64 text**. The self-test decodes it to a temporary file, checks its sha256, and deletes it. A committed `.exe` made browsers and antivirus products refuse the whole release archive, so there are no binaries in this repository at all - `tools/check-source.py` fails if one appears. |
+| `testdata/hello.exe` | **Not shipped.** The 3.5 KB compiled "hello world" from the dnfile project's test files (MIT), needed only by `selftest.py`. Fetch it with `python tools/analysis/selftest.py --fetch`; without it the self-test skips (exit 2). A compiled executable in the tree made browsers and antivirus products refuse the release archive, and base64-encoding it made no difference to a scanner, so this repository ships no binary in any form - `tools/check-source.py` fails if one appears, encoded or not. |
 | `testdata/hello.ildasm.txt` | ILDasm's listing of the same file — the expected output. |

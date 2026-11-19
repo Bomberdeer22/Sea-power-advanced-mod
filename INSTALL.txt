@@ -316,11 +316,16 @@ false positive, and it was the repository's fault, not yours:
     fixture by the offline assembly reader's self-test. An unsigned .exe in a
     small project's zip is exactly what a scanner exists to stop, so it
     refused the whole archive.
-  * 0.24.1 removes it. The fixture is now stored as base64 text and decoded to
-    a temporary file when the self-test runs, so the repository contains no
-    executable and no compiled binary at all - only .cs, .cmd, .ps1, .md,
-    .txt, .ini and .py, every one of them text you can open in Notepad. check-
-    source.py now fails the build check if a binary ever comes back.
+  * If you downloaded before 0.24.1, you have the old copy. The fix is in main
+    from 0.24.1 onward; a browser also caches a refused download, so clear it
+    (or use a different browser, or git clone) rather than re-trying the same
+    link.
+  * 0.24.1 removes it entirely. The fixture is not shipped in any form - not
+    as a .exe, and not base64-encoded either, because that only hides the
+    bytes from a person and not from a scanner. The repository contains no
+    executable and no compiled binary at all: only .cs, .cmd, .ps1, .md, .txt,
+    .ini and .py, every one of them text you can open in Notepad. check-
+    source.py fails if a binary ever comes back, encoded or not.
 
 If you are on an older archive and cannot re-download:
 
