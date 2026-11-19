@@ -216,7 +216,82 @@ internal static class DefensiveEcm
                  + (on && others > 0
                      ? ", " + others + " left alone: not this machine's to command"
                      : "");
+
+        // "armed on 0 ship(s)" reads like a failure when it is simply a second click on something
+        // already in that state. The menu entry is a switch, so it has to answer like one.
+        if (changed == 0 && unreadable == 0 && others == 0)
+        {
+            report = on
+                ? "nothing to do: every ship under command that carries a jammer was already armed"
+                : "nothing to do: defensive ECM was already off across the task force";
+        }
+
         return changed;
+    }
+
+    /// <summary>
+    /// What the task force's automatic defence currently amounts to. Counted by the same rule the
+    /// arming uses - a hull is only <see cref="Ready"/> when it is this machine's to command and a
+    /// jammer was positively found in its own sensor list - so the menu cannot offer to arm a force
+    /// that has nothing to arm it with, and cannot claim to have armed one either.
+    /// </summary>
+    internal struct FleetStanding
+    {
+        /// <summary>Ships whose automatic defence is switched on. These are what a disarm stands down.</summary>
+        internal int Armed;
+
+        /// <summary>Ships this machine commands, not armed, with a jammer positively fitted.</summary>
+        internal int Ready;
+
+        /// <summary>Ships this machine commands whose own sensor list holds no ECM set.</summary>
+        internal int NoJammer;
+
+        /// <summary>Ships whose fit could not be read at all, so they are never armed.</summary>
+        internal int Unreadable;
+
+        /// <summary>Ships in the picture that are not this machine's to command.</summary>
+        internal int Others;
+
+        /// <summary>Ships that are either on now or could be switched on by this machine.</summary>
+        internal int Offered => Armed + Ready;
+
+        internal int Ships => Armed + Ready + NoJammer + Unreadable + Others;
+    }
+
+    internal static FleetStanding FleetState()
+    {
+        FleetStanding standing = default;
+
+        foreach (ObjectBase ship in FleetTicker.Tracked())
+        {
+            try
+            {
+                UnitRecord record = UnitState.Of(ship);
+
+                // Armed first, whoever commands it: a disarm stands these down, so the count the menu
+                // puts on the entry has to be the count the click will actually change.
+                if (record.DefensiveEcm)
+                {
+                    standing.Armed++;
+                    continue;
+                }
+
+                if (!Multiplayer.Commands(ship, out _))
+                {
+                    standing.Others++;
+                    continue;
+                }
+
+                OffensiveJam.JammerFit fit = UnitFit.EcmFit(ship, out _);
+
+                if (fit == OffensiveJam.JammerFit.Fitted) standing.Ready++;
+                else if (fit == OffensiveJam.JammerFit.Unknown) standing.Unreadable++;
+                else standing.NoJammer++;
+            }
+            catch (Exception) { }
+        }
+
+        return standing;
     }
 
     /// <summary>Called from the ticker: watches for vampires and works the jammer.</summary>

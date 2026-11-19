@@ -193,6 +193,14 @@ explains the version jump rather than just announcing it.
       What update.cmd does: nothing beyond the DLL
       note only
 
+  < 0.24.2
+      Release: Defensive ECM for the whole task force is a switch: the same
+        entry disarms
+      On disk: nothing - all in the DLL, and no setting changes meaning
+      What update.cmd does: nothing beyond the DLL
+      update.cmd says so. A force left armed for defensive ECM stays armed -
+        the new entry will read on for N of M and clears it in one click
+
   every release
       Release: -
       On disk: SeaPowerAdvanced.dll, _info.ini

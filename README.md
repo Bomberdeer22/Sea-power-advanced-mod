@@ -4,7 +4,7 @@ An advanced mod for **Sea Power: Naval Combat in the Missile Age**, built as an
 [Anchor Chain](https://github.com/SeaPower-Modders/AnchorChain) code mod and loadable as a plain
 BepInEx plugin.
 
-**Version 0.24.1** — the first public release: fourteen advanced features for your own ships,
+**Version 0.24.2** — the first public release: fourteen advanced features for your own ships,
 plus per-cell hatch control. Everything is reached through the game's own right-click menus; there
 is no mod window and no hotkey.
 
@@ -61,7 +61,8 @@ in an unexpected place.
 Every entry that is a toggle shows its current state in the label, and every one reports what
 happened through the game's own order-feedback text as well as the log.
 
-**Defensive ECM** arms itself. Arm it on a ship (or on the whole task force) and its jammer
+**Defensive ECM** arms itself. Arm it on a ship, or for the whole task force from one entry that is a
+switch - click it again and every armed ship in the force stands down at once - and its jammer
 comes up automatically the moment a vampire is in the air - pointing at the missile itself and
 holding the lock, at the price of radiating air search while it works, because a jammer needs a
 fire-control quality bearing to know where to point. It stands down six seconds after the sky is

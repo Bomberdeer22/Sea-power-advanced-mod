@@ -264,8 +264,12 @@ The mod only offers an option to a unit that can carry it out:
   Sensors -> Defensive ECM: off - click to arm automatic jamming
       What it does: Arms this ship
 
-  Sensors -> Defensive ECM for the whole task force
-      What it does: Arms every ship under command
+  Sensors -> Defensive ECM: task force off - click to arm N ship(s)
+      What it does: Arms every ship under command that carries a jammer
+
+  Sensors -> Defensive ECM: on for N of M ship(s) - click to disarm the task force
+      What it does: The same entry once anything is armed: stands the whole
+        force down in one click
 
   Sensors -> ECM: what this build exposes
       What it does: Writes ecm-report.txt again on demand
@@ -815,6 +819,16 @@ the bow once per tick, and then - once that was narrowed to a plain Destroy -
 a NullReferenceException inside GameMain.FixedUpdate with the missile left
 sitting on the water, because the game was still walking an object that had
 been deleted from under it.
+
+  Task force switch
+      Defensive ECM: off - click to arm automatic jamming on that ship, or
+        armed for the whole task force. A hull with no jammer never offers
+        either: Defensive ECM: task force off - click to arm N ship(s) arms
+        every ship this machine commands that carries a jammer; the same entry
+        then reads on for N of M ship(s) - click to disarm the task force and
+        one click stands every armed ship down, including any armed one at a
+        time. The count comes from the arming rule, so it is the number the
+        click changes
 
   Range
       Defensive ECM: off - click to arm automatic jamming on that ship, or

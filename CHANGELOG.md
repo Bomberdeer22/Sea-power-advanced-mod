@@ -1,5 +1,42 @@
 # Changelog
 
+## 0.24.2 - the task force's defensive ECM is a switch
+
+The entry in *Sensors → ECM* read **"Defensive ECM for the whole task force"** and there was only one
+thing it could do: arm. Clicking it a second time ran the same arming path again, found everything
+already armed, changed nothing, and left the label saying what it said before. Standing the force down
+meant going into each ship in turn.
+
+It is one switch now, and it says which way it is pointing:
+
+```
+Defensive ECM: task force off - click to arm 6 ship(s)
+Defensive ECM: on for 4 of 6 ship(s) - click to disarm the task force
+Defensive ECM: task force armed (6 ship(s)) - click to disarm
+```
+
+- **The count is the click.** Both lines are built from `DefensiveEcm.FleetState()`, which counts the
+  fleet with the arming's own rule: this machine's ship, and a jammer positively found in that hull's
+  own sensor list. So the number on the label is the number of ships the click will change.
+- **Any ship armed means the next click stands the force down.** A half-armed force reads *on for 4 of
+  6* and one click clears all four, rather than arming the last two and leaving the player clicking
+  twice to get back where they started.
+- **The disarm is unconditional**, exactly as before: it does not ask the fit, so a ship armed by an
+  earlier build - or left armed with no jammer by 0.23.x - is stood down by the same click that stands
+  down the rest of the force. Each ship's radar goes back to the state it was found in.
+- **Nothing to arm says so, instead of doing nothing.** A force where no hull carries a jammer gets a
+  grey entry naming the counts: how many carry no ECM set, how many could not be read, how many are
+  not this machine's to command. That is the same rule that keeps the Huak class from being armed.
+- **The result is on screen, not only in the log.** Arm, disarm and refusal all go through the game's
+  own order feedback, and a click that changes nothing now reports
+  `nothing to do: defensive ECM was already off across the task force` rather than
+  `disarmed on 0 ship(s)`, which looked like a failure.
+- `ecm-report.txt` gained the same counts, so the state the menu is reading can be checked in a file.
+
+A multiplayer client still does not get the entry: the host simulates weapons, so missile defence is
+armed there, and the menu says so. Disarming a client side would clear a flag that the machine which
+actually runs the jam never sees.
+
 ## 0.24.1 - build fix, and an archive that downloads
 
 `Multiplayer.cs` grew a `List<ClientRule>` and a `Dictionary<string, Attempted>` in 0.24.0 and did not

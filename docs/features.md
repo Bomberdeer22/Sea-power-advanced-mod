@@ -154,7 +154,8 @@ The mod only offers an option to a unit that can carry it out:
 | Setting | What it does |
 |---|---|
 | Sensors → *Defensive ECM: off - click to arm automatic jamming* | Arms this ship |
-| Sensors → *Defensive ECM for the whole task force* | Arms every ship under command |
+| Sensors → *Defensive ECM: task force off - click to arm N ship(s)* | Arms every ship under command that carries a jammer |
+| Sensors → *Defensive ECM: on for N of M ship(s) - click to disarm the task force* | The same entry once anything is armed: stands the whole force down in one click |
 | Sensors → *ECM: what this build exposes* | Writes `ecm-report.txt` again on demand |
 
 ## 2c. Offensive ECM, two modes — `Sensors and EMCON`
@@ -464,6 +465,7 @@ with the missile left sitting on the water, because the game was still walking a
 deleted from under it.
 
 | Needs | `Defensive ECM: off - click to arm automatic jamming` on that ship, or armed for the whole task force. A hull with no jammer never offers either |
+| Task force switch | `Defensive ECM: task force off - click to arm N ship(s)` arms every ship this machine commands that carries a jammer; the same entry then reads `on for N of M ship(s) - click to disarm the task force` and one click stands every armed ship down, including any armed one at a time. The count comes from the arming rule, so it is the number the click changes |
 |---|---|
 | Range | `Features/EcmDiveNm`, **10 nm** by default (0-30). **0 switches the dive off** and leaves the jam alone |
 | Not covered | **Guns and rockets.** A shell has no lock to break and no seeker to point down, so it is never touched |
