@@ -33,7 +33,7 @@ real install can say that - so the release notes say which game build it was las
 3. **Regenerate the plain-text twins:** `python tools\check-docs.py --write`. Read the diff: the twins
    are what a player sees in Notepad.
 4. **Run the four checks again** and commit.
-5. **Tag it:** `git tag -a v0.23.0 -m "0.23.0"` (the tag is the version with a `v`, the machinery
+5. **Tag it:** `git tag -a v0.24.0 -m "0.24.0"` (the tag is the version with a `v`, the machinery
    reads the version without one) and push the tag.
 6. **Publish the release** from the tag, with the changelog section as the body, and one line at the
    top saying which Sea Power build it was last tested against.

@@ -74,6 +74,9 @@ internal static class ThreatAxis
 
         report = "screen turned onto bearing " + (int)bearing + " degrees: "
                  + moved + "/" + ships.Count + " ship(s) given a new station";
+
+        // A station is a waypoint, and a waypoint is an order the session forwards.
+        Multiplayer.Attempt("threat axis and helicopter patterns", null, moved > 0, report);
         return moved;
     }
 

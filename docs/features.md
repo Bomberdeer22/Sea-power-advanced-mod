@@ -17,11 +17,30 @@ one submenu. There is no mod window and no hotkey.
 | Local control, replenish alongside | **Damage control** (replenishment falls back to logistics) |
 | Breakaway with chaff and hard rudder | **Top level, one click** - it is the emergency button |
 
+### One rule for submenus
+
+A hull that carries a jammer has a lot to say: on a full ECM hull the Sensors section was carrying
+twenty-three entries, which is a hunt rather than a menu. So there is exactly one rule, and it is not
+a count per section:
+
+- a named group with **more than one entry** becomes **one submenu** inside the section it would have
+  gone into anyway;
+- every group of one, and every ungrouped entry, is placed exactly as before.
+
+Today there are two such groups, both in **Sensors**: **Radars and sonar** (radars on/off, air search
+only, surface search only, active sonar, the towed array) and **ECM** (auto-ARM, defensive ECM,
+offensive ECM, the lock list, the channel line, what this build exposes). A ship with no ECM gets no
+ECM submenu - a group of one is not a group - and a hull without sonar gets a shorter radar submenu,
+not a differently shaped menu. Nothing moves between one hull and the next because of how many
+sensors it happens to carry.
+
 Sections are found by keyword at runtime, because the game's exact menu labels are not in the API
-dump. If a section is missing in your build, the entry moves up to Orders rather than disappearing,
-and `capabilities.txt` lists the section labels that were actually found - so the routing can be
-corrected from a single log rather than a guess. This document says what each one does, which game
-member it drives, and - where it matters - what it honestly cannot do.
+dump. If a section is missing in your build, the entry - and the submenu it belongs to - moves up to
+Orders rather than disappearing, and `capabilities.txt` lists the section labels that were actually
+found, so the routing can be corrected from a single log rather than a guess. `menu-report.txt`
+records which section and submenu each entry landed in for the last menu the mod built. This document
+says what each one does, which game member it drives, and - where it matters - what it honestly
+cannot do.
 
 ## How to test them
 
@@ -71,7 +90,33 @@ picture, which is why it is off by default and opt-in per ship.
 ## 2b. Automatic defensive ECM — `Sensors and EMCON`
 
 Every ship that carries a jammer also defends itself and its formation with it, without being
-asked twice. When a vampire - a weapon the game is tracking against this ship, or against any ship
+asked twice.
+
+**Arming it is a deliberate act on a ship you command - never automatic.** Nothing in the mod arms
+defensive ECM on its own: the two menu entries are the only way in, and both refuse a hull that is not
+this machine's to command (see the multiplayer section, §2e). A ship that stops being yours is
+disarmed on the next tick.
+
+**"Carries a jammer" is read from the ship, not assumed from its shape.** A jammer is one entry in a
+hull's own sensor list, so the mod asks that ship's list and takes the answer - and the answer "none"
+is an answer. A **Huak class**, with a radar and an RWR and no set, therefore gets no ECM entries at
+all in its menu and is never armed: an earlier build fell back to "it is a surface hull, so a jammer is
+fitted", which armed defensive ECM on every ship in the game, put the air-search radar on for a set
+that was not there, and logged a jam that was never transmitted. A receiver cannot jam, so an
+RWR or ESM entry in the list does not count as one either.
+
+There are three possible answers, and only the first lets the feature act:
+
+| Fit | What the mod does |
+|---|---|
+| **Fitted** - an ECM set is in the ship's sensor list (or, if the list cannot be read, the game's own `isOffensiveEcmSystemAvailable` says yes) | everything works as described below. If the list holds something named like ECM but the game's own availability flag says this hull cannot jam offensively, the answer is **no** - the game's own flag is the one its AI and weapons panel ask |
+| **None** - the sensor list was read and holds no ECM set, or the game's own flag says no | no ECM entries on that hull at all, and `ArmFleet` skips it and says so |
+| **Unreadable** - neither the list nor a flag could be read | the ECM entries appear, with one line saying the fit could not be read, but **nothing is armed automatically** - the automatic defence never acts on a maybe, and `ecm-report.txt` records exactly what could not be read |
+
+`ecm-report.txt` (written from **ECM: what this build exposes** in the menu) now ends with a
+**jammer fit by hull** list, one line per hull class in your fleet, saying which of the three it is and
+what said so. That is the file to send if a ship with a jammer is treated as having none, or the
+reverse. When a vampire - a weapon the game is tracking against this ship, or against any ship
 of the task force within 25 nm - appears, the mod:
 
 1. **puts the air-search radar on.** A jammer needs a fire-control quality bearing to know where to
@@ -178,6 +223,9 @@ mod could not see the picture".
 
 ### What the lock actually does
 
+0. **Only from a ship that carries a jammer** - the same per-hull fit as defensive ECM (§2b). A hull
+   with no ECM set in its sensor list is never chosen as the jammer, so a contact menu will say no
+   ship with ECM is in range rather than offering a jam from a ship that cannot transmit.
 1. **Issues the game's own jam order** - `setOrder(Order.Type.Jam, target, displayOrderText)` for a
    contact the picture has identified, or the bearing form of the same order for one it has not. This
    is the order the weapons panel issues when a player points a pod at something, so the game's own
@@ -290,21 +338,83 @@ nothing breaks if it is not installed.
 **`multiplayer.txt`** in the mod folder says what was found and which rules followed from it. It is
 rewritten when a session comes up or ends.
 
-Three of the multiplayer mod's rules matter here:
+### Every feature, and what a client gets
 
-| Rule | What it does to this mod |
+There is one table, in the mod itself (`Interop/Multiplayer.cs`), and it is the only place these
+decisions are written down. Each feature is one row: how it reaches the simulation, and therefore what
+happens when this machine is the client. The menu's refusal text, the report, and the features
+themselves all read that row, so they cannot contradict each other. The whole table is printed in
+`multiplayer.txt` every time it is written - read it there rather than trusting this page to stay in
+step.
+
+Four routes, and the route is what decides everything:
+
+| Route | Meaning | On a client |
+|---|---|---|
+| **ORDER** | the game's own order (a jam, a waypoint, a launch) | sent; the multiplayer mod forwards it, and the host runs the game's own task |
+| **CALL** | a call on the game's own object (a sensor switch, a weapon status, a doctrine flag) | sent, and the host may accept or override it. The mod records what was sent; the report says so |
+| **READ** | reads the game's state and draws it | unchanged - it shows what this machine knows |
+| **LOCAL** | the mod's own write, to state the host simulates | not attempted: the host reverts it within a frame, so the menu says why instead of offering a click that cannot work |
+
+Ordered by the feature you would click:
+
+| Feature | Route | On a client |
+|---|---|---|
+| Radars and sonar switches | CALL | sent, and the session throttles a repeat toggle on the same set within ten seconds. A throttled toggle does not move locally either, so a label can take a moment to catch up |
+| Radar blink | CALL | half-cycle raised to at least 12 seconds so the throttle does not eat a flip; each flip is checked four seconds later, and a flip the host refused stops the blink instead of pretending |
+| Auto-ARM shutoff | LOCAL | not offered: the host decides when a ship radiates, and a cut written here is reverted |
+| Defensive ECM | LOCAL | not offered: weapons are simulated by the host, so missile defence has to be armed there |
+| Offensive ECM jam | ORDER | sent; the host runs the game's own jam task |
+| Offensive ECM suppression (holding a target's own sets down) | LOCAL | not attempted: the target is simulated by the host, so there is nothing here to switch off. The jam order still works |
+| ECM cones | READ | unchanged - draws what this machine knows, including jamming replicated in |
+| Hatch control | CALL | this machine's model only; the host's own launch sequence still opens what it needs |
+| Salvo deconfliction | CALL | sent per ship; whether the host adopts it is the host's answer |
+| Readiness (action stations) | CALL | the weapons status is sent; the reload speed-up is skipped, because the reload clock belongs to the host |
+| Commercial disguise | CALL | radars and telegraph are sent; the signature string is skipped, because the host owns the ship's own data |
+| Local control | CALL | sent; the host decides whether a mount actually goes to local control |
+| Sprint and drift | CALL | sent; the host runs the doctrine it accepts |
+| Breakaway | CALL | sent; the host decides the ship's course, so treat the turn as a request in a session |
+| Threat axis, helicopter patterns | ORDER | sent as the game's own waypoints and launches, which the multiplayer mod forwards |
+| Replenishment | CALL | sent; the host decides what a magazine actually takes on |
+
+### Yours is yours: one client cannot switch another's ECM on
+
+The fleet list on a co-op client holds **every friendly ship on that side**, including the ones the
+other player commands. Everything in this mod that arms, engages, jams or holds acts **only on ships
+this machine commands**, and the answer comes from the multiplayer mod's own rules rather than from a
+guess:
+
+| Rule, as the multiplayer mod publishes it | What this mod does with it |
 |---|---|
-| It throttles radar switches to one per ship per radar group per 10 seconds, and a throttled switch does not move locally either | **Radar blink** raises its half-cycle to 12 seconds in a session, whatever `BlinkSeconds` says. A six second blink would lose every second flip and leave the radar stuck |
-| The client does not decide its own emissions - the host's radar picture is re-imposed every frame | **Radar blink** checks each flip four seconds later. If the switch did not take, the blink **stops itself and says so** rather than pretending. **Auto-ARM** and **defensive ECM** are not offered on a client at all, and the menu says why |
-| Jamming is an order the host runs, not a member write | **Offensive ECM** issues the game's own jam order on the host and on a client alike, which is exactly what the multiplayer mod forwards. The switch-off half is not attempted from a client: the target is simulated on the host, so there is nothing there to switch off, and the menu says so instead of offering the click |
+| `UnitLockManager.BlocksOrdersFor(unit)` - the other player has claimed this unit, and that mod refuses every order for it | **touches nothing on it**: no arming, no jam, no hold, no mode change. The menu says whose ship it is |
+| `TaskforceAssignmentManager.ClientMayControl(unit)` - the host assigned this client a particular task force | the same: a ship outside the assignment is not this client's to task |
+| neither readable (an older or newer build of that mod) | per-ship clicks still work - the player is clicking a ship they can see - but **fleet-wide arming is refused**, because "all my ships" cannot be told from "everybody's ships" |
 
-What still works everywhere:
+That closes the specific bug behind this: *arm the whole task force* used to arm **every** friendly
+hull, including the other player's command. The other client then saw its own ships' radars come on
+and their jammers transmit with nobody having asked - defensive ECM appearing to switch itself on.
+A ship this machine no longer commands is **disarmed on the next tick** and the log says why, so an
+old arming cannot survive a change of hands either.
 
-- **Everything on the host**, and in single player without a change: this machine simulates the world.
-- **The ECM cones** - they draw from whatever jamming the game reports on this machine, including
-  jamming the session replicated in from the other side.
-- **The menus, hatches, salvo planner, readiness, formations, helo patterns** - these go through the
-  game's own orders, which the multiplayer mod already forwards.
+And **nothing arms defensive ECM except a click**: the per-ship entry, or *for the whole task force*.
+There is no automatic arming path in the mod - the feature only ever arms what the player pointed at.
+`ecm-report.txt` carries the audit: how many ships are armed here, and how many of those this machine
+does **not** command (which should be zero, and is the number to send if it ever is not).
+
+### Proving it, one path at a time
+
+This is the least-exercised code in the mod, because only a client can prove it, and a table of
+intentions is not evidence. So every one of those paths records itself: when a feature is used, the
+mod writes down that it was tried, on which unit, and whether it reported success.
+`multiplayer.txt` ends with that list, plus a count of how many paths a client can actually take are
+**still untried this session**. Twelve of the sixteen rows are paths a client acts on - the three LOCAL
+ones are refused before anything is written and the READ one writes nothing, so counting them as
+"untried" would overstate the work left. A session that exercised three of the twelve shows nine
+unproven, rather than implying that twelve work.
+
+That is deliberate: the numbers are meant to be uncomfortable until somebody flies a client through
+them. If a path reports "no effect" in a real session, that is the answer - the row is wrong, and the
+fix belongs in the table, not in a comment.
 
 Two limits worth stating plainly, because a player will otherwise read them as bugs:
 

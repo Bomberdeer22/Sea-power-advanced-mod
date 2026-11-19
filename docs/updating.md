@@ -46,8 +46,8 @@ In this order, because each one knows it more directly than the next:
 | Source | Where | When it is there |
 |---|---|---|
 | `version.txt` | `BepInEx\plugins\SeaPowerAdvanced\version.txt` | Every install made by this build of `build.cmd`. The most reliable: it says what was *installed*, whether or not the game has been started since |
-| The mod's own log | `...\seapoweradvanced.log`, the `================ Sea Power Advanced 0.23.0 ================` banner | Every install that has been started at least once. The last banner is the build that actually ran |
-| BepInEx's log | `BepInEx\LogOutput.log`, `Loading [Sea Power Advanced 0.23.0]` | Any install the game has loaded |
+| The mod's own log | `...\seapoweradvanced.log`, the `================ Sea Power Advanced 0.24.0 ================` banner | Every install that has been started at least once. The last banner is the build that actually ran |
+| BepInEx's log | `BepInEx\LogOutput.log`, `Loading [Sea Power Advanced 0.24.0]` | Any install the game has loaded |
 | nothing | - | A copy put in by hand, or an install from before any of this existed. Treated as **0.1.0** and every change is checked, because each one looks for the files it would alter and skips when they are not there |
 
 `version.txt` did not exist before this change, so an older install falls through to the two logs,
@@ -77,6 +77,7 @@ just announcing it.
 | < 0.22.0 | the dive is limited by guidance channels, an engagement interval, a reaction delay and a radar-seeker filter | nothing - all in the DLL. **New settings appear with defaults** and are read on the first start | note only |
 | < 0.22.1 | the shipped dive limits became 3 channels / 2 s / 1 s | a settings file may still hold `EcmDiveChannels = 2`, `EcmDiveIntervalSeconds = 4`, `EcmDiveReactionSeconds = 2` | **Reports them.** The mod moves exactly those old figures to 3 / 2 / 1 at load; anything you chose yourself is left alone |
 | < 0.23.0 | offensive ECM's sensor hold is limited by a task-force channel budget and a hold window with a recovery period | nothing - all in the DLL. **New settings appear with defaults** (`EcmJamChannels` 2, `EcmJamHoldSeconds` 60, `EcmJamRecoverySeconds` 15) and are read on the first start | note only |
+| < 0.24.0 | the Sensors menu is two submenus (*Radars and sonar*, *ECM*) instead of twenty-odd entries; every multiplayer client path is declared in one table and reports whether it was tried; **and ECM is only offered on a hull whose own sensor list carries a jammer** | nothing - all in the DLL, and no setting changes meaning | note only. **A ship that was armed for defensive ECM and has no jammer is disarmed by the mod itself**, and its ECM entries disappear from the menu |
 | every release | - | `SeaPowerAdvanced.dll`, `_info.ini` | **Replaces them**, after copying the old DLL to `uninstalled\before-<version>_<date>\` |
 
 ## 4. The settings file is never rewritten - on purpose

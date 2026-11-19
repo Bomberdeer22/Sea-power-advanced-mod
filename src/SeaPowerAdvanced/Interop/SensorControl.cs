@@ -138,9 +138,15 @@ internal static class SensorControl
     internal static bool SetAllRadars(ObjectBase unit, bool on)
     {
         if (unit == null) return false;
-        return on
+
+        bool made = on
             ? MemberProbe.InvokeFilled(RadarsAllOn, unit, true)
             : MemberProbe.InvokeFilled(RadarsAllOff, unit, true);
+
+        // Recorded here because this is the one lever: a session that refuses the call shows as a
+        // path that reported no effect rather than as a feature nobody tried.
+        Multiplayer.Attempt("radar and sonar switches", unit, made, "radars " + (on ? "on" : "off"));
+        return made;
     }
 
     /// <summary>Air-search radars only - a merchant-looking emission profile.</summary>

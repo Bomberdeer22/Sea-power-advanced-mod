@@ -57,26 +57,37 @@ internal static class MerchantDisguise
         if (SensorControl.SetEmcon(unit, true)) steps.Add("EMCON on");
 
         // Merchant's signature string, if this build exposes one on the unit's parameters.
-        try
+        //
+        // Not on a client: the signature is the host's copy of the ship's own data, so a string
+        // written here is overwritten on the next replication and the disguise would be a label on
+        // this screen only. Saying so is better than shipping a deception that deceives nobody.
+        if (Multiplayer.IsClient)
         {
-            object? parameters = Capabilities.ParametersOf(unit);
-            if (parameters != null)
+            steps.Add("signature left to the host");
+        }
+        else
+        {
+            try
             {
-                System.Reflection.MemberInfo? signature = MemberProbe.Value(parameters.GetType(),
-                    "signature", "Signature", "rcs", "RCS");
-                if (signature != null)
+                object? parameters = Capabilities.ParametersOf(unit);
+                if (parameters != null)
                 {
-                    object? current = MemberProbe.Read(signature, parameters);
-                    string? text = current as string;
-                    record.OriginalSignature = text;
+                    System.Reflection.MemberInfo? signature = MemberProbe.Value(parameters.GetType(),
+                        "signature", "Signature", "rcs", "RCS");
+                    if (signature != null)
+                    {
+                        object? current = MemberProbe.Read(signature, parameters);
+                        string? text = current as string;
+                        record.OriginalSignature = text;
 
-                    string? merchant = MerchantSignature(text);
-                    if (merchant != null && MemberProbe.Write(signature, parameters, merchant))
-                        steps.Add("signature -> " + merchant);
+                        string? merchant = MerchantSignature(text);
+                        if (merchant != null && MemberProbe.Write(signature, parameters, merchant))
+                            steps.Add("signature -> " + merchant);
+                    }
                 }
             }
+            catch (Exception) { }
         }
-        catch (Exception) { }
 
         try
         {
@@ -84,6 +95,8 @@ internal static class MerchantDisguise
             steps.Add("telegraph " + MerchantTelegraph);
         }
         catch (Exception) { }
+
+        Multiplayer.Attempt("commercial disguise", unit, steps.Count > 0, string.Join(", ", steps));
 
         report = steps.Count > 0
             ? "disguise on: " + string.Join(", ", steps)

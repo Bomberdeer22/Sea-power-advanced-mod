@@ -9,7 +9,7 @@ An advanced mod for Sea Power: Naval Combat in the Missile Age, built as an
 Anchor Chain (https://github.com/SeaPower-Modders/AnchorChain) code mod and
 loadable as a plain BepInEx plugin.
 
-Version 0.23.0  -  the first public release: fourteen advanced features for
+Version 0.24.0  -  the first public release: fourteen advanced features for
 your own ships, plus per-cell hatch control. Everything is reached through the
 game's own right-click menus; there is no mod window and no hotkey.
 
@@ -39,11 +39,14 @@ Right-click one of your ships. Each feature appears in the section of the menu
 where a player would look for it, rather than in one long submenu:
 
     Orders                      Weapon hatches (feature 1)
-    Sensors                     radars, air/surface search only, active sonar, towed array,
-                                EMCON profiles, radar blink, auto-ARM, defensive ECM,
-                                offensive ECM (two modes, works on unidentified contacts, and a
-                                suppression budget with a time limit), commercial disguise, and the
-                                close-in dive that flies jammed missiles down
+    Sensors                     EMCON profiles, radar blink, commercial disguise, and the
+                                close-in dive that flies jammed missiles down, plus two submenus:
+                                "Radars and sonar" (radars, air/surface search only, active sonar,
+                                towed array) and "ECM" (auto-ARM, defensive ECM, offensive ECM in
+                                two modes - works on unidentified contacts, with a suppression
+                                budget and a time limit; offered only on hulls whose own sensor
+                                list carries a jammer, so a ship with just a radar and an RWR gets
+                                a line saying so instead of a button that cannot work)
     Engage                      deconflict the salvo, release everyone
     Rules of engagement         action stations / cold cruise, crew fatigue status
     Formation                   sprint and drift (this ship or the whole force),
@@ -100,12 +103,13 @@ whether or not it has a channel.
 Multiplayer
 
 Works with the community multiplayer mod (SeapowerMultiplayer), host or
-client, and is unchanged without it. The one thing worth knowing: the
-multiplayer mod throttles radar switches to one per ship per radar group every
-ten seconds, so radar blink slows to a 12 second half-cycle in a session, and
-on a client the host still has the final say on whether a radar radiates.
-multiplayer.txt in the mod folder records which side of the session this
-machine is on and every rule that followed from it.
+client, and is unchanged without it. Every feature has one stated route into
+the simulation - an order the session forwards, a call on the game's own
+object, a read, or a write only the host may make - and what a client gets
+follows from that route rather than from a guess. multiplayer.txt in the mod
+folder prints that table, says which side of the session this machine is on,
+and - the honest part - counts how many of the paths have actually been tried
+this session, because only a client can prove one.
 
 Something not working? Run diagnose.cmd  -  one double-click, one text file to
 send. Then open an issue here and attach it; the bug report template

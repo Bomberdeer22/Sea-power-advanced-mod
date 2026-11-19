@@ -81,17 +81,49 @@ internal static class DefensiveEcm
         }
 
         UnitRecord record = UnitState.Of(unit);
-        record.DefensiveEcm = !record.DefensiveEcm;
 
-        if (!record.DefensiveEcm)
+        // Not this machine's ship, not this machine's decision. In a co-op session the other player
+        // can claim a hull, and the multiplayer mod refuses every order for it; arming its jammer
+        // from here would put that player's ship on the air and leave them wondering why.
+        bool mine = Multiplayer.Commands(unit, out string notMine);
+
+        // Disarming is always allowed, whatever the fit or the ownership says: a ship armed by an
+        // earlier build - or by an earlier client, which is the bug this replaced - must be able to be
+        // stood down, and the ticker stands those down by itself anyway.
+        if (record.DefensiveEcm)
         {
+            record.DefensiveEcm = false;
             if (record.EcmEngaged) Stop(unit, record, "disarmed");
             report = "defensive ECM off";
             return true;
         }
 
+        if (!mine)
+        {
+            report = Name(unit) + " is not this machine's to command: " + notMine;
+            ModLog.Warn("Defensive ECM: " + report);
+            return false;
+        }
+
+        // A hull with no jammer cannot defend with one. This is the check that was missing: the
+        // feature used to be armed on anything that was not positively a submarine, so a Huak -
+        // radar and an RWR, no set - radiated air search on the first inbound missile and reported
+        // an engagement that could not have happened.
+        OffensiveJam.JammerFit fit = UnitFit.EcmFit(unit, out string evidence);
+
+        if (fit != OffensiveJam.JammerFit.Fitted)
+        {
+            report = Name(unit) + (fit == OffensiveJam.JammerFit.Unknown
+                ? " - the mod cannot read this hull's sensor fit: "
+                : " carries no jammer: ") + evidence;
+            ModLog.Warn("Defensive ECM: " + report);
+            return false;
+        }
+
+        record.DefensiveEcm = true;
+
         report = EcmControl.Available
-            ? "armed: " + EcmControl.Summary() + ". Air search will radiate while it jams."
+            ? "armed: " + evidence + ". Air search will radiate while it jams."
             : "armed, but this build exposes no ECM to drive - see ecm-report.txt";
         return true;
     }
@@ -100,6 +132,8 @@ internal static class DefensiveEcm
     internal static int ArmFleet(bool on, out string report)
     {
         int changed = 0;
+        int unreadable = 0;
+        int others = 0;
 
         // Same reason as Toggle: the host decides missile defence in a session.
         string? refused = Multiplayer.RefusedTo("Defensive ECM");
@@ -110,19 +144,63 @@ internal static class DefensiveEcm
             return 0;
         }
 
+        // Arming "my fleet" is only meaningful if the session can say which ships are mine. Disarming
+        // is always allowed - a ship armed from the wrong client has to be able to be stood down.
+        if (on && !Multiplayer.CanActFleetWide(out string fleetWhy))
+        {
+            report = "defensive ECM not armed across the task force: " + fleetWhy;
+            ModLog.Warn("Defensive ECM: " + report);
+            return 0;
+        }
+
         foreach (ObjectBase ship in FleetTicker.Tracked())
         {
             try
             {
-                // Only hulls that carry ECM. A submarine or an unarmed auxillary is not armed with
-                // a jammer, and arming one would put a feature in a menu that cannot work.
-                if (!UnitFit.HasEcm(ship)) continue;
-
                 UnitRecord record = UnitState.Of(ship);
-                if (record.DefensiveEcm == on) continue;
 
-                record.DefensiveEcm = on;
-                if (!on && record.EcmEngaged) Stop(ship, record, "task force disarmed");
+                // Standing down is never conditional on the fit: a ship armed by an earlier build has
+                // to be able to be disarmed by the same click that disarms the rest.
+                if (!on)
+                {
+                    if (!record.DefensiveEcm) continue;
+
+                    record.DefensiveEcm = false;
+                    if (record.EcmEngaged) Stop(ship, record, "task force disarmed");
+                    changed++;
+                    continue;
+                }
+
+                // Only this machine's ships. The fleet list is every friendly hull on this side, and
+                // in co-op that includes the other player's command: arming those from here is how
+                // one client switched another client's defensive ECM on without being asked.
+                if (!Multiplayer.Commands(ship, out string notMine))
+                {
+                    others++;
+                    if (ModSettings.VerboseLog)
+                        ModLog.Info("Defensive ECM: " + Name(ship) + " left alone - " + notMine);
+
+                    continue;
+                }
+
+                // Arming is: only hulls that carry a jammer, and only on positive evidence. A hull
+                // whose fit could not be read is counted separately rather than armed - an automatic
+                // feature that radiates on a maybe is worse than one that does nothing.
+                OffensiveJam.JammerFit fit = UnitFit.EcmFit(ship, out string evidence);
+
+                if (fit == OffensiveJam.JammerFit.Unknown) unreadable++;
+
+                if (fit != OffensiveJam.JammerFit.Fitted)
+                {
+                    if (fit == OffensiveJam.JammerFit.Unknown && ModSettings.VerboseLog)
+                        ModLog.Warn("Defensive ECM: " + Name(ship) + " skipped - " + evidence);
+
+                    continue;
+                }
+
+                if (record.DefensiveEcm) continue;
+
+                record.DefensiveEcm = true;
                 changed++;
             }
             catch (Exception error)
@@ -131,9 +209,13 @@ internal static class DefensiveEcm
             }
         }
 
-        report = on
-            ? "defensive ECM armed on " + changed + " ship(s)"
-            : "defensive ECM disarmed on " + changed + " ship(s)";
+        report = (on ? "defensive ECM armed on " : "defensive ECM disarmed on ") + changed
+                 + " ship(s)" + (on && unreadable > 0
+                     ? ", " + unreadable + " skipped: their sensor fit could not be read"
+                     : "")
+                 + (on && others > 0
+                     ? ", " + others + " left alone: not this machine's to command"
+                     : "");
         return changed;
     }
 
@@ -164,9 +246,38 @@ internal static class DefensiveEcm
                     continue;
                 }
 
-                // A hull with no jammer cannot defend with one: leave it alone rather than reporting
-                // an engagement that could not have happened.
-                if (!UnitFit.HasEcm(ship)) continue;
+                // Armed, but no longer ours to command - the other player has claimed it, or this
+                // client was never the one that should have armed it. Stand it down here rather than
+                // keep working somebody else's ship. This is the guard that stops one client turning
+                // another client's defensive ECM on and leaving it running.
+                if (!Multiplayer.Commands(ship, out string notMine))
+                {
+                    if (record.EcmEngaged) Stop(ship, record, "not this machine's to command");
+                    record.DefensiveEcm = false;
+                    ModLog.Warn("Defensive ECM: " + Name(ship) + " disarmed - " + notMine);
+                    continue;
+                }
+
+                // A hull with no jammer cannot defend with one. If it is somehow armed anyway - an
+                // older build armed it, or the record came from a save - it is stood down here rather
+                // than reported as engaging.
+                OffensiveJam.JammerFit fit = UnitFit.EcmFit(ship, out string evidence);
+
+                if (fit != OffensiveJam.JammerFit.Fitted)
+                {
+                    if (record.EcmEngaged) Stop(ship, record, "this hull carries no jammer");
+
+                    // Only a definite "no" turns the feature off. "Could not read it" leaves the
+                    // record alone: it is a transient, and disarming on it would flip the feature
+                    // on and off as the game loads a hull.
+                    if (fit == OffensiveJam.JammerFit.None && record.DefensiveEcm)
+                    {
+                        record.DefensiveEcm = false;
+                        ModLog.Warn("Defensive ECM: " + Name(ship) + " disarmed - " + evidence);
+                    }
+
+                    continue;
+                }
 
                 // Close in, before anything else: a missile inside the dive range is finished with
                 // the sea, not with the jammer.

@@ -163,7 +163,13 @@ internal static class Blink
                 if (record.BlinkAir) SensorControl.SetAirSearch(unit, record.BlinkPhase);
                 if (record.BlinkSurface) SensorControl.SetSurfaceSearch(unit, record.BlinkPhase);
 
-                if (Multiplayer.InSession) Verify[unit] = (now + VerifySeconds, record.BlinkPhase);
+                if (Multiplayer.InSession)
+                {
+                    Verify[unit] = (now + VerifySeconds, record.BlinkPhase);
+                    Multiplayer.Attempt("radar blink", unit, true,
+                                        "flip to " + (record.BlinkPhase ? "on" : "off")
+                                        + ", checking in " + (int)VerifySeconds + " s");
+                }
 
                 if (ModSettings.VerboseLog && record.BlinkPhase)
                 {

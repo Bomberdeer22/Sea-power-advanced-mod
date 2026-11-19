@@ -67,6 +67,10 @@ internal static class Breakaway
         catch (Exception) { }
 
         report = string.Join(", ", steps);
+
+        // In a session the host decides the ship's course, so this is a request rather than an
+        // order - recorded, so a client session can show whether the turn took.
+        Multiplayer.Attempt("breakaway", unit, chaff, string.Join(", ", steps));
         return chaff;
     }
 

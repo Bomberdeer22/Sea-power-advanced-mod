@@ -35,6 +35,14 @@ internal static class FleetMenu
     /// <summary>Entries that must reach the player in one click, so they sit at the top level.</summary>
     private const string BreakawayLabel = "Breakaway: chaff and hard rudder";
 
+    /// <summary>
+    /// The two submenus the Sensors section uses once a hull carries enough entries for the list to
+    /// become a hunt. Named constants rather than string literals at a dozen call sites, so a typo
+    /// cannot silently split a group in two.
+    /// </summary>
+    private const string RadarsGroup = "Radars and sonar";
+    private const string EcmGroup = "ECM";
+
     /// <summary>True when this menu has already been augmented.</summary>
     internal static bool Present(object collection) => MenuRouting.AlreadyHandled(collection);
 
@@ -45,13 +53,35 @@ internal static class FleetMenu
     internal static int Install(ObjectBase unit, List<ContextMenuItem> roots, object live)
     {
         var written = new HashSet<string>(StringComparer.Ordinal);
-        MenuRouting.Placements.Clear();
 
-        foreach ((ContextMenuItem item, string[][] route) in Entries(unit))
+        MenuRouting.Placements.Clear();
+        MenuRouting.ResetGroups();
+
+        List<(ContextMenuItem item, string group, string[][] route)> entries = Entries(unit);
+
+        // The grouping rule, and it is one rule: a named group with more than one entry becomes a
+        // submenu inside its section; anything else is placed exactly as before. One rule because
+        // the alternative - a count threshold per section - makes the menu's shape depend on how
+        // many sensors a hull happens to carry, so the same feature moves between one hull and the
+        // next. A group of one is not a group, which is what keeps a ship without ECM from growing
+        // an "ECM" submenu containing a single entry.
+        Dictionary<string, int> sizes = GroupSizes(roots, entries);
+
+        foreach ((ContextMenuItem item, string group, string[][] route) in entries)
         {
             try
             {
-                string where = MenuRouting.Place(roots, live, item, route);
+                // Same key MenuRouting uses for the submenu, so a group that would be split across
+                // two sections is counted as the one it will actually be placed in.
+                string key = MenuRouting.SectionLabelFor(roots, route) + " | " + group;
+
+                bool grouped = !string.IsNullOrEmpty(group)
+                               && sizes.TryGetValue(key, out int size) && size > 1;
+
+                string where = grouped
+                    ? MenuRouting.PlaceInGroup(roots, live, item, group, GroupTooltip(group), route)
+                    : MenuRouting.Place(roots, live, item, route);
+
                 written.Add(where);
                 MenuRouting.Placements.Add((item.Label as string ?? "<unnamed>") + "  ->  " + where);
             }
@@ -65,6 +95,34 @@ internal static class FleetMenu
 
         return written.Count;
     }
+
+    /// <summary>How many entries each section-and-group pair has, so the rule above is decided once.</summary>
+    private static Dictionary<string, int> GroupSizes(
+        List<ContextMenuItem> roots,
+        List<(ContextMenuItem item, string group, string[][] route)> entries)
+    {
+        var sizes = new Dictionary<string, int>(StringComparer.Ordinal);
+
+        foreach ((ContextMenuItem _, string group, string[][] route) in entries)
+        {
+            if (string.IsNullOrEmpty(group)) continue;
+
+            string key = MenuRouting.SectionLabelFor(roots, route) + " | " + group;
+            sizes[key] = sizes.TryGetValue(key, out int count) ? count + 1 : 1;
+        }
+
+        return sizes;
+    }
+
+    /// <summary>The hover text for a group submenu: what the entries inside it have in common.</summary>
+    private static string GroupTooltip(string group) => group switch
+    {
+        RadarsGroup => "This ship's emitters: radars, active sonar and the towed array. Every switch "
+                       + "here is the game's own, and the label shows what is on.",
+        EcmGroup => "Electronic warfare: the automatic defences, the focused jammer and what the "
+                    + "game's own ECM interface looks like on this install.",
+        _ => "Entries for this ship.",
+    };
 
     /// <summary>
     /// The menu for a unit that is not ours: a hostile or neutral contact.
@@ -238,28 +296,36 @@ internal static class FleetMenu
         }
     }
 
-    /// <summary>Every entry for this unit, paired with the section keywords it belongs in.</summary>
-    private static List<(ContextMenuItem item, string[][] route)> Entries(ObjectBase unit)
+    /// <summary>
+    /// Every entry for this unit, with the section keywords it belongs in and, optionally, the name
+    /// of the group it belongs to inside that section.
+    /// </summary>
+    private static List<(ContextMenuItem item, string group, string[][] route)> Entries(ObjectBase unit)
     {
-        var entries = new List<(ContextMenuItem, string[][])>();
+        var entries = new List<(ContextMenuItem, string, string[][])>();
 
-        void Add(ContextMenuItem item, params string[][] route) => entries.Add((item, route));
+        void Add(ContextMenuItem item, params string[][] route) => entries.Add((item, "", route));
+
+        // Same as Add, but the entry is eligible for a submenu - see the rule in Install.
+        void Grouped(string group, ContextMenuItem item, params string[][] route) =>
+            entries.Add((item, group, route));
 
         // --- Sensors and EMCON ---------------------------------------------------------------
-        Add(Action("Radars on", "Radiate everything.",
+        Grouped(RadarsGroup, Action("Radars on", "Radiate everything.",
             () => Act(unit, "radars on", u => SensorControl.SetAllRadars(u, true))), MenuRouting.Sensors);
 
-        Add(Action("Radars off", "Silence the radars entirely.",
+        Grouped(RadarsGroup, Action("Radars off", "Silence the radars entirely.",
             () => Act(unit, "radars off", u => SensorControl.SetAllRadars(u, false))), MenuRouting.Sensors);
 
-        Add(Action("Air search only", "Air-search radar only: a partial, older-looking emission.",
+        Grouped(RadarsGroup, Action("Air search only",
+            "Air-search radar only: a partial, older-looking emission.",
             () => Act(unit, "air search only", u =>
             {
                 SensorControl.SetAllRadars(u, false);
                 return SensorControl.SetAirSearch(u, true);
             })), MenuRouting.Sensors);
 
-        Add(Action("Surface search only", "Surface-search radar only.",
+        Grouped(RadarsGroup, Action("Surface search only", "Surface-search radar only.",
             () => Act(unit, "surface search only", u =>
             {
                 SensorControl.SetAllRadars(u, false);
@@ -270,20 +336,26 @@ internal static class FleetMenu
         // not always expose a HasX for every hull, and a hidden feature looks like a broken one.
         if (SensorControl.ActiveSonarFit(unit) != false)
         {
-            Add(Action("Active sonar on", "Go active: finds submarines, gives the ship away.",
-                () => Act(unit, "active sonar on", u => SensorControl.SetActiveSonar(u, true))), MenuRouting.Sensors);
+            Grouped(RadarsGroup, Action("Active sonar on",
+                "Go active: finds submarines, gives the ship away.",
+                () => Act(unit, "active sonar on", u => SensorControl.SetActiveSonar(u, true))),
+                MenuRouting.Sensors);
 
-            Add(Action("Active sonar off", "Passive only.",
-                () => Act(unit, "active sonar off", u => SensorControl.SetActiveSonar(u, false))), MenuRouting.Sensors);
+            Grouped(RadarsGroup, Action("Active sonar off", "Passive only.",
+                () => Act(unit, "active sonar off", u => SensorControl.SetActiveSonar(u, false))),
+                MenuRouting.Sensors);
         }
 
         if (SensorControl.TowedArrayFit(unit) != false)
         {
-            Add(Action("Deploy towed array", "Stream the towed array.",
-                () => Act(unit, "towed array out", u => SensorControl.SetTowedSonar(u, true))), MenuRouting.Sensors);
+            Grouped(RadarsGroup, Action("Deploy towed array", "Stream the towed array.",
+                () => Act(unit, "towed array out", u => SensorControl.SetTowedSonar(u, true))),
+                MenuRouting.Sensors);
 
-            Add(Action("Retract towed array", "Bring the array in before making speed.",
-                () => Act(unit, "towed array in", u => SensorControl.SetTowedSonar(u, false))), MenuRouting.Sensors);
+            Grouped(RadarsGroup, Action("Retract towed array",
+                "Bring the array in before making speed.",
+                () => Act(unit, "towed array in", u => SensorControl.SetTowedSonar(u, false))),
+                MenuRouting.Sensors);
         }
 
         Add(new ContextMenuItem(
@@ -330,13 +402,16 @@ internal static class FleetMenu
         {
             // In a session this machine does not decide when a radar radiates, so the entry says so
             // instead of offering a switch the host would refuse.
-            Add(Disabled("Auto-ARM shutoff: not available in multiplayer",
-                "Cutting the radars is a radar switch, and the host decides those in a session."),
+            // The refusal text comes from Multiplayer's own table, so the menu cannot promise
+            // something the report then denies.
+            Grouped(EcmGroup, Disabled("Auto-ARM shutoff: not available in multiplayer",
+                Multiplayer.ClientRefusal("Auto-ARM shutoff")
+                ?? "The host decides when a ship radiates in a session."),
                 MenuRouting.Sensors);
         }
         else
         {
-            Add(AutoArm.IsOn(unit)
+            Grouped(EcmGroup, AutoArm.IsOn(unit)
                 ? Action("Auto-ARM shutoff: on - click to turn off",
                     "Stops cutting the radars automatically.",
                     () => Report(unit, "auto-ARM", AutoArm.Toggle(unit, out string r), r))
@@ -348,23 +423,51 @@ internal static class FleetMenu
 
         // --- ECM: only on hulls that actually carry it --------------------------------------
         // A submarine has no jammer, so it gets no ECM entries at all - not a disabled one, nothing.
-        // The wording here also stops promising that this mode radiates: it runs on EMCON.
-        bool carriesEcm = UnitFit.HasEcm(unit);
+        // The same is now true of a surface hull with no set: a Huak class carries a radar and an
+        // RWR, and an ECM entry on it could only ever radiate for nothing.
+        //
+        // "No jammer" has to be read, not assumed. The fit is asked once here and the group is built
+        // from the answer: a hull that positively carries no set gets no ECM submenu - the same rule
+        // a submarine has always had - and a hull whose fit could not be read gets the group and one
+        // line saying so, instead of entries that would act on a maybe.
+        OffensiveJam.JammerFit fit = UnitFit.EcmFit(unit, out string fitEvidence);
+        bool carriesEcm = fit != OffensiveJam.JammerFit.None;
 
-        if (carriesEcm)
+        // And only on a ship this machine commands. In a co-op session the fleet holds the other
+        // player's ships as well, and a menu that arms their jammer is how one client switched
+        // another client's defensive ECM on. One line says whose the ship is instead.
+        bool commands = Multiplayer.Commands(unit, out string notMine);
+
+        if (!commands)
+        {
+            Grouped(EcmGroup, Disabled("ECM: this ship is not this machine's to command",
+                notMine + "."), MenuRouting.Sensors);
+
+            carriesEcm = false;
+        }
+
+        if (carriesEcm && fit != OffensiveJam.JammerFit.Fitted)
+        {
+            Grouped(EcmGroup, Disabled("ECM: this hull's jammer fit could not be read",
+                fitEvidence + ". An ecm-report.txt written from this menu lists everything the mod "
+                + "could see on this install."), MenuRouting.Sensors);
+        }
+
+        if (carriesEcm && fit == OffensiveJam.JammerFit.Fitted)
         {
             if (Multiplayer.IsClient)
             {
                 // Missile defence is resolved by the host: weapons are simulated there and
                 // replicated, so a jam written on a client is overwritten and jams nothing. One
                 // plain entry, with the reason, beats an armed feature that never fires.
-                Add(Disabled("Defensive ECM: the host runs missile defence in multiplayer",
-                    "Weapons are simulated by the host, so automatic jamming has to be armed there."),
+                Grouped(EcmGroup, Disabled("Defensive ECM: the host runs missile defence in multiplayer",
+                    Multiplayer.ClientRefusal("Defensive ECM")
+                    ?? "Weapons are simulated by the host, so jamming has to be armed there."),
                     MenuRouting.Sensors);
             }
             else
             {
-                Add(DefensiveEcm.IsArmed(unit)
+                Grouped(EcmGroup, DefensiveEcm.IsArmed(unit)
                     ? Action("Defensive ECM: " + DefensiveEcm.Describe(unit) + " - click to disarm",
                         "Stops jamming incoming missiles automatically, and stops putting the close "
                         + "ones in the water.",
@@ -377,7 +480,7 @@ internal static class FleetMenu
                         () => Report(unit, "defensive ECM", DefensiveEcm.Toggle(unit, out string r), r)),
                     MenuRouting.Sensors);
 
-                Add(Action("Defensive ECM for the whole task force",
+                Grouped(EcmGroup, Action("Defensive ECM for the whole task force",
                     "Arms automatic defensive jamming on every ship under command that carries ECM - "
                     + "including the close-in dive that puts missiles in the sea inside "
                     + (int)DefensiveEcm.DiveNm + " nm.",
@@ -387,7 +490,7 @@ internal static class FleetMenu
 
             // Offensive ECM stays on offer in a session: the jam travels to the host as the game's
             // own jam order, so the host runs it with the game's own ECM.
-            Add(OffensiveEcm.ModeOf(unit) == OffensiveEcm.Mode.SignatureLock
+            Grouped(EcmGroup, OffensiveEcm.ModeOf(unit) == OffensiveEcm.Mode.SignatureLock
                 ? Action("Offensive ECM: focused - click for standard",
                     "Releases the lock and hands the jammer back to the game's own behaviour.",
                     () => Report(unit, "offensive ECM",
@@ -403,7 +506,7 @@ internal static class FleetMenu
             // half of why the menu looked broken: the toggle changed a label and nothing else
             // happened, because there was no way to pick a contact. Taking a lock also switches the
             // mode, so the toggle catches up on its own.
-            Add(OffensiveLockMenu(unit), MenuRouting.Sensors);
+            Grouped(EcmGroup, OffensiveLockMenu(unit), MenuRouting.Sensors);
 
             if (OffensiveEcm.IsLocked(unit))
             {
@@ -414,7 +517,7 @@ internal static class FleetMenu
                 int held = OffensiveEcm.HoldLeft(unit);
                 bool canHold = OffensiveEcm.CanHold(unit, out string why);
 
-                Add(OffensiveEcm.IsHolding(unit)
+                Grouped(EcmGroup, OffensiveEcm.IsHolding(unit)
                     ? Action("Offensive ECM: holding its sensors down"
                              + (held > 0 ? " (" + held + " s)" : "") + " - click to stop",
                         "Stops holding the contact's sets down. The game's own jam continues, and "
@@ -439,20 +542,25 @@ internal static class FleetMenu
             // noise on every hull that carries a jammer.
             if (OffensiveEcm.ModeOf(unit) == OffensiveEcm.Mode.SignatureLock)
             {
-                Add(Disabled("Offensive ECM: " + OffensiveEcm.ChannelLine(),
+                Grouped(EcmGroup, Disabled("Offensive ECM: " + OffensiveEcm.ChannelLine(),
                     "The task force's suppression budget: how many contacts can have their own "
                     + "sensors held down at once. Every lock still gets the game's jam."),
                     MenuRouting.Sensors);
             }
 
-            Add(Disabled("Offensive ECM: " + OffensiveEcm.Describe(unit),
+            Grouped(EcmGroup, Disabled("Offensive ECM: " + OffensiveEcm.Describe(unit),
                 "What the focused jammer is doing right now - its own state and the game's."),
                 MenuRouting.Sensors);
         }
 
         if (UnitFit.IsSurfaceHull(unit))
         {
-            Add(Action("ECM: what this build exposes",
+            // Always offered on a surface hull, whether or not a jammer was found: this is the entry
+            // that says which it is, and it is how a hull the mod has got wrong can be shown in one
+            // file without a debugger. On a hull with no set it is the only ECM entry there is.
+            Grouped(EcmGroup, Action(fit == OffensiveJam.JammerFit.None
+                    ? "ECM: no jammer on this hull - click for the report"
+                    : "ECM: what this build exposes",
                 "Writes ecm-report.txt and logs what the jammer interface looks like in this install.",
                 () =>
                 {
@@ -652,7 +760,10 @@ internal static class FleetMenu
         {
             try
             {
-                if (OffensiveJam.HasEcm(ship)) return ship;
+                if (!OffensiveJam.HasEcm(ship)) continue;
+                if (!Multiplayer.Commands(ship, out _)) continue;
+
+                return ship;
             }
             catch (Exception) { }
         }

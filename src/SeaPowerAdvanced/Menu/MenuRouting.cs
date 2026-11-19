@@ -72,6 +72,19 @@ internal static class MenuRouting
     /// <summary>Where each feature was placed in the last menu, for menu-report.txt.</summary>
     internal static readonly List<string> Placements = new();
 
+    /// <summary>
+    /// Group submenus created while building the current menu, keyed by the section they live in
+    /// plus the group's own name. Cleared with <see cref="Placements"/> before each menu.
+    ///
+    /// The key includes the section because a group is not guaranteed to land in the section it
+    /// asked for: if this build has no Sensors section, every grouped entry falls back to Orders,
+    /// and both groups should share that section rather than fight over one name.
+    /// </summary>
+    private static readonly Dictionary<string, ContextMenuItem> Groups = new(StringComparer.Ordinal);
+
+    /// <summary>Forgets the submenus made for the previous menu. Must be called with Placements.Clear.</summary>
+    internal static void ResetGroups() => Groups.Clear();
+
     /// <summary>Every root label seen in the last menu the mod touched.</summary>
     internal static IReadOnlyList<string> RootLabels => rootLabels;
 
@@ -111,6 +124,64 @@ internal static class MenuRouting
     }
 
     /// <summary>
+    /// Inserts an entry into a named submenu inside the best section for it.
+    ///
+    /// The group submenu is created the first time a name is used in a section and reused after
+    /// that, so a feature that is one of six ECM entries does not need six copies of the code that
+    /// builds a submenu. If the section cannot be found at all, the entry falls back to the plain
+    /// placement - a group is a convenience, and nothing is ever hidden because of it.
+    /// </summary>
+    internal static string PlaceInGroup(List<ContextMenuItem> roots, object live, ContextMenuItem item,
+                                        string group, string tooltip, params string[][] routes)
+    {
+        ContextMenuItem? section = SectionFor(roots, routes);
+
+        // Two checks, not `section?.Items == null`: a null-conditional does not narrow a nullable
+        // reference, and this project has nullable enabled.
+        if (section == null || section.Items == null) return Place(roots, live, item, routes);
+
+        string sectionLabel = section.Label as string ?? "<unnamed>";
+        string key = sectionLabel + " | " + group;
+
+        if (!Groups.TryGetValue(key, out ContextMenuItem? submenu) || submenu == null)
+        {
+            submenu = new ContextMenuItem(
+                label: group,
+                items: new TrulyObservableCollection<ContextMenuItem>(),
+                command: null,
+                tooltip: tooltip);
+
+            section.Items.Add(submenu);
+            Groups[key] = submenu;
+        }
+
+        submenu.Items!.Add(item);
+        return sectionLabel + " > " + group;
+    }
+
+    /// <summary>
+    /// The label of the section an entry would be placed in, or an empty string when there is no
+    /// section for it. Used to count a group before deciding whether it becomes a submenu: two
+    /// entries that would land in different sections are not one group.
+    /// </summary>
+    internal static string SectionLabelFor(List<ContextMenuItem> roots, string[][] routes) =>
+        SectionFor(roots, routes)?.Label as string ?? "<unnamed>";
+
+    /// <summary>The section an entry would be placed in, without placing it.</summary>
+    private static ContextMenuItem? SectionFor(List<ContextMenuItem> roots, string[][] routes)
+    {
+        foreach (string[] keywords in routes)
+        {
+            if (keywords.Length == 0) continue;
+
+            ContextMenuItem? section = FindSection(roots, keywords);
+            if (section?.Items != null) return section;
+        }
+
+        return FindSection(roots, Orders);
+    }
+
+    /// <summary>
     /// Inserts an entry into the best section for it.
     ///
     /// <paramref name="live"/> is the game's own collection: anything that has to go at the top
@@ -125,22 +196,14 @@ internal static class MenuRouting
             return "top level";
         }
 
-        foreach (string[] keywords in routes)
+        // Same resolution as PlaceInGroup, deliberately: a grouped entry and an ungrouped one must
+        // never disagree about which section they belong to, or a group would split in two.
+        ContextMenuItem? section = SectionFor(roots, routes);
+
+        if (section != null && section.Items != null)
         {
-            if (keywords.Length == 0) continue;
-
-            ContextMenuItem? section = FindSection(roots, keywords);
-            if (section?.Items == null) continue;
-
             section.Items.Add(item);
             return section.Label as string ?? "<unnamed>";
-        }
-
-        ContextMenuItem? orders = FindSection(roots, Orders);
-        if (orders?.Items != null)
-        {
-            orders.Items.Add(item);
-            return orders.Label as string ?? "Orders";
         }
 
         AddTopLevel(live, item);

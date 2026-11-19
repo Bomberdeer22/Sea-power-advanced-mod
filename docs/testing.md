@@ -3,7 +3,7 @@
 Run this once per game version, and after any change to `HatchControl`, `HatchMenu` or the
 feature menus.
 
-Version under test: **0.23.0**. Mod id `io.github.bomberdeer22.seapoweradvanced`.
+Version under test: **0.24.0**. Mod id `io.github.bomberdeer22.seapoweradvanced`.
 
 **Read the log, do not guess.** Everything below is confirmed by two files:
 
@@ -109,6 +109,11 @@ Full description of each: [features.md](features.md). Right-click one of your sh
 
 - [ ] The features are spread across the menu's own sections, not stacked under Orders:
       Sensors, Engage, Rules of engagement, Formation, Air operations, Damage control
+- [ ] On a hull that carries a jammer, **Sensors** reads as a list plus exactly **two submenus** -
+      *Radars and sonar* and *ECM* - rather than twenty-odd entries in one column
+- [ ] On a hull with **no** ECM there is **no ECM submenu** at all: a group of one is not a group
+- [ ] Every entry inside *Radars and sonar* and *ECM* still works when clicked, and
+      `menu-report.txt` shows each one as `<section> > <submenu>` with nothing left unplaced
 - [ ] **Breakaway** is at the top level of the right-click menu, one click away
 - [ ] `menu-report.txt` (mod folder) lists the section labels found and **where each entry went** -
       check it against the list above; it is the file to send if an entry is in the wrong place
@@ -122,7 +127,13 @@ Full description of each: [features.md](features.md). Right-click one of your sh
 - [ ] **Countermeasures → Auto-ARM shutoff** goes dark when a missile is inbound, then recovers
 - [ ] **Sensors → Defensive ECM: ... - click to arm** arms one ship; the label then reads
       *armed, waiting for a vampire*
-- [ ] **Sensors → Defensive ECM for the whole task force** arms every ship at once
+- [ ] **Sensors → Defensive ECM for the whole task force** arms every ship at once, and the report
+      names any ship it skipped because its sensor fit could not be read
+- [ ] **A hull with no jammer gets no ECM entries.** Right-click a ship whose only electronic warfare
+      fit is a receiver - the Huak class is one: a radar and an RWR - and there is no *Defensive ECM*,
+      no *Offensive ECM* and no channel line. All it has is one entry, *ECM: no jammer on this hull -
+      click for the report*, and `ecm-report.txt` lists that hull as `no jammer` with the sensor
+      families it does carry
 - [ ] With a missile fired at the task force: the log shows
       `Defensive ECM: <ship> engaging a missile inbound to <ship> - air search on, lock on the
       missile via <member>, jamming`, the ship's air-search radar comes on, and six seconds after
@@ -297,6 +308,26 @@ mod folder is the file that answers everything below.
       are the host's to decide (`the target is simulated by the host`); no switch-off is claimed
 - [ ] Stop jamming: the message says plainly that the host's jam task is its own and runs until it ends
 - [ ] ECM cones still draw on the client, from whatever jamming the host replicated in
+- [ ] **Readiness** on a client sends the weapons status and says the reload speed-up is the host's
+      clock; the label does not claim a faster reload
+- [ ] **Commercial disguise** on a client says `signature left to the host` and still sends the
+      radars and the telegraph
+- [ ] **Neither client arms the other's ECM.** In a co-op session with ships split between the two
+      players: on client A, *Defensive ECM for the whole task force* reports `N left alone: not this
+      machine's to command`, and player B's ships do **not** start radiating or jamming. Right-click
+      one of B's ships on A's screen and the ECM submenu holds one line, *this ship is not this
+      machine's to command*, with no switches in it
+- [ ] **Contact menu jam picks only your own ship**: with the nearest ECM hull belonging to the other
+      player, *Jam with ECM* either names one of yours or says no ship of ours with ECM is in range
+- [ ] **Defensive ECM never arms itself.** Start a session, take a missile, and without touching the
+      menu `ecm-report.txt` should keep reading `armed on 0 ship(s)`. If it ever reads otherwise,
+      that file is the bug report
+- [ ] `multiplayer.txt` has a **who commands what** block: the ownership rule that was found, this
+      machine's side, and `the fleet: N ships this machine commands, M it does not`
+- [ ] `multiplayer.txt` ends with **what has actually been tried on this machine**: one line per
+      feature used, with a count, the unit, and whether it took - plus how many paths are still
+      untried. Click a few features, reopen the file, and watch those numbers move. The untried
+      count is the honest measure of how much of this has been proved
 
 ## Checks that run without the game
 

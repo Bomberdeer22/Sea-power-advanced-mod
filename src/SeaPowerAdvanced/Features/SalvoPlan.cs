@@ -83,6 +83,8 @@ internal static class SalvoPlan
 
         report = ships.Count + " ship(s): " + (ships.Count - staggered - 1) + " leader(s), "
                  + staggered + " held, released " + spacing + "s apart";
+
+        Multiplayer.Attempt("salvo deconfliction", ships[0], staggered > 0, report);
         return staggered;
     }
 
@@ -112,6 +114,8 @@ internal static class SalvoPlan
 
         Held.Clear();
         report = freed > 0 ? "released " + freed + " ship(s)" : "nothing was being held";
+
+        if (freed > 0) Multiplayer.Attempt("salvo deconfliction", null, true, report);
         return freed;
     }
 
