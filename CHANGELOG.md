@@ -1,5 +1,34 @@
 # Changelog
 
+## 0.24.1 - build fix: one missing using
+
+`Multiplayer.cs` grew a `List<ClientRule>` and a `Dictionary<string, Attempted>` in 0.24.0 and did not
+grow the import for them, so the build stopped on `CS0246: The type or namespace name 'List<>' could
+not be found` (and the same for `Dictionary<,>`), twice each in the error list.
+
+Nothing else changed: the file already used `System.Reflection` and `System.Text`, so the missing line
+was `using System.Collections.Generic;` and no code moved.
+
+**Why the checks did not catch it.** `check-source.py` has a table of symbols mapped to the namespace
+that declares them, and that table held the game's types, Harmony, BepInEx, Unity - but not the BCL, so
+`List` and `Dictionary` were simply not on the list of things it looked for. They are now, along with
+about thirty other unambiguous BCL types (`HashSet`, `IEnumerable`, `KeyValuePair`, `StringBuilder`,
+`Regex`, `DateTime`, `Math`, `BindingFlags`, `MemberInfo`, `Path`, `File` and the rest). Two symbols
+are deliberately left out - `Object` and `Debug` - because `System` and `UnityEngine` both declare
+them, and a false alarm costs as much as a miss.
+
+The gate was tested against this exact failure rather than assumed: with the import removed again it
+reports all three symbols (`List`, `Dictionary`, `KeyValuePair`) and exits 1, and
+`check-source.py --fix` puts the line back on its own.
+
+```
+python tools/check-source.py          :: clean: 53 file(s), no missing namespaces, ...
+python tools/check-source.py --fix    :: same, and adds any import that is missing
+```
+
+A name a file declares itself is exempt: `ModInfo.cs` has `const string Version`, and that is not
+`System.Version`, so the scan does not ask for an import it does not need.
+
 ## 0.24.0 - a menu that can be read, and a client path that admits what it has not proved
 
 Two debts paid, and neither of them is a new feature. Two reports from a live session came in

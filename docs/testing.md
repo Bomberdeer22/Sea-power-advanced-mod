@@ -3,7 +3,7 @@
 Run this once per game version, and after any change to `HatchControl`, `HatchMenu` or the
 feature menus.
 
-Version under test: **0.24.0**. Mod id `io.github.bomberdeer22.seapoweradvanced`.
+Version under test: **0.24.1**. Mod id `io.github.bomberdeer22.seapoweradvanced`.
 
 **Read the log, do not guess.** Everything below is confirmed by two files:
 
@@ -340,6 +340,12 @@ python tools\check-batch.py        :: the .cmd files: labels, blocks, stale %exp
 python tools\check-versions.py     :: the version agrees in all seven places it is written
 python tools\check-docs.py         :: every .txt twin still matches its Markdown
 ```
+
+`check-source.py` is the one that grows: every time a build fails on something a compiler sees and
+Python could have, a rule is added for it. The newest covers the **imports of BCL types** - `List`,
+`Dictionary`, `HashSet`, `IEnumerable`, `StringBuilder`, `Regex`, `BindingFlags`, `Path` and the rest -
+because 0.24.0 shipped a file that used `List<>` and `Dictionary<>` without importing the namespace
+that declares them, and that cost a build. `--fix` puts the missing line back by itself.
 
 All four run on every push (`.github/workflows/checks.yml`). They do not prove the mod compiles -
 only the compiler against your own game DLLs can do that - they prove the things a compiler does not

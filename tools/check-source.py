@@ -67,6 +67,50 @@ SYMBOLS: dict[str, list[str]] = {
     "Mathf": ["UnityEngine"],
     "Time": ["UnityEngine"],
     "Input": ["UnityEngine"],
+    # The BCL. These were missing from this table until 0.24.1, and the cost was a failed build:
+    # "List<> could not be found" in Multiplayer.cs, because the file had grown a List and a
+    # Dictionary and only imported System, Reflection and Text. Every type here lives in exactly one
+    # namespace, so there is no ambiguity to get wrong - unlike Object or Debug, which are excluded
+    # on purpose because System and UnityEngine both declare them.
+    "List": ["System.Collections.Generic"],
+    "Dictionary": ["System.Collections.Generic"],
+    "HashSet": ["System.Collections.Generic"],
+    "SortedDictionary": ["System.Collections.Generic"],
+    "Queue": ["System.Collections.Generic"],
+    "Stack": ["System.Collections.Generic"],
+    "KeyValuePair": ["System.Collections.Generic"],
+    "IEnumerable": ["System.Collections.Generic"],
+    "IEnumerator": ["System.Collections.Generic"],
+    "ICollection": ["System.Collections.Generic"],
+    "IList": ["System.Collections.Generic"],
+    "IDictionary": ["System.Collections.Generic"],
+    "IReadOnlyList": ["System.Collections.Generic"],
+    "IReadOnlyCollection": ["System.Collections.Generic"],
+    "StringBuilder": ["System.Text"],
+    "Regex": ["System.Text.RegularExpressions"],
+    "StringComparison": ["System"],
+    "StringSplitOptions": ["System"],
+    "DateTime": ["System"],
+    "TimeSpan": ["System"],
+    "Math": ["System"],
+    "Convert": ["System"],
+    "Guid": ["System"],
+    "Lazy": ["System"],
+    "Version": ["System"],
+    "Type": ["System"],
+    "Exception": ["System"],
+    "Action": ["System"],
+    "Func": ["System"],
+    "BindingFlags": ["System.Reflection"],
+    "Assembly": ["System.Reflection"],
+    "MemberInfo": ["System.Reflection"],
+    "MethodInfo": ["System.Reflection"],
+    "PropertyInfo": ["System.Reflection"],
+    "FieldInfo": ["System.Reflection"],
+    "ParameterInfo": ["System.Reflection"],
+    "ConstructorInfo": ["System.Reflection"],
+    "Path": ["System.IO"],
+    "File": ["System.IO"],
     # the game
     "ObjectBase": ["SeaPower"],
     "WeaponSystem": ["SeaPower"],
@@ -456,8 +500,17 @@ def main() -> int:
         usings = set(USING.findall(raw))
         short = path.relative_to(ROOT)
 
+        # Names this file declares itself: a type of that name needs no import, and neither does a
+        # member - ModInfo.cs has `const string Version`, so `Version` is a field here, not
+        # System.Version. Skipping the symbol when the file owns the name is the cheap, safe answer;
+        # the cost is a missed import in the rare file that both declares and needs the type.
+        own_names = set(MEMBER.findall(code)) | set(DECL.findall(code))
+
         missing: dict[str, list[str]] = {}
         for symbol, namespaces in SYMBOLS.items():
+            if symbol in own_names:
+                continue
+
             # Not preceded by a dot: "UnityEngine.Time" is fully qualified and needs no import, and
             # counting it would be a false alarm on correct code.
             if symbol not in declared and not re.search(rf"(?<![\w.]){symbol}\b", code):

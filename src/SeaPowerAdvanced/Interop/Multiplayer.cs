@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Reflection;
 using System.Text;
 using SeaPower;
@@ -918,16 +919,6 @@ internal static class Multiplayer
         why = "this build of the multiplayer mod publishes no ownership rule the mod can read, so a "
               + "fleet-wide action cannot tell your ships from the other player's. Do it ship by ship";
         return false;
-    }
-
-    /// <summary>
-    /// The name of a unit for the report's "who commands what" counts, or a type name if the unit
-    /// will not say.
-    /// </summary>
-    private static string Name(ObjectBase unit)
-    {
-        try { return unit.DisplayNameShort; }
-        catch (Exception) { return unit.GetType().Name; }
     }
 
     private static object? ReadStatic(Type? type, MemberInfo? member)

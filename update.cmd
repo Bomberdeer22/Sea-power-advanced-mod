@@ -305,6 +305,8 @@ call :ver_lt "!INSTALLED!" "0.23.0"
 if defined VLT call :note "0.23.0 - offensive ECM's sensor hold gains two limits: a task-force channel budget and a hold window with a recovery period. They are new settings with defaults."
 call :ver_lt "!INSTALLED!" "0.24.0"
 if defined VLT call :note "0.24.0 - Sensors is grouped into two submenus instead of twenty-odd entries, and the multiplayer client paths are declared and self-reporting. No files: all in the DLL."
+call :ver_lt "!INSTALLED!" "0.24.1"
+if defined VLT call :note "0.24.1 - build fix: the DLL released as 0.24.0 did not compile (a missing using in Multiplayer.cs). No files: all in the DLL."
 exit /b 0
 
 :mig_dive_limits
@@ -419,6 +421,8 @@ call :ver_lt "!INSTALLED!" "0.23.0"
 if defined VLT call :say "0.23.0  offensive ECM holds a contact's sensors down only so long, only on so many contacts, and then they get them back"
 call :ver_lt "!INSTALLED!" "0.24.0"
 if defined VLT call :say "0.24.0  the Sensors menu is two submenus instead of a long list, and every multiplayer client path now states what it does and records whether it was tried"
+call :ver_lt "!INSTALLED!" "0.24.1"
+if defined VLT call :say "0.24.1  build fix - the 0.24.0 DLL did not compile; replace it with this one"
 exit /b 0
 
 

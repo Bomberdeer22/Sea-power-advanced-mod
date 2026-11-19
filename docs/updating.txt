@@ -186,6 +186,13 @@ explains the version jump rather than just announcing it.
         ECM and has no jammer is disarmed by the mod itself, and its ECM
         entries disappear from the menu
 
+  < 0.24.1
+      Release: a build fix with no behaviour change (the 0.24.0 DLL did not
+        compile)
+      On disk: nothing
+      What update.cmd does: nothing beyond the DLL
+      note only
+
   every release
       Release: -
       On disk: SeaPowerAdvanced.dll, _info.ini
