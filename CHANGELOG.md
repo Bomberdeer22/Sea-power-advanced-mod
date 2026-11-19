@@ -1,5 +1,64 @@
 # Changelog
 
+## 0.24.1 - build fix, and an archive that downloads
+
+`Multiplayer.cs` grew a `List<ClientRule>` and a `Dictionary<string, Attempted>` in 0.24.0 and did not
+grow the import for them, so the build stopped on `CS0246: The type or namespace name 'List<>' could
+not be found` (and the same for `Dictionary<,>`), twice each in the error list.
+
+Nothing else changed: the file already used `System.Reflection` and `System.Text`, so the missing line
+was `using System.Collections.Generic;` and no code moved.
+
+**Why the checks did not catch it.** `check-source.py` has a table of symbols mapped to the namespace
+that declares them, and that table held the game's types, Harmony, BepInEx, Unity - but not the BCL, so
+`List` and `Dictionary` were simply not on the list of things it looked for. They are now, along with
+about thirty other unambiguous BCL types (`HashSet`, `IEnumerable`, `KeyValuePair`, `StringBuilder`,
+`Regex`, `DateTime`, `Math`, `BindingFlags`, `MemberInfo`, `Path`, `File` and the rest). Two symbols
+are deliberately left out - `Object` and `Debug` - because `System` and `UnityEngine` both declare
+them, and a false alarm costs as much as a miss.
+
+The gate was tested against this exact failure rather than assumed: with the import removed again it
+reports all three symbols (`List`, `Dictionary`, `KeyValuePair`) and exits 1, and
+`check-source.py --fix` puts the line back on its own.
+
+```
+python tools/check-source.py          :: clean: 53 file(s), no missing namespaces, ...
+python tools/check-source.py --fix    :: same, and adds any import that is missing
+```
+
+A name a file declares itself is exempt: `ModInfo.cs` has `const string Version`, and that is not
+`System.Version`, so the scan does not ask for an import it does not need.
+
+### And the archive no longer trips a virus scanner
+
+A download of 0.24.0's source zip stopped at **"Couldn't download - virus detected"**. Correct
+behaviour on the scanner's part: the archive contained a compiled, unsigned executable -
+`tools/analysis/testdata/hello.exe`, a 3.5 KB "hello world" used as a fixture by the offline assembly
+reader's self-test. Nobody runs it; it existed so the reader could be pinned against ILDasm's own
+output. An unsigned `.exe` inside a small project's zip is precisely what a browser is built to stop,
+so it stopped the whole archive.
+
+- **The fixture is not shipped at all.** The first attempt stored it as base64 text (`hello.exe.b64`),
+  and the report came back unchanged - "still showing up as a virus" - which is the right answer:
+  scanners look for an encoded `MZ` header as readily as for the `.exe` itself, so hiding the
+  bytes only hid them from a person reading the file. `selftest.py` now ships the **expected output**
+  (`hello.ildasm.txt`, MIT, text) and fetches the sample on demand with
+  `python tools/analysis/selftest.py --fetch`, which checks its sha256 before use. With no sample the
+  self-test skips and exits 2; with one, all nine checks pass.
+- **The repository now contains no binary of any kind, encoded or not** - only `.cs`, `.cmd`, `.ps1`,
+  `.md`, `.txt`, `.ini` and `.py`, all text that opens in Notepad.
+- **`tools/build-portable.ps1` no longer runs a downloaded script.** It fetched `dotnet-install.ps1`
+  from dot.net and executed it with `-ExecutionPolicy Bypass` - download-a-script-and-run-it is a
+  dropper signature, and it was the one pattern in this repository that deserved to be flagged. It now
+  downloads Microsoft's SDK **ZIP** and unpacks it with `Expand-Archive`, exactly what `build.cmd`
+  already did with `curl` and `tar`.
+- **`check-source.py` enforces it**: a committed `.exe`/`.dll`/`.zip`/`.msi` fails the check, a file
+  whose first two bytes are `MZ` fails whatever its name, a text file containing a base64 `MZ` fails,
+  and so does any script outside the tooling allowlist. Each one was tested by planting it.
+- **`INSTALL.md` now explains the refusal** instead of leaving a player to guess: what was in the
+  archive, what the tools actually do line by line, and three ways to get the files when a browser will
+  not hand them over (a git clone, GitHub's own zip, or the individual files).
+
 ## 0.24.0 - a menu that can be read, and a client path that admits what it has not proved
 
 Two debts paid, and neither of them is a new feature. Two reports from a live session came in

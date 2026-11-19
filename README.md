@@ -4,7 +4,7 @@ An advanced mod for **Sea Power: Naval Combat in the Missile Age**, built as an
 [Anchor Chain](https://github.com/SeaPower-Modders/AnchorChain) code mod and loadable as a plain
 BepInEx plugin.
 
-**Version 0.24.0** — the first public release: fourteen advanced features for your own ships,
+**Version 0.24.1** — the first public release: fourteen advanced features for your own ships,
 plus per-cell hatch control. Everything is reached through the game's own right-click menus; there
 is no mod window and no hotkey.
 
@@ -96,6 +96,12 @@ call on the game's own object, a read, or a write only the host may make - and w
 follows from that route rather than from a guess. `multiplayer.txt` in the mod folder prints that table,
 says which side of the session this machine is on, and - the honest part - counts how many of the paths
 have actually been tried this session, because only a client can prove one.
+
+**"Virus detected" when downloading the zip?** It is a false positive, and it was mine: an earlier
+archive carried one compiled test fixture. It is gone as of 0.24.1, and the repository now holds
+no binaries at all - every file is text you can open in Notepad. See
+[the install guide](INSTALL.md#if-your-browser-or-antivirus-refuses-the-download) for what the
+tools do, and how to get the files another way.
 
 **Something not working? Run `diagnose.cmd`** — one double-click, one text file to send. Then open an
 issue here and attach it; the [bug report template](.github/ISSUE_TEMPLATE/bug_report.md) lists the

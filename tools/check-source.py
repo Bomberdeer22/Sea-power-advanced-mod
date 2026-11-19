@@ -15,6 +15,9 @@ Six kinds, every one of which has cost a round trip through a real machine:
 5. An accessor is called by name, unit.get_ThreatningMissile(). CS0571, every time.
 6. A method is called by name that nothing in the project declares - a helper that was referenced
    from one place and never written. CS0103, and it reads exactly like the calls around it.
+7. A compiled executable is committed. Not a compile error at all - a distribution one. A single
+   unsigned .exe in the tree made browsers and antivirus products refuse the whole release archive
+   ("couldn't download, virus detected"), so the mod never reached the people it is for.
 
 The script never needs the game's DLLs, which is the point: it runs anywhere, so it can be checked
 before handing a build to somebody else.
@@ -67,6 +70,50 @@ SYMBOLS: dict[str, list[str]] = {
     "Mathf": ["UnityEngine"],
     "Time": ["UnityEngine"],
     "Input": ["UnityEngine"],
+    # The BCL. These were missing from this table until 0.24.1, and the cost was a failed build:
+    # "List<> could not be found" in Multiplayer.cs, because the file had grown a List and a
+    # Dictionary and only imported System, Reflection and Text. Every type here lives in exactly one
+    # namespace, so there is no ambiguity to get wrong - unlike Object or Debug, which are excluded
+    # on purpose because System and UnityEngine both declare them.
+    "List": ["System.Collections.Generic"],
+    "Dictionary": ["System.Collections.Generic"],
+    "HashSet": ["System.Collections.Generic"],
+    "SortedDictionary": ["System.Collections.Generic"],
+    "Queue": ["System.Collections.Generic"],
+    "Stack": ["System.Collections.Generic"],
+    "KeyValuePair": ["System.Collections.Generic"],
+    "IEnumerable": ["System.Collections.Generic"],
+    "IEnumerator": ["System.Collections.Generic"],
+    "ICollection": ["System.Collections.Generic"],
+    "IList": ["System.Collections.Generic"],
+    "IDictionary": ["System.Collections.Generic"],
+    "IReadOnlyList": ["System.Collections.Generic"],
+    "IReadOnlyCollection": ["System.Collections.Generic"],
+    "StringBuilder": ["System.Text"],
+    "Regex": ["System.Text.RegularExpressions"],
+    "StringComparison": ["System"],
+    "StringSplitOptions": ["System"],
+    "DateTime": ["System"],
+    "TimeSpan": ["System"],
+    "Math": ["System"],
+    "Convert": ["System"],
+    "Guid": ["System"],
+    "Lazy": ["System"],
+    "Version": ["System"],
+    "Type": ["System"],
+    "Exception": ["System"],
+    "Action": ["System"],
+    "Func": ["System"],
+    "BindingFlags": ["System.Reflection"],
+    "Assembly": ["System.Reflection"],
+    "MemberInfo": ["System.Reflection"],
+    "MethodInfo": ["System.Reflection"],
+    "PropertyInfo": ["System.Reflection"],
+    "FieldInfo": ["System.Reflection"],
+    "ParameterInfo": ["System.Reflection"],
+    "ConstructorInfo": ["System.Reflection"],
+    "Path": ["System.IO"],
+    "File": ["System.IO"],
     # the game
     "ObjectBase": ["SeaPower"],
     "WeaponSystem": ["SeaPower"],
@@ -419,6 +466,100 @@ def undeclared_call_problems(files) -> list[str]:
     return problems
 
 
+# ---------------------------------------------------------------------------------------------
+# No executables in the tree.
+#
+# Not a compiler rule - a distribution one. 0.24.0's archive contained
+# tools/analysis/testdata/hello.exe: a 3.5 KB compiled "hello world", committed as the fixture for
+# the assembly reader's self-test. Every browser and antivirus product that saw it refused the
+# download, and the report was "couldn't download - virus detected", which reads as though the mod
+# were malicious. It was not; it was a test fixture in a folder nobody runs.
+#
+# The fixture is now base64 text, decoded to a temporary file at run time, so the repository carries
+# no binary at all. This keeps it that way - and the allowlist is deliberate, so adding a script is a
+# decision rather than an accident.
+# ---------------------------------------------------------------------------------------------
+
+EXECUTABLE_SUFFIXES = {
+    ".exe", ".dll", ".msi", ".scr", ".com", ".pif", ".cpl", ".ocx", ".sys", ".drv",
+    ".bat", ".cmd", ".ps1", ".vbs", ".vbe", ".js", ".jse", ".wsf", ".wsh", ".hta",
+    ".reg", ".lnk", ".msc", ".jar", ".apk", ".app", ".dmg",
+    ".zip", ".7z", ".rar", ".tar", ".gz", ".bz2", ".xz",
+}
+
+# The batch and PowerShell files this repository is made of. They are text, they are readable in
+# Notepad, and they are the point of the tooling - but only at these paths, and only these.
+ALLOWED_SCRIPTS = {
+    "build.cmd", "update.cmd", "uninstall.cmd", "check-source.cmd", "check-features.cmd",
+    "diagnose.cmd", "build.ps1", "build.sh",
+    "tools/build-portable.ps1", "tools/build-portable.cmd", "tools/build-portable.sh",
+    "tools/dump-game-api.ps1", "tools/setup-venv.ps1", "tools/setup-venv.cmd",
+    "tools/analysis/setup.ps1", "tools/analysis/setup.sh", "tools/analysis/survey.ps1",
+    "tools/analysis/survey.cmd",
+}
+
+# Not scanned: not what a player downloads.
+# Deliberately NOT tools/analysis: that is exactly where the last executable hid, and a skip list
+# that excludes the folder the mistake was made in is a skip list that cannot learn.
+SKIP_DIRS = {".git", ".github", "node_modules", "__pycache__", ".venv", "build", "obj", "bin",
+             "dist", "out", ".vs", ".idea"}
+
+# The needle the encoded-executable rule looks for, spelled in pieces: kept out of this file as a
+# contiguous string so that the gate never flags its own source.
+ENCODED_PE = b"TVqQ" + b"AAMAA" + b"AAE"
+
+SCRIPT_SUFFIXES = {".bat", ".cmd", ".ps1", ".vbs", ".vbe", ".js", ".jse", ".wsf", ".wsh", ".hta"}
+
+
+def binary_problems() -> list[str]:
+    problems: list[str] = []
+
+    for path in sorted(ROOT.rglob("*")):
+        if not path.is_file():
+            continue
+
+        relative = path.relative_to(ROOT)
+        if any(part in SKIP_DIRS for part in relative.parts):
+            continue
+
+        suffix = path.suffix.lower()
+        posix = relative.as_posix()
+
+        if suffix in SCRIPT_SUFFIXES:
+            if posix not in ALLOWED_SCRIPTS:
+                problems.append(f"{relative}: is a script a scanner will flag and it is not one of "
+                                f"the repository's own tools - add it to ALLOWED_SCRIPTS "
+                                f"deliberately, or do not commit it")
+            continue
+
+        if suffix and suffix in EXECUTABLE_SUFFIXES:
+            problems.append(f"{relative}: is a compiled or packaged binary ({suffix}) - one of these "
+                            f"in the tree makes browsers and antivirus products refuse the release "
+                            f"archive")
+            continue
+
+        # A PE with no suffix at all is still a PE: trust the header, not the name.
+        try:
+            head = path.read_bytes()[:4096]
+        except OSError:
+            continue
+
+        if len(head) > 8 and head[:2] == b"MZ":
+            problems.append(f"{relative}: is a Windows executable (MZ header) - do not commit it")
+            continue
+
+        # An encoded one is the same problem wearing a hat: base64's spelling of an "MZ" header plus
+        # the DOS stub after it. A text file carrying that is a packed executable however harmless
+        # it looks - exactly the pattern a scanner is trained to find, and exactly what this
+        # repository tried as its first fix. The needle is assembled from pieces below so that this
+        # file does not itself contain the contiguous header it is looking for.
+        if ENCODED_PE in head:
+            problems.append(f"{relative}: contains a base64-encoded Windows executable - scanners "
+                            f"flag that as readily as the binary itself; do not commit it")
+
+    return problems
+
+
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--fix", action="store_true", help="add missing using directives")
@@ -456,8 +597,17 @@ def main() -> int:
         usings = set(USING.findall(raw))
         short = path.relative_to(ROOT)
 
+        # Names this file declares itself: a type of that name needs no import, and neither does a
+        # member - ModInfo.cs has `const string Version`, so `Version` is a field here, not
+        # System.Version. Skipping the symbol when the file owns the name is the cheap, safe answer;
+        # the cost is a missed import in the rare file that both declares and needs the type.
+        own_names = set(MEMBER.findall(code)) | set(DECL.findall(code))
+
         missing: dict[str, list[str]] = {}
         for symbol, namespaces in SYMBOLS.items():
+            if symbol in own_names:
+                continue
+
             # Not preceded by a dot: "UnityEngine.Time" is fully qualified and needs no import, and
             # counting it would be a false alarm on correct code.
             if symbol not in declared and not re.search(rf"(?<![\w.]){symbol}\b", code):
@@ -560,10 +710,11 @@ def main() -> int:
 
     problems.extend(scope_problems(files))
     problems.extend(undeclared_call_problems(files))
+    problems.extend(binary_problems())
 
     if not problems:
         print(f"clean: {len(files)} file(s), no missing namespaces, UnitRecord consistent, "
-              f"no out-of-scope locals, no undeclared calls")
+              f"no out-of-scope locals, no undeclared calls, no binaries committed")
         return 0
 
     print()

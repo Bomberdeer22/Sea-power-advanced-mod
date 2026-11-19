@@ -174,14 +174,14 @@ Two things to look at.
 **1. BepInEx's plugin list**, near the top of `BepInEx\LogOutput.log`. It must say:
 
 ```
-[Info   :   BepInEx] Loading [Sea Power Advanced 0.24.0]
+[Info   :   BepInEx] Loading [Sea Power Advanced 0.24.1]
 ```
 
 **2. The mod's own log**, `BepInEx\plugins\SeaPowerAdvanced\seapoweradvanced.log`. This file only
 exists if the code actually ran, which makes "did it load?" unambiguous:
 
 ```
-================ Sea Power Advanced 0.24.0 ================
+================ Sea Power Advanced 0.24.1 ================
 Entry point:  BepInEx plugin
 Settings: enabled=True includeGuns=False allowEnemyUnits=False showWhenNoMounts=True
 Patched MapUnitViewModel.GetContextMenuItems.
@@ -267,6 +267,40 @@ To remove Anchor Chain itself, unsubscribe on Steam and delete `winhttp.dll`,
 `doorstop_config.ini` and the `BepInEx` folder from the game directory.
 
 ---
+
+## If your browser or antivirus refuses the download
+
+You may see **"Couldn't download - virus detected"** when saving the zip. It is a false positive, and
+it was the repository's fault, not yours:
+
+- **0.24.0's archive contained one compiled file** - `tools/analysis/testdata/hello.exe`, a 3.5 KB
+  "hello world" used as a fixture by the offline assembly reader's self-test. An unsigned `.exe` in a
+  small project's zip is exactly what a scanner exists to stop, so it refused the whole archive.
+- **If you downloaded before 0.24.1, you have the old copy.** The fix is in `main` from 0.24.1 onward;
+  a browser also caches a refused download, so clear it (or use a different browser, or `git clone`)
+  rather than re-trying the same link.
+- **0.24.1 removes it entirely.** The fixture is not shipped in any form - not as a `.exe`, and not
+  base64-encoded either, because that only hides the bytes from a person and not from a scanner. The
+  repository contains **no executable and no compiled binary at all**: only `.cs`, `.cmd`, `.ps1`, `.md`,
+  `.txt`, `.ini` and `.py`, every one of them text you can open in Notepad. `check-source.py` fails if a
+  binary ever comes back, encoded or not.
+
+If you are on an older archive and cannot re-download:
+
+1. **Download it with git instead** - `git clone https://github.com/Bomberdeer22/Sea-power-advanced-mod`
+   - a clone is not treated the way a browser download is.
+2. **Or download the source zip from GitHub** (Code -> Download ZIP) rather than through a download
+   manager that inspects archives.
+3. **Or take the individual files**: GitHub lets you open and save each file from the web page.
+4. If Windows Defender objected rather than the browser, it has quarantined the file:
+   **Windows Security -> Virus & threat protection -> Protection history -> Restore**, or add the folder
+   as an exclusion - after reading the scripts, which is the point of them being text.
+
+**What the tools actually do**, so the refusal can be judged rather than just trusted: `build.cmd`
+downloads the .NET SDK with `curl` and unpacks it inside the repo folder (never system-wide), builds one
+`SeaPowerAdvanced.dll` from the source in `src/`, and copies it into your game's `BepInEx\plugins`
+folder. Nothing runs in the background, nothing installs a service, nothing touches Windows, and no file
+outside the repo folder and your game folder is written. Every step is a line you can read.
 
 ## If something goes wrong
 
