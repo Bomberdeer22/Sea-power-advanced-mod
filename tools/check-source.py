@@ -504,6 +504,10 @@ ALLOWED_SCRIPTS = {
 SKIP_DIRS = {".git", ".github", "node_modules", "__pycache__", ".venv", "build", "obj", "bin",
              "dist", "out", ".vs", ".idea"}
 
+# The needle the encoded-executable rule looks for, spelled in pieces: kept out of this file as a
+# contiguous string so that the gate never flags its own source.
+ENCODED_PE = b"TVqQ" + b"AAMAA" + b"AAE"
+
 SCRIPT_SUFFIXES = {".bat", ".cmd", ".ps1", ".vbs", ".vbe", ".js", ".jse", ".wsf", ".wsh", ".hta"}
 
 
@@ -544,12 +548,12 @@ def binary_problems() -> list[str]:
             problems.append(f"{relative}: is a Windows executable (MZ header) - do not commit it")
             continue
 
-        # An encoded one is the same problem wearing a hat. "TVqQAAMAAAAE" is base64's spelling of an
-        # "MZ" header and the DOS stub that follows it, and a text file containing it is a packed
-        # executable however harmless it looks - exactly the pattern a scanner is trained to find,
-        # and exactly what this repository tried as its first fix. The token is long enough that
-        # prose about it (in a changelog, say) cannot trip the rule.
-        if b"TVqQAAMAAAAE" in head:
+        # An encoded one is the same problem wearing a hat: base64's spelling of an "MZ" header plus
+        # the DOS stub after it. A text file carrying that is a packed executable however harmless
+        # it looks - exactly the pattern a scanner is trained to find, and exactly what this
+        # repository tried as its first fix. The needle is assembled from pieces below so that this
+        # file does not itself contain the contiguous header it is looking for.
+        if ENCODED_PE in head:
             problems.append(f"{relative}: contains a base64-encoded Windows executable - scanners "
                             f"flag that as readily as the binary itself; do not commit it")
 
