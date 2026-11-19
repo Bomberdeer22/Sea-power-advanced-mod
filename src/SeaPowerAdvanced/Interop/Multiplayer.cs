@@ -921,6 +921,208 @@ internal static class Multiplayer
         return false;
     }
 
+    // --- the shared picture ---------------------------------------------------------------------
+
+    /// <summary>
+    /// The multiplayer mod's own contact sharing, read and (when asked) poked.
+    ///
+    /// That mod has a whole contact pipeline - <c>ContactSyncManager</c> for track numbers and
+    /// classification, <c>ContactRevealManager</c> for contacts only one machine holds - and it is
+    /// gated on one flag of its own: <c>CoopSessionActive</c>, which is
+    /// <i>not PvP and a session is up</i>. When that flag is off, the two players' pictures are
+    /// <b>meant</b> to differ, and no amount of revealing here changes the other screen.
+    ///
+    /// So this is worth reading for two reasons. It is the honest explanation of "my friend cannot
+    /// see what I see" when the session is flagged as PvP - the usual cause in a mission with a side
+    /// per player, because a two-player mission with two sides looks like a versus mission to that
+    /// mod. And when it *is* on, nudging it is harmless and occasionally useful: its reveal sweep
+    /// runs on a timer, so a fresh sweep is the cheapest way to resynchronise after a gap.
+    /// </summary>
+    internal static class Picture
+    {
+        /// <summary>True when the multiplayer mod is sharing the picture, false when it is not,
+        /// null when this build of it does not say.</summary>
+        internal static bool? Shared(out string why)
+        {
+            Scan();
+            why = "";
+
+            if (!present)
+            {
+                why = "no multiplayer session - there is no second picture to share with";
+                return false;
+            }
+
+            bool? flag = ReadStaticBool(ContactSyncType(), "CoopSessionActive");
+
+            if (flag.HasValue)
+            {
+                why = flag.Value
+                    ? "the multiplayer mod is sharing contacts (its CoopSessionActive is on)"
+                    : "the multiplayer mod is NOT sharing contacts: its co-op flag is off, which "
+                      + "means it is treating this session as PvP (its own CfgPvP setting), or it "
+                      + "has not finished joining";
+
+                // The flag can be on while the mod's own contact-sync switch is off, and then nothing
+                // moves between the machines at all. Worth saying out loud, because the symptom is
+                // identical to the switch this feature offers.
+                if (flag.Value && ConfigBool("CfgContactSync", "ContactSync") == false)
+                {
+                    why += " - but its own CfgContactSync switch is off, so it is not carrying "
+                           + "contacts between the two machines: that switch is the one to turn on";
+                }
+
+                return flag;
+            }
+
+            why = "this build of the multiplayer mod publishes no co-op flag the mod can read";
+            return null;
+        }
+
+        /// <summary>The two switches that decide all of the above, as they are set right now.</summary>
+        internal static string Switches()
+        {
+            Scan();
+            if (!present || pluginType == null) return "the multiplayer mod is not loaded";
+
+            return "CfgPvP=" + Describe(ConfigBool("CfgPvP", "PvP"))
+                   + ", CfgContactSync=" + Describe(ConfigBool("CfgContactSync", "ContactSync"));
+        }
+
+        /// <summary>
+        /// Asks the multiplayer mod to re-run its own contact sweeps. Public entry points of its
+        /// own, called by name: nothing is written from here, and a missing one is reported rather
+        /// than worked around.
+        /// </summary>
+        internal static string Resync()
+        {
+            Scan();
+
+            var done = new List<string>();
+            string why = "";
+
+            if (!present)
+            {
+                why = "the multiplayer mod is not loaded";
+                return why;
+            }
+
+            if (CallStatic(ContactSyncType(), "Tick", "ContactTick")) done.Add("contact sweep");
+            if (CallStatic(ContactRevealType(), "Tick")) done.Add("reveal sweep");
+
+            bool host = ReadBoolOf("CfgIsHost");
+
+            if (host)
+            {
+                if (CallStatic(ContactSyncType(), "HostBroadcast")) done.Add("broadcast of the picture");
+            }
+            else
+            {
+                if (CallStatic(ContactRevealType(), "ClientSendReport")) done.Add("contact report to the host");
+            }
+
+            if (done.Count == 0)
+                return "the multiplayer mod exposes no contact sweep this build can call";
+
+            return "asked for a resync: " + string.Join(", ", done.ToArray());
+        }
+
+        private static Type? ContactSyncType() => TypeIn("SeapowerMultiplayer.ContactSyncManager");
+
+        private static Type? ContactRevealType() => TypeIn("SeapowerMultiplayer.ContactRevealManager");
+
+        private static Type? TypeIn(string name)
+        {
+            if (pluginType == null) return null;
+
+            try { return pluginType.Assembly.GetType(name, false); }
+            catch (Exception) { return null; }
+        }
+
+        private static bool? ConfigBool(params string[] names)
+        {
+            if (pluginType == null) return null;
+
+            object? instance = ReadStatic(pluginType, instanceMember);
+            if (instance == null) return null;
+
+            foreach (string name in names)
+            {
+                MemberInfo? member = MemberProbe.Value(pluginType, name);
+                if (member == null) continue;
+
+                object? entry = MemberProbe.Read(member, instance);
+                if (entry == null) continue;
+
+                object? value = MemberProbe.Read(MemberProbe.Value(entry.GetType(), "Value"), entry);
+                if (value is bool flag) return flag;
+            }
+
+            return null;
+        }
+
+        private static bool ReadBoolOf(string name)
+        {
+            if (pluginType == null) return false;
+
+            object? instance = ReadStatic(pluginType, instanceMember);
+            if (instance == null) return false;
+
+            object? entry = MemberProbe.Read(MemberProbe.Value(pluginType, name), instance);
+            if (entry == null) return false;
+
+            return MemberProbe.Read(MemberProbe.Value(entry.GetType(), "Value"), entry) is bool flag && flag;
+        }
+
+        private static bool? ReadStaticBool(Type? type, string name)
+        {
+            if (type == null) return null;
+
+            try
+            {
+                MemberInfo? member = (MemberInfo?)type.GetProperty(name,
+                                           System.Reflection.BindingFlags.Public
+                                           | System.Reflection.BindingFlags.NonPublic
+                                           | System.Reflection.BindingFlags.Static)
+                                       ?? type.GetField(name,
+                                           System.Reflection.BindingFlags.Public
+                                           | System.Reflection.BindingFlags.NonPublic
+                                           | System.Reflection.BindingFlags.Static);
+
+                object? value = ReadStatic(type, member);
+                return value is bool flag ? flag : null;
+            }
+            catch (Exception) { return null; }
+        }
+
+        private static bool CallStatic(Type? type, params string[] names)
+        {
+            if (type == null) return false;
+
+            try
+            {
+                foreach (string name in names)
+                {
+                    MethodInfo? method = type.GetMethod(name,
+                        System.Reflection.BindingFlags.Public
+                        | System.Reflection.BindingFlags.NonPublic
+                        | System.Reflection.BindingFlags.Static, null, Type.EmptyTypes, null);
+
+                    if (method == null) continue;
+
+                    method.Invoke(null, null);
+                    return true;
+                }
+            }
+            catch (Exception) { }
+
+            return false;
+        }
+
+        private static string Describe(bool? value) =>
+            value.HasValue ? (value.Value ? "on" : "off") : "not readable";
+    }
+
     private static object? ReadStatic(Type? type, MemberInfo? member)
     {
         if (type == null || member == null) return null;

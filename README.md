@@ -4,7 +4,7 @@ An advanced mod for **Sea Power: Naval Combat in the Missile Age**, built as an
 [Anchor Chain](https://github.com/SeaPower-Modders/AnchorChain) code mod and loadable as a plain
 BepInEx plugin.
 
-**Version 0.24.2** — the first public release: fourteen advanced features for your own ships,
+**Version 0.25.0** — the first public release: fifteen advanced features for your own ships,
 plus per-cell hatch control. Everything is reached through the game's own right-click menus; there
 is no mod window and no hotkey.
 
@@ -29,7 +29,7 @@ Orders
       Log hatch report
 ```
 
-### 2. Fourteen advanced features, in the right-click menu
+### 2. Fifteen advanced features, in the right-click menu
 
 Right-click one of your ships. Each feature appears in the section of the menu where a player would
 look for it, rather than in one long submenu:
@@ -88,6 +88,18 @@ that half is limited twice over: **two contacts held blind at a time across the 
 seconds before it can be held down again. Both are settings (`EcmJamChannels`, `EcmJamHoldSeconds`,
 `EcmJamRecoverySeconds`) and both are stated in the menu before you click. The game's own jam keeps
 running on every lock whether or not it has a channel.
+
+**The force datalink** is the one built for co-op. A mission with a side per player - Blue for the
+host, Cyan for the guest, the two friendly - has two task forces, and every contact picture in this
+game belongs to one of them, so the two players can genuinely see different things: *"I could see it
+and he could not."* With the datalink on, each contact a force holds is handed to the other through
+the game's own intel-sharing call, **position only** - never an identity, a class or an identification -
+and never to a force we are plotting as a contact. It runs only in a session the multiplayer mod
+considers co-op, it re-reads the other force's table after every sweep to check the tracks actually
+arrived, and `datalink.txt` says what was shared, what was refused and why. What it cannot do is decide
+what the other player's *screen* shows: that is their machine and that mod's own contact sync, and the
+report names the switches to check when the two pictures still differ. See
+[docs/features.md](docs/features.md#2g-the-force-datalink--sensors-and-emcon).
 
 ### Multiplayer
 
@@ -450,7 +462,8 @@ check-features.cmd  what the game's own assembly can support
 ## Roadmap
 
 - [x] Open and close individual silo hatches without launching
-- [x] The fourteen advanced features, each in the game's own menu section
+- [x] The fourteen original advanced features, each in the game's own menu section
+- [x] Defensive ECM, offensive ECM in two modes, and the force datalink a co-op pair needs
 - [x] Defensive ECM that jams a missile and flies it into the sea
 - [x] Offensive ECM through the game's own jam order, on unidentified contacts
 - [ ] Per-cell salvo selection: open cells 1–8 only, remembered for the next launch

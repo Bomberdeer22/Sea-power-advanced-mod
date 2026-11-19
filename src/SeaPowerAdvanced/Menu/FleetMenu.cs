@@ -42,6 +42,7 @@ internal static class FleetMenu
     /// </summary>
     private const string RadarsGroup = "Radars and sonar";
     private const string EcmGroup = "ECM";
+    private const string LinkGroup = "Datalink";
 
     /// <summary>True when this menu has already been augmented.</summary>
     internal static bool Present(object collection) => MenuRouting.AlreadyHandled(collection);
@@ -121,6 +122,8 @@ internal static class FleetMenu
                        + "here is the game's own, and the label shows what is on.",
         EcmGroup => "Electronic warfare: the automatic defences, the focused jammer and what the "
                     + "game's own ECM interface looks like on this install.",
+        LinkGroup => "The datalink to the other player's force: whether this force's picture is "
+                     + "being handed to theirs, and what either side can actually see.",
         _ => "Entries for this ship.",
     };
 
@@ -563,6 +566,37 @@ internal static class FleetMenu
                     ModLog.Info("Menu: ECM report written - " + EcmControl.Summary());
                 }), MenuRouting.Sensors);
         }
+
+        // --- the datalink to the other player's force ------------------------------------------
+        // A co-op mission with a side per player has two task forces, and every contact picture in
+        // this game belongs to one. This is the switch that hands ours to theirs.
+        Grouped(LinkGroup, Datalink.On
+            ? Action("Datalink: " + Datalink.Describe() + " - click to stop sharing",
+                "Stops handing this force's picture to the other player's force. Tracks already "
+                + "passed age out on the game's own sensor clock.",
+                () => Report(unit, "datalink", Datalink.Toggle(out string r), r))
+            : Action("Datalink: off - click to share this force's picture",
+                "Hands every contact this force holds to the other player's force, through the game's "
+                + "own intel-sharing call: position only, never an identity. Only in a co-op session, "
+                + "and never to a force we are plotting as a contact. datalink.txt records exactly "
+                + "what was handed over and what the far side's table did with it.",
+                () => Report(unit, "datalink", Datalink.Toggle(out string r), r)),
+            MenuRouting.Sensors);
+
+        Grouped(LinkGroup, Action("Datalink: resynchronise both pictures",
+            "Asks the multiplayer mod to re-run its own contact sweeps as well as taking one here. "
+            + "The cheapest thing to try when one side has gone stale.",
+            () => Report(unit, "datalink resync", Datalink.Resync(out string r), r)),
+            MenuRouting.Sensors);
+
+        Grouped(LinkGroup, Action("Datalink: what either side can see",
+            "Writes datalink.txt: this machine's forces and their pictures, what was handed over, "
+            + "and what the multiplayer mod's own contact sharing is doing.",
+            () =>
+            {
+                Datalink.WriteReport("asked from the menu");
+                ModLog.Info("Menu: datalink report written - " + Datalink.Describe());
+            }), MenuRouting.Sensors);
 
         Add(MerchantDisguise.IsDisguised(unit)
             ? Action("Commercial disguise: on - click to drop it",

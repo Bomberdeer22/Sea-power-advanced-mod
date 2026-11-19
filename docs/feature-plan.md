@@ -1,7 +1,8 @@
 # Feature plan: sensor, tactics, formation, logistics
 
 > **Historical document.** This is the triage the feature work started from, kept because it explains
-> *why* each feature is built the way it is. All fourteen features have since been built and shipped -
+> *why* each feature is built the way it is. All fourteen planned features have since been built and
+> shipped, and the force datalink was added afterwards for co-op play -
 > see [features.md](features.md) for what they actually do, and [testing.md](testing.md) to check
 > them in a mission. The verdicts below are the original reading of the API, not the current state.
 

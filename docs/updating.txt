@@ -193,6 +193,16 @@ explains the version jump rather than just announcing it.
       What update.cmd does: nothing beyond the DLL
       note only
 
+  < 0.25.0
+      Release: new: the force datalink between a co-op host and guest. In a
+        mission with a side per player the two pictures are joined: contacts
+        this force holds are handed to the other, position only
+      On disk: a new setting appears with its default (CoopDatalink true,
+        CoopDatalinkSeconds 3)
+      What update.cmd does: nothing beyond the DLL
+      update.cmd says so. Nothing is shared in a PvP session, and nothing
+        outside one - the switch is in Sensors and EMCON -> Datalink
+
   < 0.24.2
       Release: Defensive ECM for the whole task force is a switch: the same
         entry disarms

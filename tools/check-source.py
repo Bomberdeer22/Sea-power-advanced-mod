@@ -150,6 +150,9 @@ PROVEN_TYPES = {
     # SeaPower, proven by a build
     "ObjectBase", "ObjectType", "GeoPosition", "WeaponSystem", "WeaponContainer",
     "CivilianRoute", "GameMain", "ObjectBaseParameters",
+    # Globals is the game's static world state: 0.24.x read Globals._playerTaskforce and shipped,
+    # and 0.25.0 reads the enemy and neutral task forces off it the same way. Proved by a build.
+    "Globals",
     # the game's UI assembly
     "ContextMenuItem", "DelegateCommand", "MapUnitViewModel", "ObjectBaseViewModel",
     "TrulyObservableCollection", "ReactiveProperty",
