@@ -42,6 +42,7 @@ internal static class FleetMenu
     /// </summary>
     private const string RadarsGroup = "Radars and sonar";
     private const string EcmGroup = "ECM";
+    private const string LinkGroup = "Datalink";
 
     /// <summary>True when this menu has already been augmented.</summary>
     internal static bool Present(object collection) => MenuRouting.AlreadyHandled(collection);
@@ -121,6 +122,8 @@ internal static class FleetMenu
                        + "here is the game's own, and the label shows what is on.",
         EcmGroup => "Electronic warfare: the automatic defences, the focused jammer and what the "
                     + "game's own ECM interface looks like on this install.",
+        LinkGroup => "The datalink to the other player's force: whether this force's picture is "
+                     + "being handed to theirs, and what either side can actually see.",
         _ => "Entries for this ship.",
     };
 
@@ -480,12 +483,7 @@ internal static class FleetMenu
                         () => Report(unit, "defensive ECM", DefensiveEcm.Toggle(unit, out string r), r)),
                     MenuRouting.Sensors);
 
-                Grouped(EcmGroup, Action("Defensive ECM for the whole task force",
-                    "Arms automatic defensive jamming on every ship under command that carries ECM - "
-                    + "including the close-in dive that puts missiles in the sea inside "
-                    + (int)DefensiveEcm.DiveNm + " nm.",
-                    () => Fleet("defensive ECM (fleet)", DefensiveEcm.ArmFleet(true, out string r), r)),
-                    MenuRouting.Sensors);
+                Grouped(EcmGroup, DefensiveEcmFleetItem(unit), MenuRouting.Sensors);
             }
 
             // Offensive ECM stays on offer in a session: the jam travels to the host as the game's
@@ -568,6 +566,37 @@ internal static class FleetMenu
                     ModLog.Info("Menu: ECM report written - " + EcmControl.Summary());
                 }), MenuRouting.Sensors);
         }
+
+        // --- the datalink to the other player's force ------------------------------------------
+        // A co-op mission with a side per player has two task forces, and every contact picture in
+        // this game belongs to one. This is the switch that hands ours to theirs.
+        Grouped(LinkGroup, Datalink.On
+            ? Action("Datalink: " + Datalink.Describe() + " - click to stop sharing",
+                "Stops handing this force's picture to the other player's force. Tracks already "
+                + "passed age out on the game's own sensor clock.",
+                () => Report(unit, "datalink", Datalink.Toggle(out string r), r))
+            : Action("Datalink: off - click to share this force's picture",
+                "Hands every contact this force holds to the other player's force, through the game's "
+                + "own intel-sharing call: position only, never an identity. Only in a co-op session, "
+                + "and never to a force we are plotting as a contact. datalink.txt records exactly "
+                + "what was handed over and what the far side's table did with it.",
+                () => Report(unit, "datalink", Datalink.Toggle(out string r), r)),
+            MenuRouting.Sensors);
+
+        Grouped(LinkGroup, Action("Datalink: resynchronise both pictures",
+            "Asks the multiplayer mod to re-run its own contact sweeps as well as taking one here. "
+            + "The cheapest thing to try when one side has gone stale.",
+            () => Report(unit, "datalink resync", Datalink.Resync(out string r), r)),
+            MenuRouting.Sensors);
+
+        Grouped(LinkGroup, Action("Datalink: what either side can see",
+            "Writes datalink.txt: this machine's forces and their pictures, what was handed over, "
+            + "and what the multiplayer mod's own contact sharing is doing.",
+            () =>
+            {
+                Datalink.WriteReport("asked from the menu");
+                ModLog.Info("Menu: datalink report written - " + Datalink.Describe());
+            }), MenuRouting.Sensors);
 
         Add(MerchantDisguise.IsDisguised(unit)
             ? Action("Commercial disguise: on - click to drop it",
@@ -799,6 +828,73 @@ internal static class FleetMenu
     }
 
     // --- helpers -------------------------------------------------------------------------------
+
+    /// <summary>
+    /// The task force's defensive-ECM switch: one entry that says what the whole force is doing and
+    /// turns it the other way.
+    ///
+    /// It used to arm and nothing else. The entry said *for the whole task force* and always ran the
+    /// arming path, so a second click repeated an order that had already been given, the label never
+    /// changed, and the only way back was ship by ship through the per-ship entry. A switch is what
+    /// the label promises, so it is what this is: the same entry arms when the force is off and
+    /// stands it down when anything in it is on.
+    ///
+    /// The counts come from <see cref="DefensiveEcm.FleetState"/>, which uses the arming's own rule,
+    /// so the number on the label is the number the click will change.
+    /// </summary>
+    private static ContextMenuItem DefensiveEcmFleetItem(ObjectBase unit)
+    {
+        DefensiveEcm.FleetStanding standing = DefensiveEcm.FleetState();
+
+        if (standing.Offered == 0)
+        {
+            // Nothing to switch. An entry that looks broken is worse than one that says why, and the
+            // counts are read the same way the arming reads them.
+            return Disabled("Defensive ECM: no ship under command carries a jammer",
+                "Counted from each ship's own sensor list: " + standing.NoJammer + " with no ECM set, "
+                + standing.Unreadable + " whose fit could not be read"
+                + (standing.Others > 0
+                    ? ", " + standing.Others + " not this machine's to command"
+                    : "")
+                + ". A hull with no jammer cannot jam, so the mod will not show one doing it - and "
+                + "arming a force that has nothing to arm would do exactly that. ecm-report.txt lists "
+                + "what was read from each hull.");
+        }
+
+        if (standing.Armed == 0)
+        {
+            return Action("Defensive ECM: task force off - click to arm " + standing.Ready + " ship(s)",
+                "Arms automatic defensive jamming on every ship under command that carries a jammer "
+                + "- " + standing.Ready + " of the " + standing.Ships + " in the picture. Each armed "
+                + "ship points its own set at a missile inbound to it or to the task force, holds the "
+                + "lock, and puts anything that gets inside " + (int)DefensiveEcm.DiveNm + " nm in the "
+                + "water. Click this same entry again to stand the whole force down.",
+                () => DefensiveEcmFleetSwitch(unit, true));
+        }
+
+        return Action(
+            standing.Ready > 0
+                ? "Defensive ECM: on for " + standing.Armed + " of " + standing.Offered
+                  + " ship(s) - click to disarm the task force"
+                : "Defensive ECM: task force armed (" + standing.Armed + " ship(s)) - click to disarm",
+            "Stands the whole task force down: every armed ship stops jamming, any radar the mod "
+            + "switched on for it goes back the way it was, and the close-in dive stops with it. Ships "
+            + "armed one at a time are included. In a session the host is the machine that runs "
+            + "missile defence, "
+            + "so a hull left armed there would go on jamming - which is why this click does not skip "
+            + "one. Nothing else about the ship changes.",
+            () => DefensiveEcmFleetSwitch(unit, false));
+    }
+
+    private static void DefensiveEcmFleetSwitch(ObjectBase unit, bool on)
+    {
+        int changed = DefensiveEcm.ArmFleet(on, out string report);
+
+        // Both an answer and a refusal are worth a line in the log and a moment on screen: this entry
+        // acts on ships the player may not be looking at, so "nothing happened" is the one thing it
+        // must not leave them guessing about.
+        Report(unit, "defensive ECM (task force)", changed > 0, report);
+    }
 
     private delegate bool UnitAction(ObjectBase unit);
 

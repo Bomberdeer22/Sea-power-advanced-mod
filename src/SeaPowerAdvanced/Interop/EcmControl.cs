@@ -558,6 +558,20 @@ internal static class EcmControl
             text.AppendLine("  the whole task force. There is no automatic arming path in the mod, and");
             text.AppendLine("  a ship that stops being this machine's is disarmed on the next tick.");
 
+            // The fleet entry is a switch, so what it would do next belongs in the report too: the
+            // menu label is built from these same counts.
+            try
+            {
+                DefensiveEcm.FleetStanding standing = DefensiveEcm.FleetState();
+
+                text.AppendLine("  the task force entry is a switch: " + standing.Ready
+                                + " ship(s) carry a jammer and are not armed, " + standing.NoJammer
+                                + " carry none, " + standing.Unreadable + " could not be read");
+                text.AppendLine("  with nothing armed, a click on it arms the force; with anything armed,");
+                text.AppendLine("  a click stands every armed ship down.");
+            }
+            catch (Exception) { }
+
             text.AppendLine();
             text.AppendLine("Jammer fit by hull, from each ship's own sensor list");
             text.AppendLine("--------------------------------------------------");

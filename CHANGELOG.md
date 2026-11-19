@@ -1,5 +1,114 @@
 # Changelog
 
+## 0.25.0 - the force datalink: two players, two sides, one picture
+
+A co-op mission built with a side per player - Blue for the host, Cyan for the guest, the two marked
+friendly, both hostile to Red - has **two task forces**, and every contact picture in this game
+belongs to a task force. Each machine detects with its own sensors and writes what it found to its
+own force's table. Nothing in the game joins the two, so the host holds tracks the guest has never
+been given and the reverse: *"I could see the contact on my screen and he could not see it on his."*
+
+**This is the switch that hands one force's picture to the other.** On a sweep, every contact the
+local picture holds is given to the other force through the game's own intel-sharing call -
+`Utils.RevealContactToObject`, the route a reconnaissance report or a radio link uses. The game builds
+the track; the mod supplies only the pairing.
+
+**Three rules, and each one is a limit the feature accepts rather than works around:**
+
+- **Only tracks this machine really holds.** The source is the player's own plotting table and
+  spotted list - the same picture the offensive jammer is aimed from. A contact nobody holds is never
+  relayed, and nothing is invented to fill a gap.
+- **Position only, never identity.** The sharing call's classification argument is passed as `0`,
+  which attaches neither a side nor a class. The receiving force learns *something is there and
+  where*; whose it is, what class it is and whether anybody has identified it stay theirs to work
+  out. (The multiplayer mod's own working code documents why `1`, `2` and `3` are not used: `2` and
+  `3` attach a side, and `1`, which reads like the mildest, ends up attaching both.)
+- **Only to a force that is friendly by evidence.** A force is refused when it is the game's neutral
+  force, the game's enemy force, or a force any of whose units is currently in **our own picture as a
+  contact** - in which case we are already treating it as hostile, and handing it our picture would be
+  the opposite of a favour. The whole feature is also off unless the multiplayer mod says the session
+  is a co-op one: in a PvP session the other player is an opponent.
+
+**Nothing is claimed that was not seen.** Every sweep re-reads the receiving force's table afterwards
+and counts what is actually in it. A build whose reveal writes only to the player's own side would
+otherwise give a switch that reports success every time and changes nothing; that case is detected,
+written to `datalink.txt`, and the handing stops after three sweeps instead of pretending.
+
+**The limit, stated plainly.** This runs on the machine that calls it: it makes the picture on *this*
+machine hold what this machine's sensors hold for the allied force. What the other player's **screen**
+shows is decided on *their* machine, by their own detection and by the multiplayer mod's contact sync -
+which is the only thing that carries a contact from one computer to another. That mod shares only when
+it considers the session co-op, and **a mission with a side per player is exactly the case where it
+may decide this is PvP** and keep the two pictures apart on purpose. So the feature reads that mod's
+own switches and co-op flag, writes them to `datalink.txt`, and says which one to change - it cannot
+set them.
+
+**In the menu** - *Sensors and EMCON → Datalink*, three entries:
+
+| Entry | What it does |
+|---|---|
+| *Datalink: on, sharing N track(s) - click to stop sharing* | The switch. Off, and nothing more is handed over; the tracks already passed age out on the game's own sensor clock |
+| *Datalink: resynchronise both pictures* | Takes a sweep here and asks the multiplayer mod to re-run its own contact sweeps - the cheapest first thing to try when one side has gone stale |
+| *Datalink: what either side can see* | Writes `datalink.txt` |
+
+**Settings:** `CoopDatalink` (default **true**) and `CoopDatalinkSeconds` (default **3**, 1-30). Three
+seconds is inside the ten-second life of an air track, so a track handed over does not flicker; a track
+the receiving force detects with its own sensors is left to its own fix and never refreshed from here.
+
+`datalink.txt` records: session state and role, the multiplayer mod's co-op flag and its `CfgPvP` /
+`CfgContactSync` switches, every force on this machine with its unit count, plotting table and tracks
+held, how many of our own tracks are detected here rather than received, and the per-force result of
+the last sweep - handed, already held, or refused with the reason.
+
+```text
+python tools/check-source.py      :: clean: 55 file(s), ...
+python tools/check-batch.py       :: clean: 6 batch file(s), ...
+python tools/check-versions.py    :: clean: 0.25.0 in all seven places
+python tools/check-docs.py        :: clean: 7 plain-text twin(s)
+```
+
+Not proved here: that this build's `Utils.RevealContactToObject` writes into a force that is not the
+player's own. That is what the verification step above exists for - `datalink.txt` will say either
+"handed N, now holding N" or "its picture did not gain them", and the second answer is a limit of the
+game's call, reported rather than papered over.
+
+## 0.24.2 - the task force's defensive ECM is a switch
+
+The entry in *Sensors → ECM* read **"Defensive ECM for the whole task force"** and there was only one
+thing it could do: arm. Clicking it a second time ran the same arming path again, found everything
+already armed, changed nothing, and left the label saying what it said before. Standing the force down
+meant going into each ship in turn.
+
+It is one switch now, and it says which way it is pointing:
+
+```
+Defensive ECM: task force off - click to arm 6 ship(s)
+Defensive ECM: on for 4 of 6 ship(s) - click to disarm the task force
+Defensive ECM: task force armed (6 ship(s)) - click to disarm
+```
+
+- **The count is the click.** Both lines are built from `DefensiveEcm.FleetState()`, which counts the
+  fleet with the arming's own rule: this machine's ship, and a jammer positively found in that hull's
+  own sensor list. So the number on the label is the number of ships the click will change.
+- **Any ship armed means the next click stands the force down.** A half-armed force reads *on for 4 of
+  6* and one click clears all four, rather than arming the last two and leaving the player clicking
+  twice to get back where they started.
+- **The disarm is unconditional**, exactly as before: it does not ask the fit, so a ship armed by an
+  earlier build - or left armed with no jammer by 0.23.x - is stood down by the same click that stands
+  down the rest of the force. Each ship's radar goes back to the state it was found in.
+- **Nothing to arm says so, instead of doing nothing.** A force where no hull carries a jammer gets a
+  grey entry naming the counts: how many carry no ECM set, how many could not be read, how many are
+  not this machine's to command. That is the same rule that keeps the Huak class from being armed.
+- **The result is on screen, not only in the log.** Arm, disarm and refusal all go through the game's
+  own order feedback, and a click that changes nothing now reports
+  `nothing to do: defensive ECM was already off across the task force` rather than
+  `disarmed on 0 ship(s)`, which looked like a failure.
+- `ecm-report.txt` gained the same counts, so the state the menu is reading can be checked in a file.
+
+A multiplayer client still does not get the entry: the host simulates weapons, so missile defence is
+armed there, and the menu says so. Disarming a client side would clear a flag that the machine which
+actually runs the jam never sees.
+
 ## 0.24.1 - build fix, and an archive that downloads
 
 `Multiplayer.cs` grew a `List<ClientRule>` and a `Dictionary<string, Attempted>` in 0.24.0 and did not

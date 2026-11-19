@@ -1,7 +1,7 @@
 # The advanced features
 
-There are fourteen now: the twelve original ones, automatic defensive ECM, and offensive ECM in
-two modes. All of them live in
+There are fifteen now: the twelve original ones, automatic defensive ECM, offensive ECM in
+two modes, and the force datalink between two co-op players. All of them live in
 the game's own right-click menu, each in the section a player would look in first - not stacked into
 one submenu. There is no mod window and no hotkey.
 
@@ -9,6 +9,7 @@ one submenu. There is no mod window and no hotkey.
 |---|---|
 | Radars, air/surface search only, active sonar, towed array, EMCON profiles | **Sensors** |
 | Radar blink, auto-ARM shutoff, **defensive ECM**, **offensive ECM**, commercial disguise | **Sensors** (they are emission decisions) |
+| **Force datalink** to the other player's force | **Sensors** (it is about the picture the force holds) |
 | **ECM cones on the map** | Not a menu entry - drawn over the map whenever a set is aimed |
 | Salvo deconfliction | **Engage** (it is about who may fire, and when) |
 | Action stations, cold cruise, crew fatigue | **Rules of engagement** |
@@ -154,7 +155,8 @@ The mod only offers an option to a unit that can carry it out:
 | Setting | What it does |
 |---|---|
 | Sensors → *Defensive ECM: off - click to arm automatic jamming* | Arms this ship |
-| Sensors → *Defensive ECM for the whole task force* | Arms every ship under command |
+| Sensors → *Defensive ECM: task force off - click to arm N ship(s)* | Arms every ship under command that carries a jammer |
+| Sensors → *Defensive ECM: on for N of M ship(s) - click to disarm the task force* | The same entry once anything is armed: stands the whole force down in one click |
 | Sensors → *ECM: what this build exposes* | Writes `ecm-report.txt` again on demand |
 
 ## 2c. Offensive ECM, two modes — `Sensors and EMCON`
@@ -464,6 +466,7 @@ with the missile left sitting on the water, because the game was still walking a
 deleted from under it.
 
 | Needs | `Defensive ECM: off - click to arm automatic jamming` on that ship, or armed for the whole task force. A hull with no jammer never offers either |
+| Task force switch | `Defensive ECM: task force off - click to arm N ship(s)` arms every ship this machine commands that carries a jammer; the same entry then reads `on for N of M ship(s) - click to disarm the task force` and one click stands every armed ship down, including any armed one at a time. The count comes from the arming rule, so it is the number the click changes |
 |---|---|
 | Range | `Features/EcmDiveNm`, **10 nm** by default (0-30). **0 switches the dive off** and leaves the jam alone |
 | Not covered | **Guns and rockets.** A shell has no lock to break and no seeker to point down, so it is never touched |
@@ -500,6 +503,47 @@ The dive itself is unchanged in all three: the same guidance-link break, the sam
 same nose that stops at 90 degrees, the same water-dip removal by the game. The menu shows the
 channels in use - `armed, jamming now, 1/2 channels` - so it is visible when a salvo is overwhelming
 the ship rather than mysterious.
+
+## 2g. The force datalink — `Sensors and EMCON`
+
+**The problem.** A co-op mission with a side per player - Blue for the host, Cyan for the guest, the
+two marked friendly, both hostile to Red - has two task forces. Every contact picture in this game
+belongs to one task force, and each machine detects with its own sensors and writes what it found to
+its own force's table. Nothing joins the two, so one player holds a track the other has never been
+given: *"I could see it and he could not."* That is not a bug in the mission or in the sensors; it is
+two pictures that were never introduced to each other.
+
+**What the switch does.** Every few seconds - three by default, `CoopDatalinkSeconds` - each contact
+this force holds is handed to the other force through the game's own intel-sharing call - `Utils.RevealContactToObject`, the same route a
+reconnaissance report or a radio link uses. The game builds the track; the mod supplies only which
+detector carries it and which contact it is about.
+
+| Entry | What it does |
+|---|---|
+| *Datalink: on, sharing N track(s) - click to stop sharing* | The switch. Off, and nothing more is handed over |
+| *Datalink: resynchronise both pictures* | A sweep here, and the multiplayer mod's own contact sweeps asked for again |
+| *Datalink: what either side can see* | Writes `datalink.txt` |
+
+| Needs | A session the multiplayer mod considers **co-op** - its own `CoopSessionActive`, which is *not PvP and connected*. A PvP session keeps the pictures apart on purpose and this will not touch it |
+|---|---|
+| Reads | This force's plotting table and spotted list (`ContactPicture.Hostiles`), every force on the machine and its own table, the multiplayer mod's co-op flag and its `CfgPvP` / `CfgContactSync` switches |
+| Writes | Nothing on a ship and nothing on a weapon: one call per track, to the game's own sharing routine. No radar is switched, no member is set, nothing is created or destroyed |
+| Passing on | **Position only.** The classification argument is `0`, which attaches neither a side nor a class, so the far force gets a bearing and a position - never an identity |
+| Refused for | The game's neutral force; the game's enemy force; **any force with a unit in our own picture as a contact**; a force whose plotting table cannot be read; a force that has already failed three verification sweeps |
+| Verified | After every sweep the receiving force's table is read back and counted. Success is *the track appeared in their picture*, not *the call returned* |
+| Report | `datalink.txt` - session and role, the multiplayer mod's switches, every force with its tracks, how many of our tracks are detected here rather than received, and the per-force result of the last sweep |
+| Honest limit | **This runs on the machine that calls it.** What the other player's screen shows is decided on their machine by their own detection and by the multiplayer mod's contact sync, which is the only thing that carries a contact between computers. If that mod has decided a two-side mission is PvP, its sharing is off and `datalink.txt` says so - including which switch to change. The mod cannot set that switch for it |
+
+**Why not simply share more.** Two reasons, and both are the game's rather than the mod's. Identity is
+not ours to give: a datalink track in the real world carries a position and a track number, and a force
+that has not identified a contact should not learn its class from a friend's radio. And a force we are
+plotting as a *contact* is a force we are already treating as hostile, so it is exactly the force that
+must not be handed our picture.
+
+**If the two screens still differ**, in this order: open `datalink.txt` and read the *Session* block -
+its co-op flag is the answer more often than not; then try *Datalink: resynchronise both pictures*;
+then check that both players have this build, because a picture handed over by one build and read by
+another is not a thing the game can do.
 
 ## 3. Commercial signature spoofing — `Deception`
 
@@ -618,6 +662,8 @@ more slowly than tiring, so there is a real cost to leaving the fleet closed up 
 | `EcmDiveIntervalSeconds` | `2` | Seconds between one descent starting and the next being allowed (§2f) |
 | `EcmDiveReactionSeconds` | `1` | Seconds between a missile crossing `EcmDiveNm` and its descent starting (§2f) |
 | `EcmDiveRadarSeekersOnly` | `true` | Only radar-seeking missiles can be decoyed - IR, optical and anti-radiation are immune (§2f) |
+| `CoopDatalink` | `true` | Hand this force's picture to the other player's force in a co-op session (§2g) |
+| `CoopDatalinkSeconds` | `3` | Seconds between datalink sweeps. Above about ten, a track handed over flickers as it ages out (§2g) |
 
 ## What to send back if something misbehaves
 
@@ -627,4 +673,7 @@ names every feature and its result per ship, so a single failed action is easy t
 report files say what the game actually exposes.
 
 In a multiplayer session, add **`multiplayer.txt`**: it names the multiplayer mod's version, which
-side of the session this machine is on, and every rule that followed from it.
+side of the session this machine is on, and every rule that followed from it. If the two players are
+seeing different contacts, add **`datalink.txt`** as well - it is written from the menu
+(*Datalink: what either side can see*) and says whether the session is being treated as co-op, which
+is the answer more often than not.
