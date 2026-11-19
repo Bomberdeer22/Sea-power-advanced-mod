@@ -97,6 +97,12 @@ follows from that route rather than from a guess. `multiplayer.txt` in the mod f
 says which side of the session this machine is on, and - the honest part - counts how many of the paths
 have actually been tried this session, because only a client can prove one.
 
+**"Virus detected" when downloading the zip?** It is a false positive, and it was mine: an earlier
+archive carried one compiled test fixture. It is gone as of 0.24.1, and the repository now holds
+no binaries at all - every file is text you can open in Notepad. See
+[the install guide](INSTALL.md#if-your-browser-or-antivirus-refuses-the-download) for what the
+tools do, and how to get the files another way.
+
 **Something not working? Run `diagnose.cmd`** — one double-click, one text file to send. Then open an
 issue here and attach it; the [bug report template](.github/ISSUE_TEMPLATE/bug_report.md) lists the
 report files and what each one answers, so a report can be acted on rather than guessed at.

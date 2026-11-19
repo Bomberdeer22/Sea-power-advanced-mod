@@ -15,6 +15,9 @@ Six kinds, every one of which has cost a round trip through a real machine:
 5. An accessor is called by name, unit.get_ThreatningMissile(). CS0571, every time.
 6. A method is called by name that nothing in the project declares - a helper that was referenced
    from one place and never written. CS0103, and it reads exactly like the calls around it.
+7. A compiled executable is committed. Not a compile error at all - a distribution one. A single
+   unsigned .exe in the tree made browsers and antivirus products refuse the whole release archive
+   ("couldn't download, virus detected"), so the mod never reached the people it is for.
 
 The script never needs the game's DLLs, which is the point: it runs anywhere, so it can be checked
 before handing a build to somebody else.
@@ -463,6 +466,85 @@ def undeclared_call_problems(files) -> list[str]:
     return problems
 
 
+# ---------------------------------------------------------------------------------------------
+# No executables in the tree.
+#
+# Not a compiler rule - a distribution one. 0.24.0's archive contained
+# tools/analysis/testdata/hello.exe: a 3.5 KB compiled "hello world", committed as the fixture for
+# the assembly reader's self-test. Every browser and antivirus product that saw it refused the
+# download, and the report was "couldn't download - virus detected", which reads as though the mod
+# were malicious. It was not; it was a test fixture in a folder nobody runs.
+#
+# The fixture is now base64 text, decoded to a temporary file at run time, so the repository carries
+# no binary at all. This keeps it that way - and the allowlist is deliberate, so adding a script is a
+# decision rather than an accident.
+# ---------------------------------------------------------------------------------------------
+
+EXECUTABLE_SUFFIXES = {
+    ".exe", ".dll", ".msi", ".scr", ".com", ".pif", ".cpl", ".ocx", ".sys", ".drv",
+    ".bat", ".cmd", ".ps1", ".vbs", ".vbe", ".js", ".jse", ".wsf", ".wsh", ".hta",
+    ".reg", ".lnk", ".msc", ".jar", ".apk", ".app", ".dmg",
+    ".zip", ".7z", ".rar", ".tar", ".gz", ".bz2", ".xz",
+}
+
+# The batch and PowerShell files this repository is made of. They are text, they are readable in
+# Notepad, and they are the point of the tooling - but only at these paths, and only these.
+ALLOWED_SCRIPTS = {
+    "build.cmd", "update.cmd", "uninstall.cmd", "check-source.cmd", "check-features.cmd",
+    "diagnose.cmd", "build.ps1", "build.sh",
+    "tools/build-portable.ps1", "tools/build-portable.cmd", "tools/build-portable.sh",
+    "tools/dump-game-api.ps1", "tools/setup-venv.ps1", "tools/setup-venv.cmd",
+    "tools/analysis/setup.ps1", "tools/analysis/setup.sh", "tools/analysis/survey.ps1",
+    "tools/analysis/survey.cmd",
+}
+
+# Not scanned: not what a player downloads.
+# Deliberately NOT tools/analysis: that is exactly where the last executable hid, and a skip list
+# that excludes the folder the mistake was made in is a skip list that cannot learn.
+SKIP_DIRS = {".git", ".github", "node_modules", "__pycache__", ".venv", "build", "obj", "bin",
+             "dist", "out", ".vs", ".idea"}
+
+SCRIPT_SUFFIXES = {".bat", ".cmd", ".ps1", ".vbs", ".vbe", ".js", ".jse", ".wsf", ".wsh", ".hta"}
+
+
+def binary_problems() -> list[str]:
+    problems: list[str] = []
+
+    for path in sorted(ROOT.rglob("*")):
+        if not path.is_file():
+            continue
+
+        relative = path.relative_to(ROOT)
+        if any(part in SKIP_DIRS for part in relative.parts):
+            continue
+
+        suffix = path.suffix.lower()
+        posix = relative.as_posix()
+
+        if suffix in SCRIPT_SUFFIXES:
+            if posix not in ALLOWED_SCRIPTS:
+                problems.append(f"{relative}: is a script a scanner will flag and it is not one of "
+                                f"the repository's own tools - add it to ALLOWED_SCRIPTS "
+                                f"deliberately, or do not commit it")
+            continue
+
+        if suffix and suffix in EXECUTABLE_SUFFIXES:
+            problems.append(f"{relative}: is a compiled or packaged binary ({suffix}) - one of these "
+                            f"in the tree makes browsers and antivirus products refuse the release "
+                            f"archive")
+            continue
+
+        # A PE with no suffix at all is still a PE: trust the header, not the name.
+        try:
+            if path.stat().st_size > 8 and path.read_bytes()[:2] == b"MZ":
+                problems.append(f"{relative}: is a Windows executable (MZ header) - store it as "
+                                f"base64 text, or do not commit it")
+        except OSError:
+            pass
+
+    return problems
+
+
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--fix", action="store_true", help="add missing using directives")
@@ -613,10 +695,11 @@ def main() -> int:
 
     problems.extend(scope_problems(files))
     problems.extend(undeclared_call_problems(files))
+    problems.extend(binary_problems())
 
     if not problems:
         print(f"clean: {len(files)} file(s), no missing namespaces, UnitRecord consistent, "
-              f"no out-of-scope locals, no undeclared calls")
+              f"no out-of-scope locals, no undeclared calls, no binaries committed")
         return 0
 
     print()

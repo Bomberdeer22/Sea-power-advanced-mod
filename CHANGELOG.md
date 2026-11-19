@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.24.1 - build fix: one missing using
+## 0.24.1 - build fix, and an archive that downloads
 
 `Multiplayer.cs` grew a `List<ClientRule>` and a `Dictionary<string, Attempted>` in 0.24.0 and did not
 grow the import for them, so the build stopped on `CS0246: The type or namespace name 'List<>' could
@@ -28,6 +28,26 @@ python tools/check-source.py --fix    :: same, and adds any import that is missi
 
 A name a file declares itself is exempt: `ModInfo.cs` has `const string Version`, and that is not
 `System.Version`, so the scan does not ask for an import it does not need.
+
+### And the archive no longer trips a virus scanner
+
+A download of 0.24.0's source zip stopped at **"Couldn't download - virus detected"**. Correct
+behaviour on the scanner's part: the archive contained a compiled, unsigned executable -
+`tools/analysis/testdata/hello.exe`, a 3.5 KB "hello world" used as a fixture by the offline assembly
+reader's self-test. Nobody runs it; it existed so the reader could be pinned against ILDasm's own
+output. An unsigned `.exe` inside a small project's zip is precisely what a browser is built to stop,
+so it stopped the whole archive.
+
+- **The fixture is now base64 text** (`hello.exe.b64`, with its sha256 in the header). `selftest.py`
+  decodes it to a temporary file, checks the hash, runs the same nine checks and deletes it again.
+- **The repository now contains no binary of any kind** - only `.cs`, `.cmd`, `.ps1`, `.md`, `.txt`,
+  `.ini` and `.py`, all text that opens in Notepad.
+- **`check-source.py` enforces it**: a committed `.exe`/`.dll`/`.zip`/`.msi` fails the check, and so
+  does any script outside the tooling allowlist. Tested by putting the `.exe` back - the gate names it
+  and exits 1 - and by dropping in a stray `.cmd`, which it also names.
+- **`INSTALL.md` now explains the refusal** instead of leaving a player to guess: what was in the
+  archive, what the tools actually do line by line, and three ways to get the files when a browser will
+  not hand them over (a git clone, GitHub's own zip, or the individual files).
 
 ## 0.24.0 - a menu that can be read, and a client path that admits what it has not proved
 

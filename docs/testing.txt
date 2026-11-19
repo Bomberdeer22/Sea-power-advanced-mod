@@ -441,12 +441,17 @@ Python 3 and nothing else - no game DLLs, no compiler:
     python tools\check-docs.py         :: every .txt twin still matches its Markdown
 
 check-source.py is the one that grows: every time a build fails on something a
-compiler sees and Python could have, a rule is added for it. The newest covers
-the imports of BCL types - List, Dictionary, HashSet, IEnumerable,
-StringBuilder, Regex, BindingFlags, Path and the rest - because 0.24.0 shipped
-a file that used List<> and Dictionary<> without importing the namespace that
-declares them, and that cost a build. --fix puts the missing line back by
-itself.
+compiler sees and Python could have, a rule is added for it - and one rule is
+there because of a download failure rather than a build one. No binaries in
+the tree: a committed .exe/.dll/.zip/.msi fails the check, as does any batch
+or PowerShell file that is not one of the repository's own tools. That rule
+exists because 0.24.0's archive carried one compiled test fixture and every
+browser refused to download it; the fixture is base64 text now, and the check
+keeps it that way. The newest covers the imports of BCL types - List,
+Dictionary, HashSet, IEnumerable, StringBuilder, Regex, BindingFlags, Path and
+the rest - because 0.24.0 shipped a file that used List<> and Dictionary<>
+without importing the namespace that declares them, and that cost a build.
+--fix puts the missing line back by itself.
 
 All four run on every push (.github/workflows/checks.yml). They do not prove
 the mod compiles - only the compiler against your own game DLLs can do that -
