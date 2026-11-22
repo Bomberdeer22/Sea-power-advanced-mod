@@ -141,7 +141,7 @@ internal static class Lidar
 
         return record.LidarSighted.Length > 0
             ? "on, holding " + record.LidarSighted
-            : "on, nothing in the arc";
+            : "on, beam at " + (int)record.LidarBearing + " deg, nothing on it";
     }
 
     /// <summary>Writes <c>lidar.txt</c>: the fit by hull, the order in force, and every refusal.</summary>
@@ -159,17 +159,20 @@ internal static class Lidar
 
             text.AppendLine("What this is, in one paragraph");
             text.AppendLine("--------------------------------");
-            text.AppendLine("  A range-limited sight: a laser rangefinder where the hull has one, and the");
-            text.AppendLine("  game's own Eyes Mk 1 lookouts where it has not. A hull whose own sensor list");
-            text.AppendLine("  holds either may be ordered to look with it,");
+            text.AppendLine("  A rotating 360-degree set mounted on the hull. It turns at LidarSpinRpm and");
+            text.AppendLine("  sees whatever its beam passes over inside LidarRangeNm - and only that: a");
+            text.AppendLine("  contact is sighted when the beam is on it, not because it is near. The map");
+            text.AppendLine("  overlay draws the spoke turning, the range ring and a mark on whatever the");
+            text.AppendLine("  beam is holding; F10 (LidarOverlayKey) flips the map into the infrared view.");
             text.AppendLine("  and every contact the FORCE ALREADY HOLDS that is inside the range and the");
             text.AppendLine("  arc is put on that hull's picture through the game's own reveal call - the");
             text.AppendLine("  route a reconnaissance report uses. Position only: no identity, no class.");
             text.AppendLine();
-            text.AppendLine("  Every hull may look, whether or not its data names an optical sensor");
-            text.AppendLine("  (LidarAnyHull, on by default). A warship has lookouts; a hull whose sensor");
-            text.AppendLine("  list says nothing about them is looking on that assumption, and the list");
-            text.AppendLine("  below marks it as such rather than claiming a set it cannot see.");
+            text.AppendLine("  Every hull carries it, whether or not its data names an optical sensor");
+            text.AppendLine("  (LidarAnyHull, on by default): the set is the mod's, mounted for you, which is");
+            text.AppendLine("  what the feature was asked for. What each hull's own data holds is still");
+            text.AppendLine("  printed below - LASER DIRECTOR, LOOKOUTS LISTED or LOOKOUTS ASSUMED - so the");
+            text.AppendLine("  assumption is visible rather than buried.");
             text.AppendLine();
             text.AppendLine("  It never looks for a contact the picture does not already hold. That is the");
             text.AppendLine("  difference between a sight and a wallhack, and it is also how the real");
@@ -196,11 +199,13 @@ internal static class Lidar
             text.AppendLine("The order in force");
             text.AppendLine("------------------");
             text.AppendLine("  setting:          LidarEnabled=" + (ModSettings.LidarEnabled ? "on" : "off")
-                            + ", every hull may look: " + (ModSettings.LidarAnyHull ? "yes" : "no")
-                            + ", range " + (int)ModSettings.LidarRangeNm + " nm"
-                            + " (lookouts " + (int)ModSettings.LidarLookoutNm + " nm)"
-                            + ", arc " + (int)ModSettings.LidarArcDegrees + " deg"
-                            + ", look every " + ModSettings.LidarSeconds.ToString("0.#") + " s");
+                            + ", every hull may scan: " + (ModSettings.LidarAnyHull ? "yes" : "no")
+                            + ", range " + (int)ModSettings.LidarRangeNm + " nm, 360 deg"
+                            + ", beam " + (int)ModSettings.LidarBeamDeg + " deg"
+                            + ", " + (int)ModSettings.LidarSpinRpm + " rpm"
+                            + ", report every " + ModSettings.LidarSeconds.ToString("0.#") + " s");
+            text.AppendLine("  overlay:          " + (ModSettings.LidarOverlay ? "on" : "off")
+                            + ", infrared key " + ModSettings.LidarOverlayKey);
             text.AppendLine("  sweeps run:       " + sweeps);
             text.AppendLine("  last verdict:     " + lastVerdict);
             text.AppendLine("  contacts sighted: " + sighted);
@@ -227,11 +232,11 @@ internal static class Lidar
                     UnitRecord record = UnitState.Of(hull);
 
                     text.AppendLine("  ORDERED: " + Name(hull) + " - " + Describe(hull));
-                    text.AppendLine("    fit: " + fit.Basis);
-                    text.AppendLine("    reach: " + LidarControl.RangeNm(fit, ModSettings.LidarRangeNm,
-                                                          ModSettings.LidarLookoutNm).ToString("0.#")
-                                    + " nm   (evidence: " + fit.Evidence + ")");
-                    text.AppendLine("    state: " + Describe(hull));
+                    text.AppendLine("    beam: " + (int)record.LidarBearing + " deg, "
+                                    + (int)ModSettings.LidarRangeNm + " nm, "
+                                    + (int)ModSettings.LidarBeamDeg + " deg wide, "
+                                    + (int)ModSettings.LidarSpinRpm + " rpm");
+                    text.AppendLine("    fit: " + fit.Basis + "   (evidence: " + fit.Evidence + ")");
                 }
                 catch (Exception) { }
             }
@@ -279,20 +284,60 @@ internal static class Lidar
         if (!ModSettings.FeaturesEnabled) return;
         if (!ModSettings.LidarEnabled) return;
 
-        // No hull looking means no sweep: this is on by default, and reading the whole contact
-        // picture every four seconds for nothing would be a cost paid by every player who never
-        // opens the entry.
+        // No hull looking means no work: this is on by default, and reading the whole contact
+        // picture every tick for nothing would be a cost paid by every player who never opens the
+        // entry.
         if (!AnyOrdered()) return;
 
-        // Look orders are this machine's own picture, so they work on a client as well as a host:
-        // what is written is a track on a hull this machine commands, not a change to the world.
-        float interval = Mathf.Clamp(ModSettings.LidarSeconds, 1f, 60f);
+        // A rotating set is sampled every frame - that is what makes the beam move - so this is
+        // driven by the clock rather than by a sweep interval. What each frame can do is bounded by
+        // the beam pointing at a contact, so the cost is a sector test, not a table walk.
+        Spin(Time.unscaledDeltaTime);
+
         if (Time.unscaledTime < nextSweep) return;
 
-        nextSweep = Time.unscaledTime + interval;
+        nextSweep = Time.unscaledTime + Mathf.Clamp(ModSettings.LidarSeconds, 1f, 60f);
         Sweep(force: false);
     }
 
+    /// <summary>
+    /// Advances every set's rotation and looks at whatever the beam is on.
+    ///
+    /// This is the part that makes it a scanner rather than a switch. A laser rangefinder with a
+    /// rotating head sweeps the horizon at a steady rate; a contact is only <i>sighted</i> when the
+    /// beam is actually on it, which is what the overlay draws and what the menu reports. The rate is
+    /// a setting, and the sweep itself costs nothing when nothing has the order.
+    /// </summary>
+    private static void Spin(float delta)
+    {
+        if (delta <= 0f) return;
+
+        double rate = Mathf.Clamp(ModSettings.LidarSpinRpm, 1f, 120f) * 6.0;    // degrees per second
+
+        foreach (ObjectBase hull in FleetTicker.Tracked())
+        {
+            try
+            {
+                if (!IsOn(hull)) continue;
+
+                UnitRecord record = UnitState.Of(hull);
+
+                // A set that has just been switched on starts where its head happens to be, not at
+                // north: the game gives no absolute head angle, and inventing one would make the
+                // first sweep look like a different set from the second.
+                if (!record.LidarSpun)
+                {
+                    record.LidarSpun = true;
+                    record.LidarBearing = 0f;
+                }
+
+                record.LidarBearing = (float)((record.LidarBearing + rate * delta) % 360.0);
+            }
+            catch (Exception) { }
+        }
+    }
+
+    /// <summary>Whether any hull has the set running. Read without creating state records.</summary>
     private static bool AnyOrdered()
     {
         foreach (ObjectBase hull in FleetTicker.Tracked())
@@ -308,8 +353,9 @@ internal static class Lidar
     }
 
     /// <summary>
-    /// One look: every hull with the order in force puts the contacts it can see with its laser on
-    /// its own picture, and the sweep records what it managed.
+    /// One sweep: for every hull with the order, look at whatever the beam happens to be pointing at,
+    /// then record what happened. The beam is what decides, not the hull's heading and not a list of
+    /// candidates - which is the difference between this and the arc version it replaces.
     /// </summary>
     private static void Sweep(bool force)
     {
@@ -334,20 +380,20 @@ internal static class Lidar
 
         if (contacts.Count == 0)
         {
-            // The decisive limit, and it is not a failure: with no prior sighting there is nothing
-            // for a rangefinder to be pointed at.
-            Set("nothing on the force's picture to look at - a laser needs a bearing from somebody "
-                + "else's picture", force);
+            // Not a failure: with nothing on the picture there is nothing for a rangefinder to be
+            // pointed at, however it is mounted.
+            Set("nothing on the force's picture to look at - the scanner can only confirm what "
+                + "somebody has already reported", force);
 
-            Face(fleet, "nothing left on the force's picture to hold");
+            Forget(fleet);
             return;
         }
 
-        double arc = Mathf.Clamp(ModSettings.LidarArcDegrees, 10f, 360f) / 2.0;
+        double arc = Mathf.Clamp(ModSettings.LidarBeamDeg, 1f, 90f) / 2.0;
 
         var parts = new List<string>();
         int ordered = 0;
-        int noFit = 0;
+        int refused = 0;
 
         foreach (ObjectBase hull in fleet)
         {
@@ -370,38 +416,36 @@ internal static class Lidar
 
                 if (!fit.Allowed)
                 {
-                    noFit++;
+                    refused++;
                     record.Lidar = false;
                     parts.Add(Name(hull) + ": may not look - " + fit.Evidence);
                     continue;
                 }
 
-                // How far this particular fit may look: an instrument gets the configured range, a
-                // hull with only lookouts gets the shorter lookout range. The beam is one bearing
-                // either way.
-                double range = LidarControl.RangeNm(fit, ModSettings.LidarRangeNm,
-                                                    ModSettings.LidarLookoutNm);
+                // Every hull reaches the same range now - the point of a set that is the mod's
+                // sensor rather than the hull's - but what the hull has is still reported, because a
+                // laser director and a pair of binoculars are not the same thing even when the mod
+                // is the one doing the looking.
+                double range = ModSettings.LidarRangeNm;
 
-                // One beam, one bearing. The nearest eligible contact in the arc is what a watch
-                // team would put the glass on first.
+                // The beam, and only the beam. A contact outside this half-angle is not "dim" and it
+                // is not "probable": it is not being looked at.
                 string best = "";
                 double bestRange = double.MaxValue;
                 ObjectBase? bestUnit = null;
-                double? heading = HullHeading(hull);
 
                 foreach (ContactPicture.Contact contact in contacts)
                 {
                     ObjectBase? target = contact.Unit;
                     if (target == null || target.IsDestroyed) continue;
-
-                    // Never our own ships.
                     if (UnitFit.IsPlayer(target)) continue;
 
                     double? nm = Inbound.RangeNm(hull, target);
                     if (!nm.HasValue || nm.Value > range) continue;
 
                     double? bearing = Bearing(hull, target);
-                    if (bearing.HasValue && CircularArc(heading, bearing.Value) > arc) continue;
+                    if (!bearing.HasValue) continue;
+                    if (CircularArc(record.LidarBearing, bearing.Value) > arc) continue;
 
                     if (nm.Value >= bestRange) continue;
 
@@ -413,19 +457,14 @@ internal static class Lidar
                 if (bestUnit == null)
                 {
                     record.LidarSighted = "";
-                    parts.Add(Name(hull) + ": nothing in " + (int)range + " nm inside the arc"
-                                + " for " + (fit.Laser ? "its laser" : "its lookouts"));
+                    parts.Add(Name(hull) + ": beam at " + (int)record.LidarBearing
+                                + " deg, nothing on it inside " + (int)range + " nm");
                     continue;
                 }
 
                 // Already detected by the force's own sensors? Then that fix is better than anything
-                // a reveal can write - the game's own track errors are the point of the game - and
-                // the laser adds nothing. A track the force holds only because it was handed one is
-                // refreshed: that is what stops it ageing out.
-                //
-                // Note what this reads: the picture belongs to the force, not the hull, so the beam
-                // lands in the force's picture with this hull credited as the sensor. The report
-                // says so rather than pretending each ship has a picture of its own.
+                // a reveal can write, and the laser adds nothing. A track the force holds only
+                // because it was handed one is refreshed: that is what stops it ageing out.
                 DatalinkControl.Snapshot picture = DatalinkControl.Read(FleetTable(hull));
 
                 if (picture.Holds(bestUnit) && picture.DetectedHere(bestUnit) != false)
@@ -442,12 +481,10 @@ internal static class Lidar
                     continue;
                 }
 
-                // Verified, not assumed: the hull's table is read again and the contact has to be
-                // there. A reveal that writes only to the player's own force would otherwise report
-                // success for ever.
-                bool landed = DatalinkControl.Read(FleetTable(hull)).Holds(bestUnit);
-
-                if (!landed)
+                // Verified, not assumed: the table is read again and the contact has to be in it. A
+                // reveal that writes only to the player's own force would otherwise report success
+                // for ever.
+                if (!DatalinkControl.Read(FleetTable(hull)).Holds(bestUnit))
                 {
                     parts.Add(Name(hull) + ": revealed " + best + " but its picture did not gain it");
                     continue;
@@ -457,7 +494,7 @@ internal static class Lidar
                 record.LidarSighted = best + " at " + bestRange.ToString("0.0") + " nm";
 
                 parts.Add(Name(hull) + ": " + record.LidarSighted
-                          + " with " + (fit.Laser ? "its laser" : "its lookouts"));
+                          + " on the beam at " + (int)record.LidarBearing + " deg");
             }
             catch (Exception error)
             {
@@ -467,15 +504,73 @@ internal static class Lidar
 
         if (ordered == 0)
         {
-            Set("no hull has the laser order - the menu entry on a ship's Sensors submenu gives it",
+            Set("no hull has the scanner order - the menu entry on a ship's Sensors submenu gives it",
                 force);
             return;
         }
 
-        Set(parts.Count == 0 ? "nothing to look at" : string.Join("; ", parts.ToArray()), force);
+        Set(parts.Count == 0 ? "nothing on the beam" : string.Join("; ", parts.ToArray()), force);
 
-        if (noFit > 0)
-            ModLog.Warn("LIDAR: " + noFit + " hull(s) with the order may not look (LidarAnyHull is off)");
+        if (refused > 0)
+            ModLog.Warn("LIDAR: " + refused + " hull(s) may not look (LidarAnyHull is off)");
+    }
+
+    /// <summary>
+    /// Every set that is spinning, for the map overlay: where the head is, how far it reaches, what
+    /// it is holding and whether that contact was sighted on this beam pass.
+    ///
+    /// Read by the overlay a few times a second rather than every GUI event, so it is a plain list
+    /// and holds no reference the overlay must not keep.
+    /// </summary>
+    internal static List<Beam> Beams()
+    {
+        var beams = new List<Beam>();
+
+        try
+        {
+            foreach (ObjectBase hull in FleetTicker.Tracked())
+            {
+                if (!IsOn(hull)) continue;
+
+                UnitRecord record = UnitState.Of(hull);
+
+                beams.Add(new Beam(hull, record.LidarBearing, (float)ModSettings.LidarRangeNm,
+                                   record.LidarSighted));
+            }
+        }
+        catch (Exception error)
+        {
+            ModLog.Error("LIDAR: could not collect the beams", error);
+        }
+
+        return beams;
+    }
+
+    /// <summary>One rotating set, as the overlay needs it.</summary>
+    internal readonly struct Beam
+    {
+        internal Beam(ObjectBase ship, float bearing, float rangeNm, string holding)
+        {
+            Ship = ship;
+            Bearing = bearing;
+            RangeNm = rangeNm;
+            Holding = holding ?? "";
+        }
+
+        /// <summary>The ship the set is mounted on.</summary>
+        internal ObjectBase Ship { get; }
+
+        /// <summary>Where the head is pointing, degrees true.</summary>
+        internal float Bearing { get; }
+
+        /// <summary>How far the beam reaches, in nautical miles.</summary>
+        internal float RangeNm { get; }
+
+        /// <summary>What the last beam pass sighted, in words, or empty.</summary>
+        internal string Holding { get; }
+
+        /// <summary>True when this set is holding something - the beam is drawn brighter.</summary>
+        internal bool Active => Holding.Length > 0;
     }
 
     /// <summary>Records the sweep's verdict, and logs it when the player asked for it (a click) or
@@ -494,10 +589,10 @@ internal static class Lidar
     }
 
     /// <summary>
-    /// Clears bookkeeping that would otherwise keep claiming a contact the hull no longer holds: an
-    /// order is not a sighting, and the menu must not read "holding X" after X has gone.
+    /// Clears bookkeeping that would otherwise keep claiming a contact nobody holds: an order is not
+    /// a sighting, and the menu must not read "holding X" after X has gone off the picture.
     /// </summary>
-    private static void Face(List<ObjectBase> fleet, string reason)
+    private static void Forget(List<ObjectBase> fleet)
     {
         foreach (ObjectBase hull in fleet)
         {
@@ -513,7 +608,7 @@ internal static class Lidar
             catch (Exception) { }
         }
 
-        if (reason.Length > 0 && fleet.Count > 0) ModLog.Info("LIDAR: " + reason);
+        if (fleet.Count > 0) ModLog.Info("LIDAR: nothing left on the force's picture to hold");
     }
 
     /// <summary>The hull's own plotting table, which is where a reveal on it lands.</summary>
@@ -524,39 +619,6 @@ internal static class Lidar
             return DatalinkControl.TableOf(hull._taskforce);
         }
         catch (Exception) { return null; }
-    }
-
-    /// <summary>
-    /// The hull's heading in degrees true, or null when it cannot be read.
-    ///
-    /// <c>Heading</c> is a property, so <see cref="MemberProbe.Value"/> finds it by its own name -
-    /// which means the candidates are the member names, not the accessor names. A float, a double or
-    /// a ReactiveProperty of either is accepted; anything else is "unknown", and an unknown heading
-    /// means the arc is not applied rather than a sighting being refused on a guess.
-    /// </summary>
-    private static double? HullHeading(ObjectBase hull)
-    {
-        try
-        {
-            foreach (string name in new[] { "Heading", "Course", "Bearing" })
-            {
-                MemberInfo? member = MemberProbe.Value(hull.GetType(), name);
-                if (member == null) continue;
-
-                object? value = MemberProbe.Read(member, hull);
-
-                if (value is float f) return f;
-                if (value is double d) return d;
-                if (value is int i) return i;
-
-                // A ReactiveProperty<float> does not read as a number through MemberProbe.Read, and
-                // this deliberately does not guess at its carrier: an unreadable heading means the
-                // arc is not applied, which the report says.
-            }
-        }
-        catch (Exception) { }
-
-        return null;
     }
 
     /// <summary>Bearing from one unit to another, degrees true, or null when either position is

@@ -193,6 +193,16 @@ explains the version jump rather than just announcing it.
       What update.cmd does: nothing beyond the DLL
       note only
 
+  < 0.27.0
+      Release: the LIDAR is a rotating 360-degree scanner: 15 nm, every
+        ship, and a beam drawn on the map with an infrared view (F10)
+      On disk: new settings LidarSpinRpm (12), LidarBeamDeg (6),
+        LidarOverlay (on), LidarOverlayKey (F10); LidarRangeNm now 15;
+        LidarArcDegrees retired
+      What update.cmd does: nothing beyond the DLL
+      still only contacts the force already holds, position only, no radar
+        switched
+
   < 0.26.2
       Release: the rangefinder is offered on every hull, not only one whose
         data names an optical set; lookouts are assumed where the data is

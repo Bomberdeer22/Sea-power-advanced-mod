@@ -2,6 +2,7 @@ using System;
 using System.IO;
 using BepInEx;
 using BepInEx.Configuration;
+using UnityEngine;
 
 namespace SeaPowerAdvanced;
 
@@ -35,9 +36,11 @@ internal static class ModSettings
     private static ConfigEntry<bool>? coopDatalink;
     private static ConfigEntry<bool>? lidarEnabled;
     private static ConfigEntry<float>? lidarRangeNm;
-    private static ConfigEntry<float>? lidarLookoutNm;
     private static ConfigEntry<bool>? lidarAnyHull;
-    private static ConfigEntry<float>? lidarArcDegrees;
+    private static ConfigEntry<float>? lidarSpinRpm;
+    private static ConfigEntry<float>? lidarBeamDeg;
+    private static ConfigEntry<bool>? lidarOverlay;
+    private static ConfigEntry<KeyCode>? lidarKey;
     private static ConfigEntry<float>? lidarSeconds;
     private static ConfigEntry<float>? coopDatalinkSeconds;
 
@@ -70,7 +73,7 @@ internal static class ModSettings
 
     /// <summary>How far a laser director can see, in nautical miles. Short by design: this is an
     /// eye with a rangefinder on it, not a search set.</summary>
-    internal static float LidarRangeNm => lidarRangeNm?.Value ?? 12f;
+    internal static float LidarRangeNm => lidarRangeNm?.Value ?? 15f;
 
     /// <summary>
     /// Whether every hull under command may look, or only those whose own sensor list shows an
@@ -85,16 +88,20 @@ internal static class ModSettings
     internal static bool LidarAnyHull => lidarAnyHull?.Value ?? true;
 
     /// <summary>
-    /// How far the game's own lookouts - "Eyes Mk 1" - can be pointed, in nautical miles. A man with
-    /// binoculars on a bridge picks a hull out of the haze at a few miles, not at a director's range,
-    /// and a feature that let every ship see to twelve miles without a radar would be a sensor the
-    /// game does not have.
+    /// How fast the scanner's head turns, in revolutions per minute. This is the whole feature: a set
+    /// that covers 360 degrees by turning, and only sees what the beam happens to be on.
     /// </summary>
-    internal static float LidarLookoutNm => lidarLookoutNm?.Value ?? 6f;
+    internal static float LidarSpinRpm => lidarSpinRpm?.Value ?? 12f;
 
-    /// <summary>Half-angle of the arc the beam may be pointed in, either side of the hull's heading
-    /// (so 90 means "a quarter of the horizon").</summary>
-    internal static float LidarArcDegrees => lidarArcDegrees?.Value ?? 90f;
+    /// <summary>Full width of the beam, in degrees: what the set sees as the head passes over
+    /// something. A tight beam is a real scanner; a wide one would be a sensor the mod invented.</summary>
+    internal static float LidarBeamDeg => lidarBeamDeg?.Value ?? 6f;
+
+    /// <summary>Draw the beams on the map.</summary>
+    internal static bool LidarOverlay => lidarOverlay?.Value ?? true;
+
+    /// <summary>The key that flips the map into the infrared view.</summary>
+    internal static KeyCode LidarOverlayKey => lidarKey?.Value ?? KeyCode.F10;
 
     /// <summary>Seconds between looks. A laser is a glass on a bearing, not a scanning set.</summary>
     internal static float LidarSeconds => lidarSeconds?.Value ?? 4f;
@@ -348,9 +355,26 @@ internal static class ModSettings
                 + "the ship's own picture through the game's own reveal call. Position only. It "
                 + "never looks for a contact the force has not already seen.");
 
-            lidarRangeNm = file.Bind("Features", "LidarRangeNm", 12f,
-                "How far the laser can see (1-40 nm). Short by design - an eye with a rangefinder "
-                + "on it does not search the sea to the horizon.");
+            lidarRangeNm = file.Bind("Features", "LidarRangeNm", 15f,
+                "How far the scanner sees (1-40 nm). Now that the set is the mod's own - mounted on "
+                + "every hull and turning through 360 degrees - this is the one range every ship "
+                + "gets, and 15 nm is the default.");
+
+            lidarSpinRpm = file.Bind("Features", "LidarSpinRpm", 12f,
+                "How fast the scanner's head turns, in revolutions per minute (1-120). This is how "
+                + "the set covers 360 degrees: it looks where the beam is, and the beam moves.");
+
+            lidarBeamDeg = file.Bind("Features", "LidarBeamDeg", 6f,
+                "Full width of the scanner's beam, in degrees (1-90). What the set sees as the head "
+                + "passes over something.");
+
+            lidarOverlay = file.Bind("Features", "LidarOverlay", true,
+                "Draw the scanning beams on the map. The infrared view (default key F10) shows them "
+                + "without the rest of the map furniture.");
+
+            lidarKey = file.Bind("Features", "LidarOverlayKey", KeyCode.F10,
+                "The key that flips the map into the infrared view and back. Default F10. Set it to "
+                + "None to switch with the menu entry only.");
 
             lidarAnyHull = file.Bind("Features", "LidarAnyHull", true,
                 "Let every hull under command look with its optics, whether or not its own sensor "
@@ -358,19 +382,6 @@ internal static class ModSettings
                 + "lookouts (Eyes Mk 1) or a laser director may look. Either way a sighting is only "
                 + "ever a contact the force already holds, position only - the sensor check was never "
                 + "what kept the feature honest.");
-
-            lidarLookoutNm = file.Bind("Features", "LidarLookoutNm", 6f,
-                "How far a hull with only lookouts (the game's own Eyes Mk 1 optical sensor) may "
-                + "look, in nautical miles (1-40). Shorter than a laser director by design: a man "
-                + "with binoculars is not an instrument. Never more than LidarRangeNm.");
-
-            lidarArcDegrees = file.Bind("Features", "LidarArcDegrees", 90f,
-                "Half-angle of the arc the beam may be pointed in, either side of the ship's heading "
-                + "(10-360). A laser is a single bearing, not a hemisphere.");
-
-            lidarSeconds = file.Bind("Features", "LidarSeconds", 4f,
-                "Seconds between looks (1-60). A rangefinder is a glass on a bearing, not a "
-                + "scanning set.");
 
             coopDatalinkSeconds = file.Bind("Features", "CoopDatalinkSeconds", 3f,
                 "Seconds between datalink sweeps (1-30). An air track only lives about ten "

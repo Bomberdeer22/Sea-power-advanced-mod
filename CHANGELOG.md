@@ -1,5 +1,59 @@
 # Changelog
 
+## 0.27.0 - the LIDAR becomes a rotating scanner you can watch
+
+Asked for in the plainest terms: *15 nm, 360 degrees, no matter what ship or sensor - a 360-degree
+rotating LIDAR placed on the ship, and an infrared layer you can flip to so you can actually see the
+beam being emitted.*
+
+**What it is now.** The set is the mod's own. Every hull under command can run it, it reaches
+**15 nm**, it covers **360 degrees**, and how it covers them is the point: **the head turns**. At
+`LidarSpinRpm` (12 rpm by default) the beam sweeps the full circle in about five seconds, and a contact
+is sighted **when the beam is on it** - not because it is nearby, not because it is inside an arc, not
+on a timer. A hull that has been left pointing at empty water reports empty water.
+
+**You can see it.** A new map overlay draws, for every ship with the scanner running:
+
+- **the spoke** - a bright line from the ship to the far edge of its range, turning at the configured
+  rate; brighter when the beam is actually holding something;
+- **the range ring** - 15 nm drawn at 15 nm, computed in the game's own coordinates and projected, so
+  it is right at every zoom level rather than a fixed number of pixels;
+- **the beam width** - two thin edge spokes at `LidarBeamDeg` (6 by default), so a tight beam looks
+  tight;
+- **a mark and a label** on whatever the beam has sighted, with the range.
+
+**The infrared view.** `F10` (`LidarOverlayKey`), or the menu entry, flips the map into a dark green
+filter with a vignette, so the spokes are the thing you see. **It is a filter over the game's own map,
+not a different sensor picture** - the mod cannot replace the game's map materials, and drawing a fake
+infrared terrain over the real one would be exactly the kind of invented sensor the rest of this mod
+refuses to build. What is real is the beam: it is a real rotating look at real contacts, and the
+overlay draws where the head is pointing.
+
+**What did not change, and will not.** A contact is still only ever sighted if **the force already
+holds it** - the scanner confirms and fixes, it does not search; position only, classification `0`,
+never an identity; no radar switched, so it works at EMCON silent; submarines still refused; a contact
+the force's own sensors already hold is still skipped; every sighting is still verified by re-reading
+the hull's table. What the hull's own data holds is still printed in `lidar.txt` as *LASER DIRECTOR*,
+*LOOKOUTS LISTED* or *LOOKOUTS ASSUMED*, because mounting a set on every ship is an assumption and the
+report says so.
+
+**Settings** (new or changed): `LidarRangeNm` **15** (was 12), `LidarSpinRpm` **12**,
+`LidarBeamDeg` **6**, `LidarOverlay` **on**, `LidarOverlayKey` **F10**, `LidarAnyHull` on,
+`LidarLookoutNm` kept (no longer limits the range - the set is the mod's - but still reported).
+
+**Retired:** `LidarArcDegrees` and `LidarLookoutNm`. A rotating set covers the circle, so the fixed
+arc was two incompatible ideas in one setting; and with the set mounted on every hull and reaching the
+same 15 nm, a separate lookouts range no longer limited anything. A setting that does nothing is worse
+than no setting - the hull's real fit is still reported in `lidar.txt`, it just no longer scores the
+range.
+
+```text
+python tools/check-source.py      :: clean: 58 file(s), ...
+python tools/check-batch.py       :: clean: 6 batch file(s), ...
+python tools/check-versions.py    :: clean: 0.27.0 in all seven places
+python tools/check-docs.py        :: clean: 7 plain-text twin(s)
+```
+
 ## 0.26.2 - every ship may look; the reach still depends on what it has
 
 Asked as a question and answered as one: *what if we didn't lock the LIDAR to a specific sensor and

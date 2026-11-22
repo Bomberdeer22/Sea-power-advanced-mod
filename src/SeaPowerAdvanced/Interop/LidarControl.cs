@@ -267,23 +267,6 @@ internal static class LidarControl
         return found;
     }
 
-    /// <summary>
-    /// How far this fit is allowed to look, in nautical miles.
-    ///
-    /// A laser or optronic director gets the configured range. Lookouts do not: <b>Eyes Mk 1</b> is a
-    /// man with binoculars, and handing it the same reach as an instrument would make every ship in
-    /// the game a sensor it is not. The lookout range is its own setting and is deliberately shorter.
-    /// </summary>
-    internal static double RangeNm(Fit fit, float configured, float lookout)
-    {
-        if (!fit.Allowed) return 0;
-        if (fit.Laser) return configured;
-
-        // Fitted lookouts and assumed lookouts reach the same distance: the assumption buys the
-        // order, not the range.
-        return Math.Min(configured, lookout);
-    }
-
     /// <summary>The sensor families on this hull, for the report and for the menu's evidence line.</summary>
     private static string List(ObjectBase unit)
     {

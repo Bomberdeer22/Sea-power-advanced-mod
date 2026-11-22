@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using SeaPower;
 using SeaPowerAdvanced.Features;
 using SeaPowerAdvanced.Interop;
+using SeaPowerAdvanced.UI;
 using SeapowerUI;
 using SeapowerUI.ViewModels;
 using UniRx;
@@ -424,71 +425,86 @@ internal static class FleetMenu
                 MenuRouting.Sensors);
         }
 
-        // --- the laser rangefinder ----------------------------------------------------------
-        // One entry, loose in Sensors rather than a group of its own: a sight is a glass on a
-        // bearing, not a search set. Every hull under command is offered it, because a warship has
-        // lookouts whether or not its parameter block bothers to name them - what is NOT assumed is
-        // the reach: a hull with a laser director gets the director's range and a hull with nothing
-        // but lookouts, listed or assumed, gets the lookout's. The label says which, so the player
-        // never has to guess what the order bought.
+        // --- the rotating LIDAR ------------------------------------------------------------
+        // A 360-degree set that turns and only sees what the beam is on: the map overlay draws the
+        // spoke, and these are the switches. Every hull under command may have it, because the set
+        // is the mod's own - that is what the feature is - but what the hull actually carries is
+        // still reported, because a laser director and a pair of binoculars are not the same thing
+        // even when the mod is doing the looking.
         if (!UnitFit.IsSubmarine(unit))
         {
             LidarControl.Fit laser = LidarControl.Detect(unit);
-            double reaches = LidarControl.RangeNm(laser, ModSettings.LidarRangeNm,
-                                                  ModSettings.LidarLookoutNm);
 
             if (!ModSettings.LidarEnabled)
             {
-                Add(Disabled("Laser rangefinder: off in the settings",
-                    "Features/LidarEnabled is false, so no hull may look with its optics. The "
-                    + "setting is in the mod's own config file."), MenuRouting.Sensors);
+                Add(Disabled("LIDAR: off in the settings",
+                    "Features/LidarEnabled is false, so no hull may scan. The setting is in the "
+                    + "mod's own config file."), MenuRouting.Sensors);
             }
             else if (!laser.Allowed)
             {
-                Add(Disabled("Laser rangefinder: nothing to look through on this hull",
+                // Only reachable with LidarAnyHull off: the same rule the sweep applies, said in the
+                // menu rather than discovered when the click is refused.
+                Add(Disabled("LIDAR: nothing to look through on this hull",
                     "Features/LidarAnyHull is off and this hull's own sensor list names no optical "
-                    + "set: it says " + laser.Quote + ". Turn LidarAnyHull on to let every hull look, "
-                    + "or click ECM: what this build exposes for the list of what each hull holds."),
-                    MenuRouting.Sensors);
+                    + "set: it says " + laser.Quote + ". Turn LidarAnyHull on to fit the set to every "
+                    + "hull, which is what the feature does by default."), MenuRouting.Sensors);
             }
             else
             {
                 Add(Lidar.IsOn(unit)
-                    ? Action("Laser rangefinder: " + Lidar.Describe(unit) + " - click to stop",
-                        "Stops looking. The tracks it gave this ship age out on the game's own "
+                    ? Action("LIDAR: " + Lidar.Describe(unit) + " - click to stop scanning",
+                        "Stops the set. The tracks it gave the force age out on the game's own "
                         + "sensor clock, exactly like a lost radar contact.",
                         () => Report(unit, "LIDAR", Lidar.Toggle(unit, out string r), r))
-                    : Action("Laser rangefinder: off - click to look with "
-                             + (laser.Laser ? "its laser" : "its lookouts")
-                             + " (" + (int)reaches + " nm)",
-                        "Points " + laser.Basis + " at the nearest contact the FORCE ALREADY HOLDS "
-                        + "inside " + (int)reaches + " nm and inside "
-                        + (int)ModSettings.LidarArcDegrees + " deg of the bow, and gives this ship a "
-                        + "position-only track on it. No radar is switched, so it works at EMCON "
-                        + "silent. It never looks for a contact the force has not already seen."
-                        + (laser.Laser
-                            ? ""
-                            : " No laser director on this hull, so it reaches the lookouts' "
-                              + (int)reaches + " nm and no further."),
+                    : Action("LIDAR: off - click to start the scanner ("
+                             + (int)ModSettings.LidarRangeNm + " nm, 360 deg)",
+                        "Starts a rotating set on this hull: it turns through 360 degrees at "
+                        + (int)ModSettings.LidarSpinRpm + " rpm and sees whatever its beam passes "
+                        + "over inside " + (int)ModSettings.LidarRangeNm + " nm. A contact is only "
+                        + "sighted when the beam is ON it - watch the spoke on the map. It never "
+                        + "looks for a contact the force has not already been told about, and it "
+                        + "never gives an identity, only a position.",
                         () => Report(unit, "LIDAR", Lidar.Toggle(unit, out string r), r)),
                     MenuRouting.Sensors);
 
                 if (!laser.Fitted)
                 {
-                    // The one thing the player should not have to discover: this hull is looking on
-                    // an assumption, not on a sensor the mod could read. A second line says so and
-                    // is the way to the file that prints what the hull really carries.
-                    Add(Action("Rangefinder: lookouts assumed - click for the report",
-                        "This hull's own sensor list names no optical set (" + laser.Quote + "). "
-                        + "Every warship has lookouts, so the order is offered on that assumption - "
-                        + "click to write lidar.txt, which prints what each hull's data really "
-                        + "holds.", () =>
+                    Add(Action("LIDAR: lookouts assumed - click for the report",
+                        "This hull's own sensor list names no optical set (" + laser.Quote + "). The "
+                        + "set is mounted anyway - the scanner is the mod's, and a warship has "
+                        + "lookouts - but that is an assumption and this is where it is written "
+                        + "down. lidar.txt prints what each hull's data really holds.",
+                        () =>
                         {
                             Lidar.WriteReport("lookouts assumed on " + Name(unit));
                             ModLog.Info("Menu: lidar.txt written for " + Name(unit));
                         }), MenuRouting.Sensors);
                 }
             }
+        }
+
+        // The view itself: one entry, on any hull, because it is a property of the map and not of
+        // the ship whose menu happens to be open.
+        if (ModSettings.LidarEnabled && ModSettings.LidarOverlay)
+        {
+            Add(LidarOverlay.Infrared
+                ? Action("LIDAR: infrared view on - click for the normal map",
+                    "Returns the map to its own colours. The beams are still drawn - this only "
+                    + "removes the filter.", () =>
+                    {
+                        LidarOverlay.ToggleInfrared();
+                        ModLog.Info("Menu: LIDAR infrared view off");
+                    })
+                : Action("LIDAR: infrared view - click to see the beams",
+                    "Darkens the map and pulls the eye in, so the rotating beams are what you see. "
+                    + "The key is " + ModSettings.LidarOverlayKey + " as well. This is a filter over "
+                    + "the game's own map, not a different sensor picture.",
+                    () =>
+                    {
+                        LidarOverlay.ToggleInfrared();
+                        ModLog.Info("Menu: LIDAR infrared view on");
+                    }), MenuRouting.Sensors);
         }
 
         // --- ECM: only on hulls that actually carry it --------------------------------------

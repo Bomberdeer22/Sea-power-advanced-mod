@@ -10,7 +10,7 @@ one submenu. There is no mod window and no hotkey.
 | Radars, air/surface search only, active sonar, towed array, EMCON profiles | **Sensors** |
 | Radar blink, auto-ARM shutoff, **defensive ECM**, **offensive ECM**, commercial disguise | **Sensors** (they are emission decisions) |
 | **Force datalink** to the other player's force | **Sensors** (it is about the picture the force holds) |
-| **Laser rangefinder** (LIDAR) | **Sensors** (it is what the ship can see without radiating) |
+| **Rotating LIDAR**, and the infrared map view | **Sensors** (it is what the ship can see without radiating) |
 | **ECM cones on the map** | Not a menu entry - drawn over the map whenever a set is aimed |
 | Salvo deconfliction | **Engage** (it is about who may fire, and when) |
 | Action stations, cold cruise, crew fatigue | **Rules of engagement** |
@@ -546,43 +546,38 @@ its co-op flag is the answer more often than not; then try *Datalink: resynchron
 then check that both players have this build, because a picture handed over by one build and read by
 another is not a thing the game can do.
 
-## 2h. The laser rangefinder — `Sensors and EMCON`
+## 2h. The rotating LIDAR — `Sensors and EMCON`
 
-**The problem.** A warship's optronic director gives a watch team a glass on a bearing and a range on
-it. Sea Power has no such thing: the sensor families a hull's parameter block lists are radar, sonar,
-ESM/RWR and ECM, so a ship with every radar silent is blind beyond what its ESM hears - however many
-optronic masts the hull actually carries data for.
+**The problem.** A warship's optics give a watch team a glass on a bearing and a range on it, and Sea
+Power models no laser or optronic sensor at all - the families a hull's parameter block lists are
+radar, sonar, ESM/RWR and ECM. A ship with every radar silent is blind beyond what its ESM hears.
 
-**What it does.** A hull whose own sensor list holds something to look through can be ordered to
-*look* with it. Every few seconds each contact **the force already holds** that is inside the range and
-inside the arc is put on the ship's picture through the game's own reveal call
-(`Utils.RevealContactToObject`, the route a reconnaissance report uses). Position only.
+**What it is.** A rotating set the mod mounts on the hull: **360 degrees, 15 nm, every ship**. It
+covers the circle by turning - `LidarSpinRpm`, 12 rpm by default, so a revolution takes about five
+seconds - and a contact is sighted **when the beam is on it**. Not nearby, not inside an arc, not on a
+timer: the beam.
 
-**Every hull under command may look** (`LidarAnyHull`, on by default); what the hull actually carries
-decides the **reach**, and the difference is range and nothing else:
-
-| Fit | Read from the hull's own sensor list | Reach |
-|---|---|---|
-| **Laser or optronic director** | `Optronic`, `Optical`, `ElectroOptical`, `Laser`, `Rangefinder`, `Designator`, `IRST`, `Infrared`, `FLIR`, `Television`, `Sight` | `LidarRangeNm` (**12 nm**) |
-| **Lookouts - the game's own Eyes Mk 1** | the word `Eyes` in the class name, so `SensorSystemEyesMk1` and a spaced display name both read | `LidarLookoutNm` (**6 nm**), never more than the director's range |
-| **Nothing named in its data** | the hull's parameter block holds no optical set at all | `LidarLookoutNm` as well - **lookouts assumed**, marked as assumed in the menu and in `lidar.txt` |
-
-| Needs | Nothing, with `LidarAnyHull` on. With it off, one of the two optical fits above. Either way a look-out is a look-out: it is allowed to *look*, not to search |
+| Needs | Nothing to mount: every hull under command can run it (`LidarAnyHull`). What the hull's own data holds - a laser director, its `Eyes Mk 1` lookouts, or neither - is reported, not required |
 |---|---|
-| Reads | The hull's own sensor list for the fit, the player's contact picture (`ContactPicture.Hostiles`), the hull's own plotting table, range and bearing to each contact |
+| Reads | The player's contact picture (`ContactPicture.Hostiles`), each hull's own sensor list (for the report), range and bearing to each contact, the hull's own plotting table |
 | Writes | One call per sighting, to the game's own reveal routine. No radar is switched on or off, no member of the ship is set, nothing is created or destroyed - so it works identically at EMCON silent |
+| Covers | 360 degrees by rotation at **`LidarSpinRpm`** (12), through a beam **`LidarBeamDeg`** wide (6), reaching **`LidarRangeNm`** (**15 nm**) |
 | Passing on | **Position only.** The classification argument is `0`: no side, no class, no identification |
-| Limited by | `LidarRangeNm` (**12 nm**) for a director and `LidarLookoutNm` (**6 nm**) for lookouts, `LidarArcDegrees` (**90**, a quarter of the horizon either side of the bow), one beam per hull, `LidarSeconds` (**4**) between looks |
-| Never | Looks for a contact the force's picture does not already hold. A unit that is not in the picture is not a candidate - that rule is the difference between a sight and a wallhack, and it is also how the real thing is used: a rangefinder is pointed on a bearing somebody else's picture gave you |
-| Refused for | A submarine (no line of sight at depth); with `LidarAnyHull` off, a hull with no optical fit in its own sensor list; a contact the force's own sensors already hold - that fix is better than anything a reveal can write |
+| Never | Looks for a contact the force's picture does not already hold. The beam decides *which* of those contacts is sighted and *when*; it cannot decide that something exists |
+| Refused for | A submarine (no line of sight at depth); with `LidarAnyHull` off, a hull with no optical fit in its own data; a contact the force's own sensors already hold - that fix is better than anything a reveal can write |
 | Verified | After every look the hull's table is read again and the contact has to be in it. Success is *the track appeared*, not *the call returned* |
-| Report | `lidar.txt` - the settings and the order in force, the last sweep's verdict per ship, and **every hull class with the sensor families its own parameter block holds** |
-| Honest limit | **This game has no laser sensor**; what it does model is the visual watch, `Eyes Mk 1`. So this is a mod-side aid built on the game's own reveal call, not a sensor in the simulation. With `LidarAnyHull` on, a hull whose data names no optical set is given **lookouts by assumption** - stated in its own menu line and marked `LOOKOUTS ASSUMED` in the report, never passed off as something read from the hull |
+| Report | `lidar.txt` - the settings, the beam angle of each set, the last sweep's verdict per ship, and every hull class with the sensor families its own parameter block holds |
+
+### You can see it — the map overlay
+
+| Drawn | The **spoke** from the ship to the far edge of its range, turning at the configured rate and brighter when it is holding something; the **range ring** at 15 nm, computed in the game's coordinates so it is right at every zoom; the **beam's two edges** at `LidarBeamDeg`; a **mark and a label** on whatever the beam has sighted |
+|---|---|
+| Infrared view | **`F10`** (`LidarOverlayKey`), or *LIDAR: infrared view* in the menu: a dark green filter with a vignette, so the spokes are what you see. It is a **filter over the game's own map**, not a different sensor picture - the mod cannot replace the game's map materials, and painting fake infrared terrain over the real map would be an invented sensor |
+| If nothing draws | The overlay says so on screen once, and `ecm-cone.txt` / `lidar.txt` record what the projection found. Nothing is ever drawn at a guessed position |
 
 **If a hull's fit reads wrong**, send `lidar.txt`: it prints each hull class, whether it read
-*LASER DIRECTOR*, *LOOKOUTS LISTED* or *LOOKOUTS ASSUMED*, the reach that follows, and the sensor
-families its own parameter block holds. A name the match does not cover shows up there and can be added
-without guessing.
+*LASER DIRECTOR*, *LOOKOUTS LISTED* or *LOOKOUTS ASSUMED*, and the sensor families its own parameter
+block holds.
 
 ## 3. Commercial signature spoofing — `Deception`
 
@@ -703,12 +698,14 @@ more slowly than tiring, so there is a real cost to leaving the fleet closed up 
 | `EcmDiveRadarSeekersOnly` | `true` | Only radar-seeking missiles can be decoyed - IR, optical and anti-radiation are immune (§2f) |
 | `CoopDatalink` | `true` | Hand this force's picture to the other player's force in a co-op session (§2g) |
 | `CoopDatalinkSeconds` | `3` | Seconds between datalink sweeps. Above about ten, a track handed over flickers as it ages out (§2g) |
-| `LidarEnabled` | `true` | Allow the rangefinder order at all (§2h) |
-| `LidarAnyHull` | `true` | Every hull under command may look. Off = only a hull whose own sensor list names lookouts or a director (§2h) |
-| `LidarRangeNm` | `12` | How far a laser or optronic director sees (§2h) |
-| `LidarLookoutNm` | `6` | How far the game's own lookouts (Eyes Mk 1) can be pointed. Never more than `LidarRangeNm` (§2h) |
-| `LidarArcDegrees` | `90` | Half-angle either side of the bow the beam may be pointed in (§2h) |
-| `LidarSeconds` | `4` | Seconds between looks (§2h) |
+| `LidarEnabled` | `true` | Allow the scanner order at all (§2h) |
+| `LidarAnyHull` | `true` | Every hull under command may scan. Off = only a hull whose own sensor list names lookouts or a director (§2h) |
+| `LidarRangeNm` | `15` | How far the scanner reaches, for every hull (§2h) |
+| `LidarSpinRpm` | `12` | How fast the head turns. This is how 360 degrees is covered (§2h) |
+| `LidarBeamDeg` | `6` | Full width of the beam: what the set sees as the head passes over (§2h) |
+| `LidarSeconds` | `4` | Seconds between sweeps - the report's cadence, not the beam's (§2h) |
+| `LidarOverlay` | `true` | Draw the rotating beams on the map (§2h) |
+| `LidarOverlayKey` | `F10` | The key that flips the map into the infrared view (§2h) |
 
 ## What to send back if something misbehaves
 

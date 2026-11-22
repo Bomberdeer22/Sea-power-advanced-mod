@@ -3,7 +3,7 @@
 Run this once per game version, and after any change to `HatchControl`, `HatchMenu` or the
 feature menus.
 
-Version under test: **0.26.2**. Mod id `io.github.bomberdeer22.seapoweradvanced`.
+Version under test: **0.27.0**. Mod id `io.github.bomberdeer22.seapoweradvanced`.
 
 **Read the log, do not guess.** Everything below is confirmed by two files:
 
@@ -140,23 +140,20 @@ Full description of each: [features.md](features.md). Right-click one of your sh
 - [ ] **A PvP session shares nothing.** Turn the multiplayer mod's own PvP setting on and load the
       same mission: *Datalink* says the co-op flag is off and names the switch, and no track is
       handed over. `datalink.txt` records the flag and the CfgPvP / CfgContactSync settings
-- [ ] **Laser rangefinder, on a hull the menu offers it to.** *Sensors and EMCON → Laser
-      rangefinder: off - click to look with it*, with a contact the force already holds inside 12 nm
-      and inside 90 degrees of the bow. The label becomes *Laser rangefinder: on, holding <hull> at
-      N.N nm* and `lidar.txt` says *sighted …* for that ship
-- [ ] **Rangefinder through the lookouts.** On a hull with no laser director but with the game's own
-      *Eyes Mk 1* in its sensor list, the entry still appears, labelled *(lookouts)*, and the tooltip
-      quotes the lookout range. `lidar.txt` lists that class as *LOOKOUTS LISTED*
-- [ ] **Rangefinder on a hull whose data names no optical set.** With `LidarAnyHull` on (default) the
-      entry is offered, labelled *lookouts (6 nm)*, with a second line *lookouts assumed - click for
-      the report*; `lidar.txt` marks the class *LOOKOUTS ASSUMED*. Set `LidarAnyHull` false and the
-      same hull gets a grey entry instead, and no order can be given
-- [ ] **A lookout reaches less than a director.** With `LidarLookoutNm` at 6 and `LidarRangeNm` at 12,
-      a held contact at 9 nm is refused on a lookouts hull and sighted on a director hull
-- [ ] **The reach does not follow the permission.** On a lookouts hull, a held contact at 9 nm is
-      still not sighted with `LidarRangeNm` at 12; only the director's range is 12
-- [ ] **A contact outside the arc is not sighted.** Put a held contact astern and check the label
-      reads *on, nothing in the arc*: the beam is one bearing, not a hemisphere
+- [ ] **The scanner runs and turns.** *Sensors and EMCON → LIDAR: off - click to start the scanner
+      (15 nm, 360 deg)*. The label becomes *LIDAR: on, beam at N deg, nothing on it* and the number
+      **climbs** - that is the head turning. `lidar.txt` records the beam angle per ship
+- [ ] **The beam is what sights a contact.** With a held contact inside 15 nm, the label reads
+      *holding <hull> at N.N nm* only while the beam is passing over it, and goes back to *nothing on
+      it* when the head has moved on. That is the feature: it looks where the beam is
+- [ ] **The overlay draws.** A spoke from the ship to the edge of its range, a ring at 15 nm, and a
+      mark on whatever is being held. Nothing is drawn at a guessed position - if it cannot project,
+      the screen says so once
+- [ ] **The infrared view.** `F10` (or *LIDAR: infrared view* in the menu) darkens the map so the
+      spokes stand out; `F10` again returns to normal. The beams keep turning in both views
+- [ ] **A hull whose data names no optical set is still offered the set**, with the second line *LIDAR:
+      lookouts assumed - click for the report*, and `lidar.txt` marks the class *LOOKOUTS ASSUMED*.
+      With `LidarAnyHull` false it is refused instead
 - [ ] **No prior sighting means no sighting.** In a mission where the force holds nothing, the entry
       reports *nothing on the force's picture to look at* and no contact is created
 - [ ] **The same entry clicked again stands the force down.** After arming, reopen *Sensors → ECM* on
