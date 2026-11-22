@@ -7,9 +7,9 @@ and they are listed here because the way they got through matters more than the 
 
 | Error | Cause | Fix |
 |---|---|---|
-| **CS0119** ×10, `'LidarOverlay.Screen(GeoPosition)' is a method, which is not valid in the given context` | A helper method named **`Screen`** hid `UnityEngine.Screen`, so every `Screen.width` and `Screen.height` in the file stopped resolving | renamed `OnScreen` |
+| **CS0119**, many times: `'LidarOverlay.Screen(GeoPosition)' is a method, which is not valid in the given context` | A helper method named **`Screen`** hid `UnityEngine.Screen`, so every `Screen.width` and `Screen.height` in the file stopped resolving | renamed `OnScreen` |
 | **CS1061**, `GeoPosition does not contain a definition for 'Height'` | `GeoPosition` is `(latitude, longitude, height)` and this build exposes no `Height` property | pass `0` |
-| **CS1501** ×3, `No overload for method 'Add' takes 2 arguments` | A nested class declared `Add(unit)`, which hid the enclosing type's `Add(list, item)` from every call inside it | renamed `Track` / `TrackLocal` / `TrackUnknown`, called through the class |
+| **CS1501**, `No overload for method 'Add' takes 2 arguments` | A nested class declared `Add(unit)`, which hid the enclosing type's `Add(list, item)` from every call inside it | renamed `Track` / `TrackLocal` / `TrackUnknown`, called through the class |
 | **CS1061**, `'MemberInfo' does not contain a definition for 'GetValue'` | `typeof(Globals).GetField(...)` returns a **`FieldInfo`**, held in a `MemberInfo` | declared as `FieldInfo` |
 | **CS0649**, `ModSettings.lidarSeconds is never assigned` | An edit removed the `file.Bind` line but not the field - the setting silently fell back to its default | bound again |
 
