@@ -1,5 +1,64 @@
 # Changelog
 
+## 0.26.0 - the laser rangefinder: a silent look at what the force already holds
+
+Requested, and the request is worth quoting because it set the design: *a LIDAR feature*. What a
+warship's optronics give a watch team is a glass on a bearing and a range on it - and Sea Power has
+none of it. The sensor families a hull's parameter block lists are radar, sonar, ESM/RWR and ECM.
+There is no optical director, no laser rangefinder and no passive visual set in that list, so a ship
+with every radar silent is blind beyond what its ESM hears, however many optronic masts it carries.
+
+**What was built.** A hull whose own sensor list holds an optical, infrared or laser director can be
+ordered to *look* with it, from one entry in *Sensors and EMCON*. Every few seconds, for as long as the
+order stands, each contact **the force already holds** that is inside the range and inside the arc is
+put on the ship's own picture through the game's own reveal call - `Utils.RevealContactToObject`, the
+route a reconnaissance report uses. Position only, never an identity.
+
+**The rule that makes it a sight and not a wallhack.** It *never* looks for a contact the force has not
+already seen. The picture is read first; a unit that is not in it is not a candidate, not "dim", not
+"probable" - absent. That is also how the real thing works: a rangefinder is pointed on a bearing
+somebody else's picture gave you, it does not sweep the sea. Without that rule this feature would be
+the mod deciding what exists in the world, with a laser's name on it.
+
+**The limits, all real, all in the menu's tooltip before the click:**
+
+- **Range.** `LidarRangeNm`, default **12 nm**. A director is an eye with a rangefinder: the horizon,
+  not the ocean.
+- **One bearing.** `LidarArcDegrees`, default **90** - a quarter of the horizon either side of the
+  bow. The nearest eligible contact in the arc is what the beam goes on, because one hull has one
+  beam. A heading the build does not publish means the arc is not applied, and `lidar.txt` says so
+  rather than pretending the ship can only see forward.
+- **A director, or nothing.** The fit is read from the hull's **own sensor list**, by class name, and
+  the answer is positive evidence only - a matching entry, or no feature. A hull whose list cannot be
+  read is refused rather than offered a maybe. This is where the 0.24.0 Huak-class lesson is applied
+  before the fact: no fallback of "it is a surface hull, so it probably has one".
+- **Not a submarine.** A boat at depth has no line of sight, and the menu says exactly that.
+- **Nothing already detected.** If the force's own sensors are on the contact, its own fix stands; a
+  reveal writes a zero-error position and that is not an improvement, it is a different game. A track
+  the force holds only because it was handed one *is* refreshed - that is what keeps it alive.
+- **Verified.** After every look the hull's table is read again and the contact has to be in it.
+  Success is *the track appeared*, not *the call returned* - and the report says which.
+
+**`lidar.txt`** carries the truth about your install: the settings in force, the order in force on each
+hull, the last sweep's verdict per ship, and **every hull class with the sensor families its own
+parameter block holds** - so a hull refused for having no director can be checked in a file rather
+than argued about. If a class carries an optronic director under a name the mod does not recognise,
+that name will be in the file and can be added.
+
+**Not proved here.** That this build's reveal call writes onto a hull other than the one the player
+commands - the same unknown 0.25.0 lives with. `lidar.txt` answers it either way: *sighted X at 6.2 nm*
+or *revealed X but its picture did not gain it*.
+
+**Settings:** `LidarEnabled` (on), `LidarRangeNm` (**12**), `LidarArcDegrees` (**90**), `LidarSeconds`
+(**4**).
+
+```text
+python tools/check-source.py      :: clean: 57 file(s), ...
+python tools/check-batch.py       :: clean: 6 batch file(s), ...
+python tools/check-versions.py    :: clean: 0.26.0 in all seven places
+python tools/check-docs.py        :: clean: 7 plain-text twin(s)
+```
+
 ## 0.25.0 - the force datalink: two players, two sides, one picture
 
 A co-op mission built with a side per player - Blue for the host, Cyan for the guest, the two marked

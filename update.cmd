@@ -311,6 +311,8 @@ call :ver_lt "!INSTALLED!" "0.24.2"
 if defined VLT call :note "0.24.2 - the whole-task-force defensive ECM entry is a switch: click it again to stand the force down. No files: all in the DLL."
 call :ver_lt "!INSTALLED!" "0.25.0"
 if defined VLT call :note "0.25.0 - the force datalink: in a co-op session, contacts this force holds are handed to the other player's force. A new setting appears (CoopDatalink, on). No files: all in the DLL."
+call :ver_lt "!INSTALLED!" "0.26.0"
+if defined VLT call :note "0.26.0 - the laser rangefinder: a ship with an optical or laser director can look at contacts the force already holds, with its radars silent. New settings appear (LidarEnabled on, LidarRangeNm 12, LidarArcDegrees 90, LidarSeconds 4). No files: all in the DLL."
 exit /b 0
 
 :mig_dive_limits
@@ -431,6 +433,8 @@ call :ver_lt "!INSTALLED!" "0.24.2"
 if defined VLT call :say "0.24.2  defensive ECM for the whole task force is a switch now: click it again to stand the force down"
 call :ver_lt "!INSTALLED!" "0.25.0"
 if defined VLT call :say "0.25.0  new: the force datalink. In a co-op session, contacts your force holds are handed to the other player's force; datalink.txt says what was shared"
+call :ver_lt "!INSTALLED!" "0.26.0"
+if defined VLT call :say "0.26.0  new: the laser rangefinder. A ship with an optical or laser director can look at contacts the force already holds, with its radars silent; lidar.txt says what each hull's sensor list really holds"
 exit /b 0
 
 

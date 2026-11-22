@@ -3,7 +3,7 @@
 Run this once per game version, and after any change to `HatchControl`, `HatchMenu` or the
 feature menus.
 
-Version under test: **0.25.0**. Mod id `io.github.bomberdeer22.seapoweradvanced`.
+Version under test: **0.26.0**. Mod id `io.github.bomberdeer22.seapoweradvanced`.
 
 **Read the log, do not guess.** Everything below is confirmed by two files:
 
@@ -140,6 +140,17 @@ Full description of each: [features.md](features.md). Right-click one of your sh
 - [ ] **A PvP session shares nothing.** Turn the multiplayer mod's own PvP setting on and load the
       same mission: *Datalink* says the co-op flag is off and names the switch, and no track is
       handed over. `datalink.txt` records the flag and the CfgPvP / CfgContactSync settings
+- [ ] **Laser rangefinder, on a hull the menu offers it to.** *Sensors and EMCON → Laser
+      rangefinder: off - click to look with it*, with a contact the force already holds inside 12 nm
+      and inside 90 degrees of the bow. The label becomes *Laser rangefinder: on, holding <hull> at
+      N.N nm* and `lidar.txt` says *sighted …* for that ship
+- [ ] **Laser rangefinder, on a hull with no director.** The entry reads *no director on this hull -
+      click for the report*; clicking writes `lidar.txt`, whose hull list shows the sensor families
+      that hull really has. Nothing is armed and no track appears
+- [ ] **A contact outside the arc is not sighted.** Put a held contact astern and check the label
+      reads *on, nothing in the arc*: the beam is one bearing, not a hemisphere
+- [ ] **No prior sighting means no sighting.** In a mission where the force holds nothing, the entry
+      reports *nothing on the force's picture to look at* and no contact is created
 - [ ] **The same entry clicked again stands the force down.** After arming, reopen *Sensors → ECM* on
       any ship: the entry now reads *on for N of M ship(s) - click to disarm the task force*, and one
       click clears every armed ship - the per-ship entries all read *off* again, and each hull's

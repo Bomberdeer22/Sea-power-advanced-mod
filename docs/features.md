@@ -1,7 +1,7 @@
 # The advanced features
 
-There are fifteen now: the twelve original ones, automatic defensive ECM, offensive ECM in
-two modes, and the force datalink between two co-op players. All of them live in
+There are sixteen now: the twelve original ones, automatic defensive ECM, offensive ECM in
+two modes, the force datalink between two co-op players, and the laser rangefinder. All of them live in
 the game's own right-click menu, each in the section a player would look in first - not stacked into
 one submenu. There is no mod window and no hotkey.
 
@@ -10,6 +10,7 @@ one submenu. There is no mod window and no hotkey.
 | Radars, air/surface search only, active sonar, towed array, EMCON profiles | **Sensors** |
 | Radar blink, auto-ARM shutoff, **defensive ECM**, **offensive ECM**, commercial disguise | **Sensors** (they are emission decisions) |
 | **Force datalink** to the other player's force | **Sensors** (it is about the picture the force holds) |
+| **Laser rangefinder** (LIDAR) | **Sensors** (it is what the ship can see without radiating) |
 | **ECM cones on the map** | Not a menu entry - drawn over the map whenever a set is aimed |
 | Salvo deconfliction | **Engage** (it is about who may fire, and when) |
 | Action stations, cold cruise, crew fatigue | **Rules of engagement** |
@@ -545,6 +546,34 @@ its co-op flag is the answer more often than not; then try *Datalink: resynchron
 then check that both players have this build, because a picture handed over by one build and read by
 another is not a thing the game can do.
 
+## 2h. The laser rangefinder — `Sensors and EMCON`
+
+**The problem.** A warship's optronic director gives a watch team a glass on a bearing and a range on
+it. Sea Power has no such thing: the sensor families a hull's parameter block lists are radar, sonar,
+ESM/RWR and ECM, so a ship with every radar silent is blind beyond what its ESM hears - however many
+optronic masts the hull actually carries data for.
+
+**What it does.** A hull whose own sensor list holds an optical, infrared or laser director can be
+ordered to *look* with it. Every few seconds each contact **the force already holds** that is inside
+the range and inside the arc is put on the ship's picture through the game's own reveal call
+(`Utils.RevealContactToObject`, the route a reconnaissance report uses). Position only.
+
+| Needs | A director in the hull's own sensor list - `Optronic`, `Optical`, `Laser`, `Rangefinder`, `Designator`, `IRST`, `FLIR`, `Television`, `Sight` and their relations. Read by class name from the installed game, positive evidence only |
+|---|---|
+| Reads | The hull's own sensor list for the fit, the player's contact picture (`ContactPicture.Hostiles`), the hull's own plotting table, range and bearing to each contact |
+| Writes | One call per sighting, to the game's own reveal routine. No radar is switched on or off, no member of the ship is set, nothing is created or destroyed - so it works identically at EMCON silent |
+| Passing on | **Position only.** The classification argument is `0`: no side, no class, no identification |
+| Limited by | `LidarRangeNm` (**12 nm**), `LidarArcDegrees` (**90**, a quarter of the horizon either side of the bow), one beam per hull, `LidarSeconds` (**4**) between looks |
+| Never | Looks for a contact the force's picture does not already hold. A unit that is not in the picture is not a candidate - that rule is the difference between a sight and a wallhack, and it is also how the real thing is used: a rangefinder is pointed on a bearing somebody else's picture gave you |
+| Refused for | A submarine (no line of sight at depth); a hull with no director in its own sensor list; a hull whose fit could not be read; a contact the force's own sensors already hold - that fix is better than anything a reveal can write |
+| Verified | After every look the hull's table is read again and the contact has to be in it. Success is *the track appeared*, not *the call returned* |
+| Report | `lidar.txt` - the settings and the order in force, the last sweep's verdict per ship, and **every hull class with the sensor families its own parameter block holds** |
+| Honest limit | **This game has no laser sensor**, so this is a mod-side aid built on the game's own reveal call, not a sensor in the simulation. Most base-game hulls will be refused because their sensor list holds no optical director - that is the feature refusing rather than guessing, and the report shows the list it read |
+
+**If a hull that should have a director is refused**, send `lidar.txt`: it prints each hull class and
+the sensor families its own parameter block holds. A director filed under a name the mod does not
+recognise shows up there by name and can be added.
+
 ## 3. Commercial signature spoofing — `Deception`
 
 The ship stops radiating, drops to a merchant's telegraph setting, and presents a civilian-looking
@@ -664,6 +693,10 @@ more slowly than tiring, so there is a real cost to leaving the fleet closed up 
 | `EcmDiveRadarSeekersOnly` | `true` | Only radar-seeking missiles can be decoyed - IR, optical and anti-radiation are immune (§2f) |
 | `CoopDatalink` | `true` | Hand this force's picture to the other player's force in a co-op session (§2g) |
 | `CoopDatalinkSeconds` | `3` | Seconds between datalink sweeps. Above about ten, a track handed over flickers as it ages out (§2g) |
+| `LidarEnabled` | `true` | Allow a hull with an optical or laser director to look with it (§2h) |
+| `LidarRangeNm` | `12` | How far the laser sees. Short by design - it is an eye with a rangefinder on it (§2h) |
+| `LidarArcDegrees` | `90` | Half-angle either side of the bow the beam may be pointed in (§2h) |
+| `LidarSeconds` | `4` | Seconds between looks (§2h) |
 
 ## What to send back if something misbehaves
 

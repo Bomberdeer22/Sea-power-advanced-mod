@@ -4,7 +4,7 @@ An advanced mod for **Sea Power: Naval Combat in the Missile Age**, built as an
 [Anchor Chain](https://github.com/SeaPower-Modders/AnchorChain) code mod and loadable as a plain
 BepInEx plugin.
 
-**Version 0.25.0** — the first public release: fifteen advanced features for your own ships,
+**Version 0.26.0** — the first public release: sixteen advanced features for your own ships,
 plus per-cell hatch control. Everything is reached through the game's own right-click menus; there
 is no mod window and no hotkey.
 
@@ -29,7 +29,7 @@ Orders
       Log hatch report
 ```
 
-### 2. Fifteen advanced features, in the right-click menu
+### 2. Sixteen advanced features, in the right-click menu
 
 Right-click one of your ships. Each feature appears in the section of the menu where a player would
 look for it, rather than in one long submenu:
@@ -100,6 +100,15 @@ arrived, and `datalink.txt` says what was shared, what was refused and why. What
 what the other player's *screen* shows: that is their machine and that mod's own contact sync, and the
 report names the switches to check when the two pictures still differ. See
 [docs/features.md](docs/features.md#2g-the-force-datalink--sensors-and-emcon).
+
+**The laser rangefinder** is the answer to a sensor this game does not have. A hull whose own sensor
+list holds an optical, infrared or laser director can be ordered to *look* with it, and the contacts
+**the force already holds** inside 12 nm and inside 90 degrees of the bow are put on the ship's
+picture - position only, no radar switched, so it works at EMCON silent. It never looks for a contact
+nobody has seen: that rule is the difference between a sight and a wallhack, and it is also how the
+real thing is used - a rangefinder is pointed on a bearing somebody else's picture gave you. A hull
+with no director is refused, and `lidar.txt` prints every hull class beside the sensor families its own
+data really holds. See [docs/features.md](docs/features.md#2h-the-laser-rangefinder--sensors-and-emcon).
 
 ### Multiplayer
 
@@ -463,7 +472,8 @@ check-features.cmd  what the game's own assembly can support
 
 - [x] Open and close individual silo hatches without launching
 - [x] The fourteen original advanced features, each in the game's own menu section
-- [x] Defensive ECM, offensive ECM in two modes, and the force datalink a co-op pair needs
+- [x] Defensive ECM, offensive ECM in two modes, the force datalink a co-op pair needs, and the
+      laser rangefinder
 - [x] Defensive ECM that jams a missile and flies it into the sea
 - [x] Offensive ECM through the game's own jam order, on unidentified contacts
 - [ ] Per-cell salvo selection: open cells 1–8 only, remembered for the next launch

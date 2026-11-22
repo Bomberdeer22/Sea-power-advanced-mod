@@ -690,7 +690,7 @@ def main() -> int:
     # it cannot be seen without a compiler.
     unit_state = SRC / "SeaPowerAdvanced" / "Interop" / "UnitState.cs"
     if unit_state.exists():
-        record_members = set(re.findall(r"internal\s+[\w<>?\[\]]+\s+(\w+)\s*;",
+        record_members = set(re.findall(r"internal\s+[\w<>?\[\]]+\s+(\w+)\s*(?:=\s*[^;]+)?;",
                                        unit_state.read_text(encoding="utf-8")))
         for path in files:
             code = strip_noise(path.read_text(encoding="utf-8"))

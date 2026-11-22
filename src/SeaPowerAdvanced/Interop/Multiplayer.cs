@@ -544,6 +544,12 @@ internal static class Multiplayer
             "not attempted: the target is simulated by the host, so there is nothing here to switch "
             + "off. The lock's jam order still works"),
 
+        new("laser rangefinder", Route.Call,
+            "the game's own reveal call, onto a hull this machine commands",
+            "works: it writes this machine's own contact picture, which is what the player is "
+            + "looking at. Nothing about the host's simulation changes, and the track is not "
+            + "carried to the other player - that is the datalink's job, not this one's"),
+
         new("ECM cones", Route.Read,
             "the game's own jammer state, drawn on the map",
             "unchanged - it draws what this machine knows, including jamming replicated in"),

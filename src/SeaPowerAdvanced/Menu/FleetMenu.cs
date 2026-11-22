@@ -424,6 +424,51 @@ internal static class FleetMenu
                 MenuRouting.Sensors);
         }
 
+        // --- the laser rangefinder ----------------------------------------------------------
+        // A laser is a glass on a bearing, not a search set, so this is one entry for one hull and
+        // it sits loose in Sensors rather than in a group of its own. A hull with no director gets
+        // an entry that says what its sensor list actually holds: this feature's whole honesty is
+        // that it refuses rather than guesses, and a refusal the player cannot see is a bug report.
+        if (!UnitFit.IsSubmarine(unit))
+        {
+            LidarControl.Fit laser = LidarControl.Detect(unit);
+
+            if (!ModSettings.LidarEnabled)
+            {
+                Add(Disabled("Laser rangefinder: off in the settings",
+                    "Features/LidarEnabled is false, so no hull may look with its laser. The setting "
+                    + "is in the mod's own config file."), MenuRouting.Sensors);
+            }
+            else if (laser.Fitted)
+            {
+                Add(Lidar.IsOn(unit)
+                    ? Action("Laser rangefinder: " + Lidar.Describe(unit) + " - click to stop",
+                        "Stops looking. The tracks it gave this ship age out on the game's own "
+                        + "sensor clock, exactly like a lost radar contact.",
+                        () => Report(unit, "LIDAR", Lidar.Toggle(unit, out string r), r))
+                    : Action("Laser rangefinder: off - click to look with it",
+                        "Puts the ship's laser director on the nearest contact the FORCE ALREADY "
+                        + "HOLDS inside " + (int)ModSettings.LidarRangeNm + " nm and inside "
+                        + (int)ModSettings.LidarArcDegrees + " deg of the bow, and gives this ship a "
+                        + "position-only track on it. No radar is switched, so it works at EMCON "
+                        + "silent. It never looks for a contact the force has not already seen.",
+                        () => Report(unit, "LIDAR", Lidar.Toggle(unit, out string r), r)),
+                    MenuRouting.Sensors);
+            }
+            else
+            {
+                Add(Action("Laser rangefinder: no director on this hull - click for the report",
+                    "This hull's own sensor list holds nothing this mod reads as an optical or "
+                    + "laser director: it says " + laser.Quote + ". Click to write lidar.txt, which "
+                    + "lists every hull and the sensor families each one really has.",
+                    () =>
+                    {
+                        Lidar.WriteReport("asked from the menu on " + Name(unit));
+                        ModLog.Info("Menu: lidar.txt written for " + Name(unit));
+                    }), MenuRouting.Sensors);
+            }
+        }
+
         // --- ECM: only on hulls that actually carry it --------------------------------------
         // A submarine has no jammer, so it gets no ECM entries at all - not a disabled one, nothing.
         // The same is now true of a surface hull with no set: a Huak class carries a radar and an

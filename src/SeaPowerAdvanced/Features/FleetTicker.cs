@@ -57,6 +57,9 @@ public sealed class FleetTicker : MonoBehaviour
         try { Datalink.Tick(); }
         catch (Exception error) { ModLog.Error("Force datalink failed", error); }
 
+        try { Lidar.Tick(); }
+        catch (Exception error) { ModLog.Error("LIDAR failed", error); }
+
         try { SalvoPlan.Tick(); }
         catch (Exception error) { ModLog.Error("Salvo release failed", error); }
 

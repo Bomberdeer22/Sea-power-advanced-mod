@@ -33,6 +33,10 @@ internal static class ModSettings
     private static ConfigEntry<float>? ecmJamHoldSeconds;
     private static ConfigEntry<float>? ecmJamRecoverySeconds;
     private static ConfigEntry<bool>? coopDatalink;
+    private static ConfigEntry<bool>? lidarEnabled;
+    private static ConfigEntry<float>? lidarRangeNm;
+    private static ConfigEntry<float>? lidarArcDegrees;
+    private static ConfigEntry<float>? lidarSeconds;
     private static ConfigEntry<float>? coopDatalinkSeconds;
 
     internal static bool Enabled => enabled?.Value ?? true;
@@ -58,6 +62,20 @@ internal static class ModSettings
     /// <summary>Seconds between datalink sweeps (1-30). Three is inside the ten-second life of an
     /// air track, so a track the other force is given does not flicker while it is still true.</summary>
     internal static float CoopDatalinkSeconds => coopDatalinkSeconds?.Value ?? 3f;
+
+    /// <summary>Whether the laser rangefinder order may be given at all.</summary>
+    internal static bool LidarEnabled => lidarEnabled?.Value ?? true;
+
+    /// <summary>How far a laser director can see, in nautical miles. Short by design: this is an
+    /// eye with a rangefinder on it, not a search set.</summary>
+    internal static float LidarRangeNm => lidarRangeNm?.Value ?? 12f;
+
+    /// <summary>Half-angle of the arc the beam may be pointed in, either side of the hull's heading
+    /// (so 90 means "a quarter of the horizon").</summary>
+    internal static float LidarArcDegrees => lidarArcDegrees?.Value ?? 90f;
+
+    /// <summary>Seconds between looks. A laser is a glass on a bearing, not a scanning set.</summary>
+    internal static float LidarSeconds => lidarSeconds?.Value ?? 4f;
 
     /// <summary>Seconds between radar blink flips. Short enough to see in a test mission.</summary>
     internal static float BlinkSeconds => blinkSeconds?.Value ?? 6f;
@@ -301,6 +319,24 @@ internal static class ModSettings
                 + "multiplayer mod considers co-op, only to a force that is not flying a contact "
                 + "in our own picture, and position only - never an identity. This is what makes "
                 + "a mission with a side per player behave like one shared picture.");
+
+            lidarEnabled = file.Bind("Features", "LidarEnabled", true,
+                "Allow a ship with an optical or laser director in its own sensor list to look with "
+                + "it: contacts the force already holds, inside range and inside the arc, are put on "
+                + "the ship's own picture through the game's own reveal call. Position only. It "
+                + "never looks for a contact the force has not already seen.");
+
+            lidarRangeNm = file.Bind("Features", "LidarRangeNm", 12f,
+                "How far the laser can see (1-40 nm). Short by design - an eye with a rangefinder "
+                + "on it does not search the sea to the horizon.");
+
+            lidarArcDegrees = file.Bind("Features", "LidarArcDegrees", 90f,
+                "Half-angle of the arc the beam may be pointed in, either side of the ship's heading "
+                + "(10-360). A laser is a single bearing, not a hemisphere.");
+
+            lidarSeconds = file.Bind("Features", "LidarSeconds", 4f,
+                "Seconds between looks (1-60). A rangefinder is a glass on a bearing, not a "
+                + "scanning set.");
 
             coopDatalinkSeconds = file.Bind("Features", "CoopDatalinkSeconds", 3f,
                 "Seconds between datalink sweeps (1-30). An air track only lives about ten "
