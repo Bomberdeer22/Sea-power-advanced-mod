@@ -193,6 +193,16 @@ explains the version jump rather than just announcing it.
       What update.cmd does: nothing beyond the DLL
       note only
 
+  < 0.26.2
+      Release: the rangefinder is offered on every hull, not only one whose
+        data names an optical set; lookouts are assumed where the data is
+        silent
+      On disk: new setting LidarAnyHull (on) - set it false for the old
+        sensor check
+      What update.cmd does: nothing beyond the DLL
+      the reach still follows the fit: 12 nm with a director, 6 nm with
+        lookouts (LidarLookoutNm)
+
   < 0.26.1
       Release: the rangefinder now works through the game's own Eyes Mk 1
         lookouts as well as a laser director

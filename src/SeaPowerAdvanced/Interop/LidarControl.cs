@@ -63,9 +63,28 @@ internal static class LidarControl
         internal bool Laser { get; }
 
         /// <summary>The fit in three words, for a menu label and a report line.</summary>
-        internal string Kind => !Fitted ? "nothing to look through"
+        internal string Kind => !Fitted ? "nothing the mod recognises"
                             : Laser ? "a laser director"
                             : "lookouts (Eyes Mk 1)";
+
+        /// <summary>
+        /// Whether this hull may look. With <c>LidarAnyHull</c> on - the default - that is every
+        /// hull: a hull's own data being silent about an optical set is not evidence that it has no
+        /// lookouts, and the range that matters (the lookouts') applies either way. With it off,
+        /// only a hull whose list positively holds something may look.
+        ///
+        /// One question, asked in one place, so the menu cannot offer an order the sweep refuses.
+        /// </summary>
+        internal bool Allowed => Fitted || ModSettings.LidarAnyHull;
+
+        /// <summary>
+        /// What it is allowed to reach, and on what basis - for a label and a report line that must
+        /// not overclaim. A hull with no optical entry in its data is looking on the assumption that
+        /// a warship has lookouts, and says so.
+        /// </summary>
+        internal string Basis => Laser ? "a laser director"
+                               : Fitted ? "its lookouts (Eyes Mk 1 in its sensor list)"
+                               : "lookouts assumed - its sensor list shows no optical set";
 
         /// <summary>The sensor list entries that decided it, by class name - for the player.</summary>
         internal string Evidence { get; }
@@ -99,14 +118,17 @@ internal static class LidarControl
     private static readonly string[] LookoutNames = { "Eyes" };
 
     /// <summary>
-    /// Whether this hull carries the kind of director a LIDAR can be built on, read from its own
-    /// sensor list - the same list <see cref="OffensiveJam"/> reads for its jammer, and read the
-    /// same way: by class name, because the game names its sensor systems for what they are.
+    /// What this hull has to look through, read from its own sensor list - the same list
+    /// <see cref="OffensiveJam"/> reads for its jammer, and read the same way: by class name, because
+    /// the game names its sensor systems for what they are.
     ///
-    /// This is the one place the feature could quietly become a wallhack - arm it on anything and
-    /// every hull in the game gets a silent sensor - so the answer is <b>positive evidence only</b>:
-    /// a matching entry in the list, or nothing. A hull whose list cannot be read is <i>not</i>
-    /// fitted, and the menu says the fit could not be read rather than offering the feature.
+    /// The answer is one of three, and the third is why this still reads the list even though every
+    /// hull may look (see <c>ModSettings.LidarAnyHull</c>): a laser director, the game's own lookouts,
+    /// or <i>nothing the mod recognises</i>. The last one is not a refusal any more - it is what the
+    /// report prints and what the menu says out loud, because a hull's own data saying nothing about
+    /// an optical set is evidence, and silently treating it as "must have eyes" is how a mod starts
+    /// inventing sensors. A look-out on a warship is close to certain; a look-out on a hull whose data
+    /// the mod cannot read is not, and the report is where that distinction survives.
     /// </summary>
     internal static Fit Detect(ObjectBase? unit)
     {
@@ -254,9 +276,11 @@ internal static class LidarControl
     /// </summary>
     internal static double RangeNm(Fit fit, float configured, float lookout)
     {
-        if (!fit.Fitted) return 0;
+        if (!fit.Allowed) return 0;
         if (fit.Laser) return configured;
 
+        // Fitted lookouts and assumed lookouts reach the same distance: the assumption buys the
+        // order, not the range.
         return Math.Min(configured, lookout);
     }
 
@@ -294,8 +318,8 @@ internal static class LidarControl
 
         string line = unit.GetType().Name + ": "
                       + (fit.Laser ? "LASER DIRECTOR - "
-                         : fit.Fitted ? "LOOKOUTS ONLY - "
-                         : "nothing to look through - ") + fit.Evidence;
+                         : fit.Fitted ? "LOOKOUTS LISTED - "
+                         : "LOOKOUTS ASSUMED, no optical set in its data - ") + fit.Evidence;
 
         if (!into.Contains(line)) into.Add(line);
     }

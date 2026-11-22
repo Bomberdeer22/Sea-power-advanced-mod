@@ -109,16 +109,18 @@ internal static class Lidar
 
         LidarControl.Fit fit = LidarControl.Detect(unit);
 
-        if (!fit.Fitted)
+        if (!fit.Allowed)
         {
-            report = Name(unit) + " has nothing to look through: " + fit.Evidence;
+            report = Name(unit) + " may not look: " + fit.Evidence
+                     + " (LidarAnyHull is off, so only a hull whose own sensor list shows an "
+                     + "optical set may look)";
             ModLog.Warn("LIDAR: " + report);
             return false;
         }
 
         record.Lidar = true;
 
-        report = "looking with " + fit.Kind + " - " + fit.Evidence;
+        report = "looking with " + fit.Basis + " - " + fit.Evidence;
         ModLog.Info("LIDAR: " + Name(unit) + ": " + report);
 
         // Answer with evidence rather than a promise: look once, now.
@@ -164,6 +166,11 @@ internal static class Lidar
             text.AppendLine("  arc is put on that hull's picture through the game's own reveal call - the");
             text.AppendLine("  route a reconnaissance report uses. Position only: no identity, no class.");
             text.AppendLine();
+            text.AppendLine("  Every hull may look, whether or not its data names an optical sensor");
+            text.AppendLine("  (LidarAnyHull, on by default). A warship has lookouts; a hull whose sensor");
+            text.AppendLine("  list says nothing about them is looking on that assumption, and the list");
+            text.AppendLine("  below marks it as such rather than claiming a set it cannot see.");
+            text.AppendLine();
             text.AppendLine("  It never looks for a contact the picture does not already hold. That is the");
             text.AppendLine("  difference between a sight and a wallhack, and it is also how the real");
             text.AppendLine("  thing works: a rangefinder is pointed on a bearing somebody else's picture");
@@ -189,6 +196,7 @@ internal static class Lidar
             text.AppendLine("The order in force");
             text.AppendLine("------------------");
             text.AppendLine("  setting:          LidarEnabled=" + (ModSettings.LidarEnabled ? "on" : "off")
+                            + ", every hull may look: " + (ModSettings.LidarAnyHull ? "yes" : "no")
                             + ", range " + (int)ModSettings.LidarRangeNm + " nm"
                             + " (lookouts " + (int)ModSettings.LidarLookoutNm + " nm)"
                             + ", arc " + (int)ModSettings.LidarArcDegrees + " deg"
@@ -219,7 +227,10 @@ internal static class Lidar
                     UnitRecord record = UnitState.Of(hull);
 
                     text.AppendLine("  ORDERED: " + Name(hull) + " - " + Describe(hull));
-                    text.AppendLine("    fit: " + fit.Kind + " - " + fit.Evidence);
+                    text.AppendLine("    fit: " + fit.Basis);
+                    text.AppendLine("    reach: " + LidarControl.RangeNm(fit, ModSettings.LidarRangeNm,
+                                                          ModSettings.LidarLookoutNm).ToString("0.#")
+                                    + " nm   (evidence: " + fit.Evidence + ")");
                     text.AppendLine("    state: " + Describe(hull));
                 }
                 catch (Exception) { }
@@ -357,11 +368,11 @@ internal static class Lidar
 
                 LidarControl.Fit fit = LidarControl.Detect(hull);
 
-                if (!fit.Fitted)
+                if (!fit.Allowed)
                 {
                     noFit++;
                     record.Lidar = false;
-                    parts.Add(Name(hull) + ": nothing to look through - " + fit.Evidence);
+                    parts.Add(Name(hull) + ": may not look - " + fit.Evidence);
                     continue;
                 }
 
@@ -464,7 +475,7 @@ internal static class Lidar
         Set(parts.Count == 0 ? "nothing to look at" : string.Join("; ", parts.ToArray()), force);
 
         if (noFit > 0)
-            ModLog.Warn("LIDAR: " + noFit + " hull(s) with the order have nothing to look through");
+            ModLog.Warn("LIDAR: " + noFit + " hull(s) with the order may not look (LidarAnyHull is off)");
     }
 
     /// <summary>Records the sweep's verdict, and logs it when the player asked for it (a click) or

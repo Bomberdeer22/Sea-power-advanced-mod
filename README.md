@@ -4,7 +4,7 @@ An advanced mod for **Sea Power: Naval Combat in the Missile Age**, built as an
 [Anchor Chain](https://github.com/SeaPower-Modders/AnchorChain) code mod and loadable as a plain
 BepInEx plugin.
 
-**Version 0.26.1** — the first public release: sixteen advanced features for your own ships,
+**Version 0.26.2** — the first public release: sixteen advanced features for your own ships,
 plus per-cell hatch control. Everything is reached through the game's own right-click menus; there
 is no mod window and no hotkey.
 
@@ -103,8 +103,9 @@ report names the switches to check when the two pictures still differ. See
 
 **The laser rangefinder** is the answer to a sensor this game does not have. A hull whose own sensor
 list holds something to look through can be ordered to *look* with it - a laser or optronic director
-where it has one, and the game's own **Eyes Mk 1** lookouts where it has only those, which reach 6 nm
-rather than a director's 12 - and the contacts **the force already holds** inside the range and inside
+where it has one, and the game's own **Eyes Mk 1** lookouts otherwise - including on a hull whose data
+names no optical set at all, which is offered the order and marked *lookouts assumed*. Lookouts reach
+6 nm rather than a director's 12 - and the contacts **the force already holds** inside the range and inside
 90 degrees of the bow are put on the ship's picture: position only, no radar switched, so it works at
 EMCON silent. It never looks for a contact
 nobody has seen: that rule is the difference between a sight and a wallhack, and it is also how the

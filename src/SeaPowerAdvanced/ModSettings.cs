@@ -36,6 +36,7 @@ internal static class ModSettings
     private static ConfigEntry<bool>? lidarEnabled;
     private static ConfigEntry<float>? lidarRangeNm;
     private static ConfigEntry<float>? lidarLookoutNm;
+    private static ConfigEntry<bool>? lidarAnyHull;
     private static ConfigEntry<float>? lidarArcDegrees;
     private static ConfigEntry<float>? lidarSeconds;
     private static ConfigEntry<float>? coopDatalinkSeconds;
@@ -70,6 +71,18 @@ internal static class ModSettings
     /// <summary>How far a laser director can see, in nautical miles. Short by design: this is an
     /// eye with a rangefinder on it, not a search set.</summary>
     internal static float LidarRangeNm => lidarRangeNm?.Value ?? 12f;
+
+    /// <summary>
+    /// Whether every hull under command may look, or only those whose own sensor list shows an
+    /// optical set.
+    ///
+    /// On by default, because the sensor check could never have been a wallhack guard - the guard is
+    /// that only contacts the force already holds can be sighted - and because a warship's lookouts
+    /// are the one sensor that is not really in question. What it costs is the mod's ability to say
+    /// "this hull has no eyes"; what it keeps is the ability to say it, in <c>lidar.txt</c>, for any
+    /// hull whose data is silent about it.
+    /// </summary>
+    internal static bool LidarAnyHull => lidarAnyHull?.Value ?? true;
 
     /// <summary>
     /// How far the game's own lookouts - "Eyes Mk 1" - can be pointed, in nautical miles. A man with
@@ -338,6 +351,13 @@ internal static class ModSettings
             lidarRangeNm = file.Bind("Features", "LidarRangeNm", 12f,
                 "How far the laser can see (1-40 nm). Short by design - an eye with a rangefinder "
                 + "on it does not search the sea to the horizon.");
+
+            lidarAnyHull = file.Bind("Features", "LidarAnyHull", true,
+                "Let every hull under command look with its optics, whether or not its own sensor "
+                + "list shows an optical set. Off means only a hull whose data positively holds "
+                + "lookouts (Eyes Mk 1) or a laser director may look. Either way a sighting is only "
+                + "ever a contact the force already holds, position only - the sensor check was never "
+                + "what kept the feature honest.");
 
             lidarLookoutNm = file.Bind("Features", "LidarLookoutNm", 6f,
                 "How far a hull with only lookouts (the game's own Eyes Mk 1 optical sensor) may "

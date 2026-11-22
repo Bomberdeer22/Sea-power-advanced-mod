@@ -1,5 +1,50 @@
 # Changelog
 
+## 0.26.2 - every ship may look; the reach still depends on what it has
+
+Asked as a question and answered as one: *what if we didn't lock the LIDAR to a specific sensor and
+allowed it for all ships?* The honest answer was that the sensor gate was never what kept this feature
+honest. The guard is - and always was - **a sighting is only ever a contact the force already holds**.
+Locking the fit only added a case where a hull with perfectly good lookouts was refused because its
+parameter block did not spell them out.
+
+**So the gate is now a setting, on by default.** `LidarAnyHull = true` offers the order on every hull
+under command. Set it to `false` and the old behaviour returns exactly: only a hull whose own sensor
+list names lookouts (`Eyes` ...) or a laser director may look.
+
+**What did not move an inch:**
+
+- still only contacts **the force already holds**; nothing is ever searched for;
+- still **position only** - classification `0`, no side, no class, no identification;
+- still **no radar switched**, either way, so it works at EMCON silent;
+- still refused for a **submarine** - a boat at depth has no line of sight;
+- still skipped for a contact the force's **own sensors** already hold - that fix is better than a
+  reveal;
+- still verified: the hull's table is re-read and the track has to be in it.
+
+**The reach is what the fit decides, not the permission.** A laser or optronic director reaches
+`LidarRangeNm` (**12 nm**). Lookouts reach `LidarLookoutNm` (**6 nm**) - and that includes a hull whose
+data names no optical set at all, because the assumption being made is *a warship has lookouts*, not
+*a warship has an instrument*. Handing every hull the director's range would have been the actual
+overreach in this change; it is the one thing that stays tied to the hull's data.
+
+**And the assumption is said out loud.** A hull looking without an optical entry in its own data gets
+a second menu line - *Rangefinder: lookouts assumed - click for the report* - and `lidar.txt` marks
+that hull class `LOOKOUTS ASSUMED`. The menu label also carries the range it will actually get, so no
+one has to guess what the click bought.
+
+**Worth stating plainly:** this is the mod asserting something about a hull that the hull's own data
+does not say. It is a defensible assertion - lookouts are the one sensor every warship in this era
+genuinely had - but it *is* an assertion, and the feature now reports it as one instead of hiding it
+behind a silent pass.
+
+```text
+python tools/check-source.py      :: clean: 57 file(s), ...
+python tools/check-batch.py       :: clean: 6 batch file(s), ...
+python tools/check-versions.py    :: clean: 0.26.2 in all seven places
+python tools/check-docs.py        :: clean: 7 plain-text twin(s)
+```
+
 ## 0.26.1 - the rangefinder looks through the lookouts, too
 
 Asked for, and the question was the correction: *does it work through their optical sensors - what the

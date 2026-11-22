@@ -425,55 +425,69 @@ internal static class FleetMenu
         }
 
         // --- the laser rangefinder ----------------------------------------------------------
-        // A laser is a glass on a bearing, not a search set, so this is one entry for one hull and
-        // it sits loose in Sensors rather than in a group of its own. A hull with no director gets
-        // an entry that says what its sensor list actually holds: this feature's whole honesty is
-        // that it refuses rather than guesses, and a refusal the player cannot see is a bug report.
+        // One entry, loose in Sensors rather than a group of its own: a sight is a glass on a
+        // bearing, not a search set. Every hull under command is offered it, because a warship has
+        // lookouts whether or not its parameter block bothers to name them - what is NOT assumed is
+        // the reach: a hull with a laser director gets the director's range and a hull with nothing
+        // but lookouts, listed or assumed, gets the lookout's. The label says which, so the player
+        // never has to guess what the order bought.
         if (!UnitFit.IsSubmarine(unit))
         {
             LidarControl.Fit laser = LidarControl.Detect(unit);
+            double reaches = LidarControl.RangeNm(laser, ModSettings.LidarRangeNm,
+                                                  ModSettings.LidarLookoutNm);
 
             if (!ModSettings.LidarEnabled)
             {
                 Add(Disabled("Laser rangefinder: off in the settings",
-                    "Features/LidarEnabled is false, so no hull may look with its laser. The setting "
-                    + "is in the mod's own config file."), MenuRouting.Sensors);
+                    "Features/LidarEnabled is false, so no hull may look with its optics. The "
+                    + "setting is in the mod's own config file."), MenuRouting.Sensors);
             }
-            else if (laser.Fitted)
+            else if (!laser.Allowed)
             {
-                double reaches = LidarControl.RangeNm(laser, ModSettings.LidarRangeNm,
-                                                      ModSettings.LidarLookoutNm);
-
+                Add(Disabled("Laser rangefinder: nothing to look through on this hull",
+                    "Features/LidarAnyHull is off and this hull's own sensor list names no optical "
+                    + "set: it says " + laser.Quote + ". Turn LidarAnyHull on to let every hull look, "
+                    + "or click ECM: what this build exposes for the list of what each hull holds."),
+                    MenuRouting.Sensors);
+            }
+            else
+            {
                 Add(Lidar.IsOn(unit)
                     ? Action("Laser rangefinder: " + Lidar.Describe(unit) + " - click to stop",
                         "Stops looking. The tracks it gave this ship age out on the game's own "
                         + "sensor clock, exactly like a lost radar contact.",
                         () => Report(unit, "LIDAR", Lidar.Toggle(unit, out string r), r))
-                    : Action("Laser rangefinder: off - click to look with it"
-                             + (laser.Laser ? "" : " (lookouts)"),
-                        "Puts this hull's " + laser.Kind + " on the nearest contact the FORCE ALREADY "
-                        + "HOLDS inside " + (int)reaches + " nm and inside "
+                    : Action("Laser rangefinder: off - click to look with "
+                             + (laser.Laser ? "its laser" : "its lookouts")
+                             + " (" + (int)reaches + " nm)",
+                        "Points " + laser.Basis + " at the nearest contact the FORCE ALREADY HOLDS "
+                        + "inside " + (int)reaches + " nm and inside "
                         + (int)ModSettings.LidarArcDegrees + " deg of the bow, and gives this ship a "
                         + "position-only track on it. No radar is switched, so it works at EMCON "
                         + "silent. It never looks for a contact the force has not already seen."
                         + (laser.Laser
                             ? ""
-                            : " This hull has no laser director - what it has is the game's own Eyes "
-                              + "Mk 1 lookouts, so it reaches " + (int)reaches + " nm and no further."),
+                            : " No laser director on this hull, so it reaches the lookouts' "
+                              + (int)reaches + " nm and no further."),
                         () => Report(unit, "LIDAR", Lidar.Toggle(unit, out string r), r)),
                     MenuRouting.Sensors);
-            }
-            else
-            {
-                Add(Action("Laser rangefinder: nothing to look through - click for the report",
-                    "This hull's own sensor list holds nothing this mod reads as an optical sensor "
-                    + "or a set of lookouts: it says " + laser.Quote + ". Click to write lidar.txt, "
-                    + "which lists every hull and the sensor families each one really has.",
-                    () =>
-                    {
-                        Lidar.WriteReport("asked from the menu on " + Name(unit));
-                        ModLog.Info("Menu: lidar.txt written for " + Name(unit));
-                    }), MenuRouting.Sensors);
+
+                if (!laser.Fitted)
+                {
+                    // The one thing the player should not have to discover: this hull is looking on
+                    // an assumption, not on a sensor the mod could read. A second line says so and
+                    // is the way to the file that prints what the hull really carries.
+                    Add(Action("Rangefinder: lookouts assumed - click for the report",
+                        "This hull's own sensor list names no optical set (" + laser.Quote + "). "
+                        + "Every warship has lookouts, so the order is offered on that assumption - "
+                        + "click to write lidar.txt, which prints what each hull's data really "
+                        + "holds.", () =>
+                        {
+                            Lidar.WriteReport("lookouts assumed on " + Name(unit));
+                            ModLog.Info("Menu: lidar.txt written for " + Name(unit));
+                        }), MenuRouting.Sensors);
+                }
             }
         }
 
