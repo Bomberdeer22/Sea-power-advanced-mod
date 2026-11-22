@@ -43,15 +43,29 @@ internal static class LidarControl
     /// <summary>What was found about one hull's optical/laser fit, and what said so.</summary>
     internal sealed class Fit
     {
-        internal Fit(bool fitted, string evidence, string quote)
+        internal Fit(bool fitted, bool laser, string evidence, string quote)
         {
             Fitted = fitted;
+            Laser = laser;
             Evidence = evidence;
             Quote = quote;
         }
 
-        /// <summary>True when the hull's own sensor list holds a director the laser can use.</summary>
+        /// <summary>True when the hull's own sensor list holds something to look through.</summary>
         internal bool Fitted { get; }
+
+        /// <summary>
+        /// True when what it holds is a laser or optronic director - a sight with a rangefinder on
+        /// it. False means the hull has <b>lookouts</b>: the game's own "Eyes Mk 1" optical sensor,
+        /// which is a man with binoculars and not an instrument. The distinction is the range they
+        /// are allowed, and nothing else.
+        /// </summary>
+        internal bool Laser { get; }
+
+        /// <summary>The fit in three words, for a menu label and a report line.</summary>
+        internal string Kind => !Fitted ? "nothing to look through"
+                            : Laser ? "a laser director"
+                            : "lookouts (Eyes Mk 1)";
 
         /// <summary>The sensor list entries that decided it, by class name - for the player.</summary>
         internal string Evidence { get; }
@@ -63,13 +77,26 @@ internal static class LidarControl
         internal string Quote { get; }
     }
 
-    /// <summary>The sensor list entry names that mean "an eye with a rangefinder on it".</summary>
-    private static readonly string[] OpticalNames =
+    /// <summary>
+    /// The sensor list entry names that mean "something to look through": an instrument first, and
+    /// the base game's own lookouts after them.
+    ///
+    /// <c>Eyes Mk 1</c> is the game's name for a hull's visual watch - a man on the bridge with
+    /// binoculars, carried by every ship, and modelled as an optical sensor in the hull's own list.
+    /// It is matched on the word "Eyes" rather than on the full string, because the class name may
+    /// carry it as <c>SensorSystemEyesMk1</c>, <c>EyesMk1</c> or a display name with a space in it,
+    /// and a lookup that only matched one spelling would read as "this hull has no eyes", which is
+    /// the exact wrong answer.
+    /// </summary>
+    private static readonly string[] InstrumentNames =
     {
         "Optronic", "Optronics", "Optical", "ElectroOptical", "ElectroOptic",
         "Laser", "Lidar", "LIDAR", "Rangefinder", "Designator", "IRST", "Infrared",
-        "Flir", "FLIR", "Television", "TV", "Sight", "Periscope", "Mast",
+        "Flir", "FLIR", "Television", "Sight", "Periscope",
     };
+
+    /// <summary>The game's own visual watch: lookouts, not an instrument.</summary>
+    private static readonly string[] LookoutNames = { "Eyes" };
 
     /// <summary>
     /// Whether this hull carries the kind of director a LIDAR can be built on, read from its own
@@ -83,7 +110,7 @@ internal static class LidarControl
     /// </summary>
     internal static Fit Detect(ObjectBase? unit)
     {
-        if (unit == null) return new Fit(false, "no unit", "no unit");
+        if (unit == null) return new Fit(false, false, "no unit", "no unit");
 
         Type type = unit.GetType();
 
@@ -96,7 +123,8 @@ internal static class LidarControl
 
     private static Fit Read(ObjectBase unit)
     {
-        var found = new List<string>();
+        var instruments = new List<string>();
+        var lookouts = new List<string>();
         bool readable = false;
 
         try
@@ -105,14 +133,17 @@ internal static class LidarControl
             if (parameters == null) parameters = unit._obp;
 
             if (parameters == null)
-                return new Fit(false, "the unit has no parameter block", "its data is unreadable");
+                return new Fit(false, false, "the unit has no parameter block",
+                               "its data is unreadable");
 
             FieldInfo? field = Sensors(parameters.GetType());
             if (field == null)
-                return new Fit(false, "the parameter block has no sensor list", "its data is unreadable");
+                return new Fit(false, false, "the parameter block has no sensor list",
+                               "its data is unreadable");
 
             if (MemberProbe.Read(field, parameters) is not IEnumerable list)
-                return new Fit(false, "the sensor list could not be read", "its data is unreadable");
+                return new Fit(false, false, "the sensor list could not be read",
+                               "its data is unreadable");
 
             readable = true;
 
@@ -127,28 +158,38 @@ internal static class LidarControl
                 // would be exactly the guess this feature must not make.
                 if (LooksLikeRadarOrSonar(name)) continue;
 
-                if (Mentions(name, OpticalNames)) found.Add(name);
+                if (Mentions(name, InstrumentNames)) instruments.Add(name);
+                else if (Mentions(name, LookoutNames)) lookouts.Add(name);
             }
         }
         catch (Exception error)
         {
-            return new Fit(false, "the fit could not be read (" + error.GetType().Name + ")",
+            return new Fit(false, false, "the fit could not be read (" + error.GetType().Name + ")",
                            "its data is unreadable");
         }
 
-        if (!readable) return new Fit(false, "the sensor list could not be read", "its data is unreadable");
+        if (!readable)
+            return new Fit(false, false, "the sensor list could not be read", "its data is unreadable");
 
-        if (found.Count == 0)
+        if (instruments.Count == 0 && lookouts.Count == 0)
         {
-            return new Fit(false,
-                           "its sensor list holds no optical or laser director (" + List(unit) + ")",
-                           "no director in its sensor list");
+            return new Fit(false, false,
+                           "its sensor list holds nothing to look through (" + List(unit) + ")",
+                           "no optical sensor in its list");
         }
 
-        return new Fit(true,
-                      found.Count + " director(s) in the sensor list ("
-                      + string.Join(", ", found.ToArray()) + ")",
-                      found[0]);
+        if (instruments.Count > 0)
+        {
+            return new Fit(true, true,
+                          instruments.Count + " director(s) in the sensor list ("
+                          + string.Join(", ", instruments.ToArray()) + ")",
+                          instruments[0]);
+        }
+
+        return new Fit(true, false,
+                       "lookouts, not an instrument: " + string.Join(", ", lookouts.ToArray())
+                       + " in the sensor list",
+                       lookouts[0]);
     }
 
     /// <summary>Radar and sonar families by name, so a "sight" inside a radar's class name is not
@@ -204,6 +245,21 @@ internal static class LidarControl
         return found;
     }
 
+    /// <summary>
+    /// How far this fit is allowed to look, in nautical miles.
+    ///
+    /// A laser or optronic director gets the configured range. Lookouts do not: <b>Eyes Mk 1</b> is a
+    /// man with binoculars, and handing it the same reach as an instrument would make every ship in
+    /// the game a sensor it is not. The lookout range is its own setting and is deliberately shorter.
+    /// </summary>
+    internal static double RangeNm(Fit fit, float configured, float lookout)
+    {
+        if (!fit.Fitted) return 0;
+        if (fit.Laser) return configured;
+
+        return Math.Min(configured, lookout);
+    }
+
     /// <summary>The sensor families on this hull, for the report and for the menu's evidence line.</summary>
     private static string List(ObjectBase unit)
     {
@@ -237,7 +293,9 @@ internal static class LidarControl
         if (unit == null) return;
 
         string line = unit.GetType().Name + ": "
-                      + (fit.Fitted ? "LASER FITTED - " : "no laser director - ") + fit.Evidence;
+                      + (fit.Laser ? "LASER DIRECTOR - "
+                         : fit.Fitted ? "LOOKOUTS ONLY - "
+                         : "nothing to look through - ") + fit.Evidence;
 
         if (!into.Contains(line)) into.Add(line);
     }

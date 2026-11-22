@@ -311,6 +311,8 @@ call :ver_lt "!INSTALLED!" "0.24.2"
 if defined VLT call :note "0.24.2 - the whole-task-force defensive ECM entry is a switch: click it again to stand the force down. No files: all in the DLL."
 call :ver_lt "!INSTALLED!" "0.25.0"
 if defined VLT call :note "0.25.0 - the force datalink: in a co-op session, contacts this force holds are handed to the other player's force. A new setting appears (CoopDatalink, on). No files: all in the DLL."
+call :ver_lt "!INSTALLED!" "0.26.1"
+if defined VLT call :note "0.26.1 - the rangefinder now works through the game's own lookouts too (its Eyes Mk 1 optical sensor), not only a laser director. Lookouts reach LidarLookoutNm (6 by default), not the laser's 12. A new setting appears. No files: all in the DLL."
 call :ver_lt "!INSTALLED!" "0.26.0"
 if defined VLT call :note "0.26.0 - the laser rangefinder: a ship with an optical or laser director can look at contacts the force already holds, with its radars silent. New settings appear (LidarEnabled on, LidarRangeNm 12, LidarArcDegrees 90, LidarSeconds 4). No files: all in the DLL."
 exit /b 0

@@ -16,8 +16,11 @@ namespace SeaPowerAdvanced.Features;
 /// list - so a ship in Sea Power with every radar silent is blind beyond what its ESM hears, even
 /// when it is carrying the kind of optical director every modern escort has. That is the gap.
 ///
-/// <b>What this does about it.</b> A hull whose own sensor list holds an optical, infrared or laser
-/// director may be ordered to <i>look</i> with it. Every sweep, for as long as the order stands:
+/// <b>What this does about it.</b> A hull whose own sensor list holds something to look through may be
+/// ordered to <i>look</i> with it - a laser or optronic director where the hull carries one, and the
+/// game's own <b>Eyes Mk 1</b> lookouts where it carries only those. The lookouts are a man with
+/// binoculars, so they reach a shorter, separately configured distance; the director gets the full
+/// range. Every sweep, for as long as the order stands:
 ///
 /// <list type="number">
 /// <item>the player's own contact picture is read - the same picture
@@ -108,14 +111,14 @@ internal static class Lidar
 
         if (!fit.Fitted)
         {
-            report = Name(unit) + " has no laser director this mod can find: " + fit.Evidence;
+            report = Name(unit) + " has nothing to look through: " + fit.Evidence;
             ModLog.Warn("LIDAR: " + report);
             return false;
         }
 
         record.Lidar = true;
 
-        report = "laser on - " + fit.Evidence;
+        report = "looking with " + fit.Kind + " - " + fit.Evidence;
         ModLog.Info("LIDAR: " + Name(unit) + ": " + report);
 
         // Answer with evidence rather than a promise: look once, now.
@@ -154,8 +157,9 @@ internal static class Lidar
 
             text.AppendLine("What this is, in one paragraph");
             text.AppendLine("--------------------------------");
-            text.AppendLine("  A range-limited laser rangefinder and sight. A hull whose own sensor list");
-            text.AppendLine("  holds an optical, infrared or laser director may be ordered to look with it,");
+            text.AppendLine("  A range-limited sight: a laser rangefinder where the hull has one, and the");
+            text.AppendLine("  game's own Eyes Mk 1 lookouts where it has not. A hull whose own sensor list");
+            text.AppendLine("  holds either may be ordered to look with it,");
             text.AppendLine("  and every contact the FORCE ALREADY HOLDS that is inside the range and the");
             text.AppendLine("  arc is put on that hull's picture through the game's own reveal call - the");
             text.AppendLine("  route a reconnaissance report uses. Position only: no identity, no class.");
@@ -186,6 +190,7 @@ internal static class Lidar
             text.AppendLine("------------------");
             text.AppendLine("  setting:          LidarEnabled=" + (ModSettings.LidarEnabled ? "on" : "off")
                             + ", range " + (int)ModSettings.LidarRangeNm + " nm"
+                            + " (lookouts " + (int)ModSettings.LidarLookoutNm + " nm)"
                             + ", arc " + (int)ModSettings.LidarArcDegrees + " deg"
                             + ", look every " + ModSettings.LidarSeconds.ToString("0.#") + " s");
             text.AppendLine("  sweeps run:       " + sweeps);
@@ -214,8 +219,7 @@ internal static class Lidar
                     UnitRecord record = UnitState.Of(hull);
 
                     text.AppendLine("  ORDERED: " + Name(hull) + " - " + Describe(hull));
-                    text.AppendLine("    fit: " + (fit.Fitted ? "laser director" : "no director") + " - "
-                                    + fit.Evidence);
+                    text.AppendLine("    fit: " + fit.Kind + " - " + fit.Evidence);
                     text.AppendLine("    state: " + Describe(hull));
                 }
                 catch (Exception) { }
@@ -328,7 +332,6 @@ internal static class Lidar
             return;
         }
 
-        double range = Math.Max(1f, ModSettings.LidarRangeNm);
         double arc = Mathf.Clamp(ModSettings.LidarArcDegrees, 10f, 360f) / 2.0;
 
         var parts = new List<string>();
@@ -358,9 +361,15 @@ internal static class Lidar
                 {
                     noFit++;
                     record.Lidar = false;
-                    parts.Add(Name(hull) + ": no laser director - " + fit.Evidence);
+                    parts.Add(Name(hull) + ": nothing to look through - " + fit.Evidence);
                     continue;
                 }
+
+                // How far this particular fit may look: an instrument gets the configured range, a
+                // hull with only lookouts gets the shorter lookout range. The beam is one bearing
+                // either way.
+                double range = LidarControl.RangeNm(fit, ModSettings.LidarRangeNm,
+                                                    ModSettings.LidarLookoutNm);
 
                 // One beam, one bearing. The nearest eligible contact in the arc is what a watch
                 // team would put the glass on first.
@@ -393,7 +402,8 @@ internal static class Lidar
                 if (bestUnit == null)
                 {
                     record.LidarSighted = "";
-                    parts.Add(Name(hull) + ": nothing in " + (int)range + " nm inside the arc");
+                    parts.Add(Name(hull) + ": nothing in " + (int)range + " nm inside the arc"
+                                + " for " + (fit.Laser ? "its laser" : "its lookouts"));
                     continue;
                 }
 
@@ -435,7 +445,8 @@ internal static class Lidar
                 sighted++;
                 record.LidarSighted = best + " at " + bestRange.ToString("0.0") + " nm";
 
-                parts.Add(Name(hull) + ": " + record.LidarSighted + " (one beam, one bearing)");
+                parts.Add(Name(hull) + ": " + record.LidarSighted
+                          + " with " + (fit.Laser ? "its laser" : "its lookouts"));
             }
             catch (Exception error)
             {
@@ -453,7 +464,7 @@ internal static class Lidar
         Set(parts.Count == 0 ? "nothing to look at" : string.Join("; ", parts.ToArray()), force);
 
         if (noFit > 0)
-            ModLog.Warn("LIDAR: " + noFit + " hull(s) with the order have no director the mod can find");
+            ModLog.Warn("LIDAR: " + noFit + " hull(s) with the order have nothing to look through");
     }
 
     /// <summary>Records the sweep's verdict, and logs it when the player asked for it (a click) or

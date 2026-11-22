@@ -4,7 +4,7 @@ An advanced mod for **Sea Power: Naval Combat in the Missile Age**, built as an
 [Anchor Chain](https://github.com/SeaPower-Modders/AnchorChain) code mod and loadable as a plain
 BepInEx plugin.
 
-**Version 0.26.0** — the first public release: sixteen advanced features for your own ships,
+**Version 0.26.1** — the first public release: sixteen advanced features for your own ships,
 plus per-cell hatch control. Everything is reached through the game's own right-click menus; there
 is no mod window and no hotkey.
 
@@ -102,9 +102,11 @@ report names the switches to check when the two pictures still differ. See
 [docs/features.md](docs/features.md#2g-the-force-datalink--sensors-and-emcon).
 
 **The laser rangefinder** is the answer to a sensor this game does not have. A hull whose own sensor
-list holds an optical, infrared or laser director can be ordered to *look* with it, and the contacts
-**the force already holds** inside 12 nm and inside 90 degrees of the bow are put on the ship's
-picture - position only, no radar switched, so it works at EMCON silent. It never looks for a contact
+list holds something to look through can be ordered to *look* with it - a laser or optronic director
+where it has one, and the game's own **Eyes Mk 1** lookouts where it has only those, which reach 6 nm
+rather than a director's 12 - and the contacts **the force already holds** inside the range and inside
+90 degrees of the bow are put on the ship's picture: position only, no radar switched, so it works at
+EMCON silent. It never looks for a contact
 nobody has seen: that rule is the difference between a sight and a wallhack, and it is also how the
 real thing is used - a rangefinder is pointed on a bearing somebody else's picture gave you. A hull
 with no director is refused, and `lidar.txt` prints every hull class beside the sensor families its own

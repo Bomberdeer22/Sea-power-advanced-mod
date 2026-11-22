@@ -193,6 +193,14 @@ explains the version jump rather than just announcing it.
       What update.cmd does: nothing beyond the DLL
       note only
 
+  < 0.26.1
+      Release: the rangefinder now works through the game's own Eyes Mk 1
+        lookouts as well as a laser director
+      On disk: new setting LidarLookoutNm (6)
+      What update.cmd does: nothing beyond the DLL
+      update.cmd says so. A look-out is not an instrument, so it reaches
+        less than a director
+
   < 0.26.0
       Release: new: the laser rangefinder. A hull with an optical or laser
         director in its own sensor list can look at contacts the force already

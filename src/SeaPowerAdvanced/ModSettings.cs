@@ -35,6 +35,7 @@ internal static class ModSettings
     private static ConfigEntry<bool>? coopDatalink;
     private static ConfigEntry<bool>? lidarEnabled;
     private static ConfigEntry<float>? lidarRangeNm;
+    private static ConfigEntry<float>? lidarLookoutNm;
     private static ConfigEntry<float>? lidarArcDegrees;
     private static ConfigEntry<float>? lidarSeconds;
     private static ConfigEntry<float>? coopDatalinkSeconds;
@@ -69,6 +70,14 @@ internal static class ModSettings
     /// <summary>How far a laser director can see, in nautical miles. Short by design: this is an
     /// eye with a rangefinder on it, not a search set.</summary>
     internal static float LidarRangeNm => lidarRangeNm?.Value ?? 12f;
+
+    /// <summary>
+    /// How far the game's own lookouts - "Eyes Mk 1" - can be pointed, in nautical miles. A man with
+    /// binoculars on a bridge picks a hull out of the haze at a few miles, not at a director's range,
+    /// and a feature that let every ship see to twelve miles without a radar would be a sensor the
+    /// game does not have.
+    /// </summary>
+    internal static float LidarLookoutNm => lidarLookoutNm?.Value ?? 6f;
 
     /// <summary>Half-angle of the arc the beam may be pointed in, either side of the hull's heading
     /// (so 90 means "a quarter of the horizon").</summary>
@@ -329,6 +338,11 @@ internal static class ModSettings
             lidarRangeNm = file.Bind("Features", "LidarRangeNm", 12f,
                 "How far the laser can see (1-40 nm). Short by design - an eye with a rangefinder "
                 + "on it does not search the sea to the horizon.");
+
+            lidarLookoutNm = file.Bind("Features", "LidarLookoutNm", 6f,
+                "How far a hull with only lookouts (the game's own Eyes Mk 1 optical sensor) may "
+                + "look, in nautical miles (1-40). Shorter than a laser director by design: a man "
+                + "with binoculars is not an instrument. Never more than LidarRangeNm.");
 
             lidarArcDegrees = file.Bind("Features", "LidarArcDegrees", 90f,
                 "Half-angle of the arc the beam may be pointed in, either side of the ship's heading "

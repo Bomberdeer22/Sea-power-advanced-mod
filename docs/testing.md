@@ -3,7 +3,7 @@
 Run this once per game version, and after any change to `HatchControl`, `HatchMenu` or the
 feature menus.
 
-Version under test: **0.26.0**. Mod id `io.github.bomberdeer22.seapoweradvanced`.
+Version under test: **0.26.1**. Mod id `io.github.bomberdeer22.seapoweradvanced`.
 
 **Read the log, do not guess.** Everything below is confirmed by two files:
 
@@ -144,9 +144,14 @@ Full description of each: [features.md](features.md). Right-click one of your sh
       rangefinder: off - click to look with it*, with a contact the force already holds inside 12 nm
       and inside 90 degrees of the bow. The label becomes *Laser rangefinder: on, holding <hull> at
       N.N nm* and `lidar.txt` says *sighted …* for that ship
-- [ ] **Laser rangefinder, on a hull with no director.** The entry reads *no director on this hull -
-      click for the report*; clicking writes `lidar.txt`, whose hull list shows the sensor families
-      that hull really has. Nothing is armed and no track appears
+- [ ] **Rangefinder through the lookouts.** On a hull with no laser director but with the game's own
+      *Eyes Mk 1* in its sensor list, the entry still appears, labelled *(lookouts)*, and the tooltip
+      quotes the lookout range. `lidar.txt` lists that class as *LOOKOUTS ONLY*
+- [ ] **A lookout reaches less than a director.** With `LidarLookoutNm` at 6 and `LidarRangeNm` at 12,
+      a held contact at 9 nm is refused on a lookouts hull and sighted on a director hull
+- [ ] **Rangefinder, on a hull with neither.** The entry reads *nothing to look through - click for
+      the report*; clicking writes `lidar.txt`, whose hull list shows the sensor families that hull
+      really has. Nothing is armed and no track appears
 - [ ] **A contact outside the arc is not sighted.** Put a held contact astern and check the label
       reads *on, nothing in the arc*: the beam is one bearing, not a hemisphere
 - [ ] **No prior sighting means no sighting.** In a mission where the force holds nothing, the entry

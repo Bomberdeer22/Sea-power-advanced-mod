@@ -1,5 +1,46 @@
 # Changelog
 
+## 0.26.1 - the rangefinder looks through the lookouts, too
+
+Asked for, and the question was the correction: *does it work through their optical sensors - what the
+base game calls Eyes Mk 1?* It did not, and that was a real gap rather than a detail. **Eyes Mk 1** is
+the game's own name for a hull's visual watch - a look-out with binoculars, filed as an optical sensor
+in the hull's parameter block - and 0.26.0 only looked for a laser or optronic director. So the one
+optical sensor *every* ship carries was the one the feature refused.
+
+**What changed.** The fit is now two kinds, and the difference is range and nothing else:
+
+| Fit | Read from the hull's own sensor list | Reach |
+|---|---|---|
+| **Laser or optronic director** | `Optronic`, `Optical`, `ElectroOptical`, `Laser`, `Rangefinder`, `Designator`, `IRST`, `Infrared`, `FLIR`, `Television`, `Sight` | `LidarRangeNm` (**12 nm**) |
+| **Lookouts - Eyes Mk 1** | the word `Eyes`, matched inside the class name so `SensorSystemEyesMk1` and a spaced display name both read | `LidarLookoutNm` (**6 nm**), never more than the director's range |
+
+A man with binoculars is not an instrument, so the lookouts reach less: handing them a director's
+twelve miles would make every ship in the game a sensor the game does not have. The menu says which fit
+is being used - *Laser rangefinder: off - click to look with it (lookouts)* - and the tooltip says the
+range it will actually get.
+
+**What did not change, because it is the point of the feature.** It still only ever looks at contacts
+**the force already holds**, still writes position only (classification `0`), still switches no radar,
+still refuses a submarine, and still stops for a contact the force's own sensors already hold. The
+lookouts are an existing sensor in the game, not a licence to search.
+
+**`lidar.txt`** now labels each hull's fit *LASER DIRECTOR*, *LOOKOUTS ONLY* or *nothing to look
+through*, with the sensor families that decided it - so a hull that should be looking and is not can be
+checked in one file.
+
+**Worth knowing:** whether a given hull's `Eyes Mk 1` appears in its parameter block's sensor list is
+the game's business, not the mod's. If `lidar.txt` shows *nothing to look through* for a hull whose
+lookouts you can see in the game, send the file - the class names are printed there, and a name the
+match does not cover can be added without guessing.
+
+```text
+python tools/check-source.py      :: clean: 57 file(s), ...
+python tools/check-batch.py       :: clean: 6 batch file(s), ...
+python tools/check-versions.py    :: clean: 0.26.1 in all seven places
+python tools/check-docs.py        :: clean: 7 plain-text twin(s)
+```
+
 ## 0.26.0 - the laser rangefinder: a silent look at what the force already holds
 
 Requested, and the request is worth quoting because it set the design: *a LIDAR feature*. What a

@@ -441,26 +441,34 @@ internal static class FleetMenu
             }
             else if (laser.Fitted)
             {
+                double reaches = LidarControl.RangeNm(laser, ModSettings.LidarRangeNm,
+                                                      ModSettings.LidarLookoutNm);
+
                 Add(Lidar.IsOn(unit)
                     ? Action("Laser rangefinder: " + Lidar.Describe(unit) + " - click to stop",
                         "Stops looking. The tracks it gave this ship age out on the game's own "
                         + "sensor clock, exactly like a lost radar contact.",
                         () => Report(unit, "LIDAR", Lidar.Toggle(unit, out string r), r))
-                    : Action("Laser rangefinder: off - click to look with it",
-                        "Puts the ship's laser director on the nearest contact the FORCE ALREADY "
-                        + "HOLDS inside " + (int)ModSettings.LidarRangeNm + " nm and inside "
+                    : Action("Laser rangefinder: off - click to look with it"
+                             + (laser.Laser ? "" : " (lookouts)"),
+                        "Puts this hull's " + laser.Kind + " on the nearest contact the FORCE ALREADY "
+                        + "HOLDS inside " + (int)reaches + " nm and inside "
                         + (int)ModSettings.LidarArcDegrees + " deg of the bow, and gives this ship a "
                         + "position-only track on it. No radar is switched, so it works at EMCON "
-                        + "silent. It never looks for a contact the force has not already seen.",
+                        + "silent. It never looks for a contact the force has not already seen."
+                        + (laser.Laser
+                            ? ""
+                            : " This hull has no laser director - what it has is the game's own Eyes "
+                              + "Mk 1 lookouts, so it reaches " + (int)reaches + " nm and no further."),
                         () => Report(unit, "LIDAR", Lidar.Toggle(unit, out string r), r)),
                     MenuRouting.Sensors);
             }
             else
             {
-                Add(Action("Laser rangefinder: no director on this hull - click for the report",
-                    "This hull's own sensor list holds nothing this mod reads as an optical or "
-                    + "laser director: it says " + laser.Quote + ". Click to write lidar.txt, which "
-                    + "lists every hull and the sensor families each one really has.",
+                Add(Action("Laser rangefinder: nothing to look through - click for the report",
+                    "This hull's own sensor list holds nothing this mod reads as an optical sensor "
+                    + "or a set of lookouts: it says " + laser.Quote + ". Click to write lidar.txt, "
+                    + "which lists every hull and the sensor families each one really has.",
                     () =>
                     {
                         Lidar.WriteReport("asked from the menu on " + Name(unit));
