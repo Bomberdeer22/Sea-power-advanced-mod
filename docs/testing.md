@@ -3,7 +3,7 @@
 Run this once per game version, and after any change to `HatchControl`, `HatchMenu` or the
 feature menus.
 
-Version under test: **0.27.0**. Mod id `io.github.bomberdeer22.seapoweradvanced`.
+Version under test: **0.27.1**. Mod id `io.github.bomberdeer22.seapoweradvanced`.
 
 **Read the log, do not guess.** Everything below is confirmed by two files:
 

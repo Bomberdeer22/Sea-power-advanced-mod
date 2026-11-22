@@ -1088,7 +1088,11 @@ internal static class OffensiveEcm
                 // one to remove - the same rule the lock loop follows.
                 if (entry.Key == null || entry.Key.IsDestroyed)
                 {
-                    Recovering.Remove(entry.Key);
+                    // Remove through a local that the compiler can see is not null: `entry.Key` on
+                    // its own is a possible-null argument (CS8604), because the null test is on a
+                    // compound condition and the flow analysis does not carry it into the call.
+                    ObjectBase? gone = entry.Key;
+                    if (gone != null) Recovering.Remove(gone);
                     continue;
                 }
 

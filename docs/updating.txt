@@ -193,6 +193,12 @@ explains the version jump rather than just announcing it.
       What update.cmd does: nothing beyond the DLL
       note only
 
+  < 0.27.1
+      Release: build fix - 0.27.0 would not compile. No behaviour change
+      On disk: nothing new
+      What update.cmd does: nothing beyond the DLL
+      nothing to do beyond update.cmd
+
   < 0.27.0
       Release: the LIDAR is a rotating 360-degree scanner: 15 nm, every
         ship, and a beam drawn on the map with an infrared view (F10)

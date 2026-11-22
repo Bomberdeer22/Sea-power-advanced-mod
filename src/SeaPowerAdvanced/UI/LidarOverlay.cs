@@ -269,7 +269,7 @@ public sealed class LidarOverlay : MonoBehaviour
         {
             double bearing = i * 360.0 / segments;
 
-            Vector2 point = Screen(Beyond(centre, bearing, degrees));
+            Vector2 point = OnScreen(Beyond(centre, bearing, degrees));
 
             if (point == Vector2.zero) { previousPoint = Vector2.zero; continue; }
 
@@ -291,7 +291,9 @@ public sealed class LidarOverlay : MonoBehaviour
                      + (degrees * Math.Sin(radians))
                        / Math.Max(0.05, Math.Cos(from.Latitude * Math.PI / 180.0));
 
-        return new GeoPosition(lat, lon, from.Height);
+        // GeoPosition is (latitude, longitude, height); this build exposes no Height property,
+        // and a track on the sea does not need one.
+        return new GeoPosition(lat, lon, 0);
     }
 
     /// <summary>The beam's far end on screen: the ship's own bearing from the set, at the set's
@@ -299,10 +301,17 @@ public sealed class LidarOverlay : MonoBehaviour
     private Vector2 Beyond(Vector2 from, Lidar.Beam beam, GeoPosition centre, double degrees,
                            float extraDegrees = 0f)
     {
-        return Screen(Beyond(centre, beam.Bearing + extraDegrees, degrees));
+        return OnScreen(Beyond(centre, beam.Bearing + extraDegrees, degrees));
     }
 
-    private static Vector2 Screen(GeoPosition position) =>
+    /// <summary>
+    /// A position on screen, or zero when it cannot be projected.
+    ///
+    /// Named <c>OnScreen</c>, not <c>Screen</c>: a member called Screen hides UnityEngine's own
+    /// Screen type inside this class, and every <c>Screen.width</c> in the file then fails to
+    /// compile - CS0119, sixteen errors from one unlucky name.
+    /// </summary>
+    private static Vector2 OnScreen(GeoPosition position) =>
         MapProjection.TryScreen(position, out Vector2 point) ? point : Vector2.zero;
 
     /// <summary>The ship's position, or null when it cannot be read. Null is "do not draw".</summary>

@@ -376,6 +376,10 @@ internal static class ModSettings
                 "The key that flips the map into the infrared view and back. Default F10. Set it to "
                 + "None to switch with the menu entry only.");
 
+            lidarSeconds = file.Bind("Features", "LidarSeconds", 4f,
+                "Seconds between scanner reports (1-60). The beam turns every frame; this is how "
+                + "often the sweep re-reads the picture and writes a verdict.");
+
             lidarAnyHull = file.Bind("Features", "LidarAnyHull", true,
                 "Let every hull under command look with its optics, whether or not its own sensor "
                 + "list shows an optical set. Off means only a hull whose data positively holds "

@@ -1,5 +1,44 @@
 # Changelog
 
+## 0.27.1 - build fix: 0.27.0 would not compile
+
+**0.27.0 failed to compile**, with sixteen errors. Every one was real, none was in the feature's logic,
+and they are listed here because the way they got through matters more than the errors themselves.
+
+| Error | Cause | Fix |
+|---|---|---|
+| **CS0119** ×10, `'LidarOverlay.Screen(GeoPosition)' is a method, which is not valid in the given context` | A helper method named **`Screen`** hid `UnityEngine.Screen`, so every `Screen.width` and `Screen.height` in the file stopped resolving | renamed `OnScreen` |
+| **CS1061**, `GeoPosition does not contain a definition for 'Height'` | `GeoPosition` is `(latitude, longitude, height)` and this build exposes no `Height` property | pass `0` |
+| **CS1501** ×3, `No overload for method 'Add' takes 2 arguments` | A nested class declared `Add(unit)`, which hid the enclosing type's `Add(list, item)` from every call inside it | renamed `Track` / `TrackLocal` / `TrackUnknown`, called through the class |
+| **CS1061**, `'MemberInfo' does not contain a definition for 'GetValue'` | `typeof(Globals).GetField(...)` returns a **`FieldInfo`**, held in a `MemberInfo` | declared as `FieldInfo` |
+| **CS0649**, `ModSettings.lidarSeconds is never assigned` | An edit removed the `file.Bind` line but not the field - the setting silently fell back to its default | bound again |
+
+**Why the gate missed them, and what changed.** `check-source.py` is a source checker, not a compiler:
+it validates namespaces, member names, UnitRecord use, scope and batch syntax, and a tree-sitter pass
+proves the files parse. None of that can see overload resolution, name hiding or definite assignment.
+So the gate grew four checks that would each have caught one of these:
+
+- **member names that hide a type the file uses** - `Screen`, `Time`, `Input`, `Color`, `Camera`,
+  `Object`, `Random`, `Mathf`, `Application`, `Debug` (catches CS0119);
+- **a nested type declaring a method the enclosing type also declares, where the nested one calls the
+  name with an argument count only the enclosing version takes** (catches CS1501);
+- **a `MemberInfo` variable used with `GetValue`/`SetValue`/`Invoke`/`IsInitOnly`**, which are on the
+  concrete reflection types only (catches CS1061);
+- **a `ConfigEntry` declared and read but never bound** (catches CS0649, and the silent default).
+
+Each check was tested by putting the original bug back and confirming it fires, then removing it
+again - a check nobody has seen fail is a check nobody knows works.
+
+**No behaviour changed.** The scanner, the overlay, the infrared view and the 15 nm range are exactly
+as described in 0.27.0.
+
+```text
+python tools/check-source.py      :: clean: 58 file(s), ...
+python tools/check-batch.py       :: clean: 6 batch file(s), ...
+python tools/check-versions.py    :: clean: 0.27.1 in all seven places
+python tools/check-docs.py        :: clean: 7 plain-text twin(s)
+```
+
 ## 0.27.0 - the LIDAR becomes a rotating scanner you can watch
 
 Asked for in the plainest terms: *15 nm, 360 degrees, no matter what ship or sensor - a 360-degree

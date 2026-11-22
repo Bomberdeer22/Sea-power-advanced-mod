@@ -514,6 +514,203 @@ ENCODED_PE = b"TVqQ" + b"AAMAA" + b"AAE"
 SCRIPT_SUFFIXES = {".bat", ".cmd", ".ps1", ".vbs", ".vbe", ".js", ".jse", ".wsf", ".wsh", ".hta"}
 
 
+# A handful of names that mean something to the C# compiler even though this project never declares
+# them. A member of a mod type with one of these names hides the real thing for the whole file, and
+# the compiler says so with an error that is hard to connect to the cause: CS0119 ("'X.Screen(...)'
+# is a method, which is not valid in the given context") arrived sixteen times from one method called
+# Screen in an overlay that also draws to Screen.width.
+SHADOWED_TYPES = {
+    "Screen": "UnityEngine.Screen - every Screen.width and Screen.height in the file fails (CS0119)",
+    "Application": "UnityEngine.Application",
+    "Time": "UnityEngine.Time",
+    "Debug": "UnityEngine.Debug",
+    "Object": "System.Object",
+    "Random": "UnityEngine.Random",
+    "Camera": "UnityEngine.Camera",
+    "Input": "UnityEngine.Input",
+    "Mathf": "UnityEngine.Mathf",
+    "Color": "UnityEngine.Color",
+}
+
+
+def shadowing_problems(files) -> list[str]:
+    """A method or property named after a type the file also uses."""
+    problems: list[str] = []
+
+    for path in files:
+        code = strip_noise(path.read_text(encoding="utf-8"))
+
+        # Declarations only: `private static Vector2 Screen(GeoPosition ...)`, `internal bool Input`.
+        for match in re.finditer(
+                r"^\s*(?:internal|private|public|protected|static|sealed|override|virtual|async|"
+                r"new|readonly|extern|unsafe|partial|\s)+[\w<>?\[\],\s]+?\s+(\w+)\s*[({;]",
+                code, re.M):
+            name = match.group(1)
+            if name not in SHADOWED_TYPES:
+                continue
+
+            line = code.count("\n", 0, match.start()) + 1
+            problems.append(
+                f"{path.relative_to(ROOT)}:{line}: a member called {name} hides "
+                f"{SHADOWED_TYPES[name]} (CS0119 the moment the file uses it)")
+
+    return problems
+
+
+def _type_bodies(code: str):
+    """Every type declaration in a file, with its body span. Brace scan, no regex nesting games."""
+    found = []
+
+    for match in re.finditer(r"\b(?:class|struct)\s+(\w+)", code):
+        # The body opens at the next '{' after the header.
+        brace = code.find("{", match.end())
+        if brace < 0:
+            continue
+
+        depth = 0
+        end = -1
+        for i in range(brace, len(code)):
+            if code[i] == "{":
+                depth += 1
+            elif code[i] == "}":
+                depth -= 1
+                if depth == 0:
+                    end = i
+                    break
+
+        if end > 0:
+            found.append((match.group(1), brace, end))
+
+    return found
+
+
+def _arities(body: str, name: str) -> set[int]:
+    """How many parameters each declaration of `name` in this body takes."""
+    found = set()
+
+    for match in re.finditer(rf"\b{name}\s*\(", body):
+        head = body[max(0, match.start() - 80):match.start()].rstrip()
+
+        # `=> ` ends with '>', which the type-word test below would take for a declaration. An
+        # expression body is the commonest shape in this project, so it is handled first.
+        if head.endswith("=>") or head.endswith("="):
+            continue
+        if not re.search(r"[\w>\]?]\s+$", head + " "):
+            continue
+
+        close = _matching(body, match.end() - 1)
+        if close < 0:
+            continue
+
+        inner = body[match.end():close].strip()
+        found.add(0 if not inner else inner.count(",") + 1)
+
+    return found
+
+
+def _call_arities(body: str, name: str) -> set[int]:
+    """How many arguments each *call* to `name` in this body passes."""
+    found = set()
+
+    for match in re.finditer(rf"\b{name}\s*\(", body):
+        head = body[max(0, match.start() - 80):match.start()].rstrip()
+        if head.endswith("=>") or head.endswith("="):
+            pass                           # an expression body: still a declaration, skipped above
+        elif re.search(r"[\w>\]?]\s+$", head + " "):
+            continue                       # a declaration, handled above
+        if head.endswith("new"):
+            continue
+
+        close = _matching(body, match.end() - 1)
+        if close < 0:
+            continue
+
+        inner = body[match.end():close].strip()
+        found.add(0 if not inner else inner.count(",") + 1)
+
+    return found
+
+
+def _matching(body: str, open_paren: int) -> int:
+    depth = 0
+    for i in range(open_paren, len(body)):
+        if body[i] == "(":
+            depth += 1
+        elif body[i] == ")":
+            depth -= 1
+            if depth == 0:
+                return i
+    return -1
+
+
+METHOD_DECL = re.compile(
+    r"^\s*(?:(?:internal|private|public|protected|static|sealed|override|virtual|async|"
+    r"readonly|extern|unsafe|new|partial)\s+)+[\w<>?\[\],.\s]+?\s(\w+)\s*\(", re.M)
+
+
+def nested_shadowing_problems(files) -> list[str]:
+    """A nested type declaring a method the enclosing type also declares.
+
+    Not a style point - CS1501. Calls inside the nested type resolve to its own member first, so a
+    nested class whose `Add(unit)` shares a name with the enclosing type's `Add(list, item)` makes
+    every call to the enclosing one a "no overload takes 2 arguments" error. That cost a build on
+    0.27.0; this checks it with a brace scan instead of another compile.
+    """
+    problems: list[str] = []
+
+    for path in files:
+        code = strip_noise(path.read_text(encoding="utf-8"))
+        types = _type_bodies(code)
+
+        for outer_name, outer_open, outer_close in types:
+            for inner_name, inner_open, inner_close in types:
+                # Directly nested only: inside the outer body, and not inside a third type.
+                if not (outer_open < inner_open < inner_close < outer_close):
+                    continue
+
+                inside_another = False
+                for _, other_open, other_close in types:
+                    if other_open == outer_open:
+                        continue
+                    if outer_open < other_open < inner_open and inner_close < other_close < outer_close:
+                        inside_another = True
+                        break
+                if inside_another:
+                    continue
+
+                outer_body = code[outer_open:inner_open] + code[inner_close:outer_close]
+                inner_body = code[inner_open:inner_close]
+
+                outer_methods = set(METHOD_DECL.findall(outer_body))
+                inner_methods = set(METHOD_DECL.findall(inner_body))
+
+                # A constructor is named after its type: not a shadowing member.
+                inner_methods.discard(inner_name)
+                inner_methods.discard(outer_name)
+
+                for shared in sorted(outer_methods & inner_methods):
+                    # Only a real error when the nested type calls the name with a shape its own
+                    # overloads cannot take: member lookup inside a nested type stops at that type,
+                    # so a 2-argument call to a name it declares with 1 parameter is CS1501.
+                    outer_arity = _arities(outer_body, shared)
+                    inner_arity = _arities(inner_body, shared)
+
+                    for called in _call_arities(inner_body, shared):
+                        if called in inner_arity:
+                            continue
+                        if called not in outer_arity:
+                            continue
+
+                        line = code.count("\n", 0, inner_open + inner_body.find(shared)) + 1
+                        problems.append(
+                            f"{path.relative_to(ROOT)}:{line}: '{shared}' is called with {called} "
+                            f"argument(s) inside the nested {inner_name}, which declares it with "
+                            f"{'/'.join(str(a) for a in sorted(inner_arity))} - the enclosing "
+                            f"{outer_name} version is not in scope there (CS1501). Rename one")
+
+    return problems
+
+
 def binary_problems() -> list[str]:
     problems: list[str] = []
 
@@ -711,8 +908,45 @@ def main() -> int:
                 problems.append(
                     f"UnitState.cs: UnitRecord.{member} is never read - it is written and forgotten")
 
+    # A ConfigEntry declared, read and never *bound* is CS0649 - and it is a feature whose setting
+    # silently falls back to its default, which is worse than the warning. This is how
+    # ModSettings.lidarSeconds was caught only by a real compile.
+    settings = SRC / "SeaPowerAdvanced" / "ModSettings.cs"
+    if settings.exists():
+        text = settings.read_text(encoding="utf-8")
+        declared = set(re.findall(r"private static ConfigEntry<[^>]+>\?\s+(\w+);", text))
+        bound = set(re.findall(r"\b(\w+)\s*=\s*file\.Bind\(", text))
+
+        for field in sorted(declared - bound):
+            problems.append(
+                f"ModSettings.cs: ConfigEntry '{field}' is never assigned - CS0649, and the setting "
+                f"silently falls back to its default. Add a file.Bind for it")
+
     problems.extend(scope_problems(files))
     problems.extend(undeclared_call_problems(files))
+    # Reflection calls that exist on FieldInfo/PropertyInfo/MethodInfo but NOT on MemberInfo, the
+    # abstract base. Holding a GetField() result in a MemberInfo and calling GetValue on it is
+    # CS1061 - the error that stopped the 0.27.0 build in DatalinkControl.
+    reflection_only = ("GetValue", "SetValue", "GetGetMethod", "GetSetMethod", "Invoke",
+                       "GetIndexParameters", "IsInitOnly", "IsLiteral", "CanWrite")
+    for path in files:
+        code = strip_noise(path.read_text(encoding="utf-8"))
+
+        # A variable typed MemberInfo? (or MemberInfo) ...
+        for match in re.finditer(r"\bMemberInfo\??\s+(\w+)\s*=", code):
+            name = match.group(1)
+            after = code[match.end():match.end() + 600]
+
+            for call in reflection_only:
+                if re.search(rf"\b{name}\.{call}\b", after):
+                    line = code.count("\n", 0, match.start()) + 1
+                    problems.append(
+                        f"{path.relative_to(ROOT)}:{line}: MemberInfo '{name}' used with .{call} - "
+                        f"that member is on FieldInfo/PropertyInfo/MethodInfo, not on MemberInfo "
+                        f"(CS1061). Hold it as the concrete type, or go through MemberProbe")
+
+    problems.extend(shadowing_problems(files))
+    problems.extend(nested_shadowing_problems(files))
     problems.extend(binary_problems())
 
     if not problems:

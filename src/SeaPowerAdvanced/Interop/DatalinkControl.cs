@@ -262,9 +262,12 @@ internal static class DatalinkControl
             return Holds(unit) ? false : null;
         }
 
-        internal void Add(ObjectBase unit) => Add(Tracks, unit);
-        internal void AddLocal(ObjectBase unit) => Add(local, unit);
-        internal void AddUnknown(ObjectBase unit) => Add(unknown, unit);
+        // Deliberately not called Add: a method with that name inside this class hides the static
+        // Add(List, item) the file uses, and the file stops compiling - CS1501, which is what
+        // happened. The static helper is called through the class name.
+        internal void Track(ObjectBase unit) => DatalinkControl.Add(Tracks, unit);
+        internal void TrackLocal(ObjectBase unit) => DatalinkControl.Add(local, unit);
+        internal void TrackUnknown(ObjectBase unit) => DatalinkControl.Add(unknown, unit);
     }
 
     /// <summary>Reads one force's picture, or an empty snapshot when the table cannot be read.</summary>
@@ -280,14 +283,16 @@ internal static class DatalinkControl
             {
                 foreach (DictionaryEntry entry in local)
                 {
-                    if (entry.Key is not ObjectBase unit) continue;
+                    // Not `is not ObjectBase unit`: that pattern puts the variable in scope on the
+                    // path where the test FAILED, and the compiler refuses it there (CS0165).
+                    if (!(entry.Key is ObjectBase unit)) continue;
 
-                    snapshot.Add(unit);
+                    snapshot.Track(unit);
 
                     bool? detected = SensorsOn(entry.Value);
 
-                    if (detected == true) snapshot.AddLocal(unit);
-                    else if (detected == null) snapshot.AddUnknown(unit);
+                    if (detected == true) snapshot.TrackLocal(unit);
+                    else if (detected == null) snapshot.TrackUnknown(unit);
                 }
             }
 
@@ -306,7 +311,7 @@ internal static class DatalinkControl
                         VehicleUnit[type] = member;
                     }
 
-                    if (MemberProbe.Read(member, item) is ObjectBase unit) snapshot.Add(unit);
+                    if (MemberProbe.Read(member, item) is ObjectBase unit) snapshot.Track(unit);
                 }
             }
         }
@@ -434,12 +439,14 @@ internal static class DatalinkControl
         {
             try
             {
-                MemberInfo? member = typeof(Globals).GetField(name,
+                // FieldInfo, not MemberInfo: GetField returns a FieldInfo, and GetValue is declared
+                // there - holding it as a MemberInfo is CS1061.
+                FieldInfo? stat = typeof(Globals).GetField(name,
                     BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Static);
 
-                if (member == null) continue;
+                if (stat == null) continue;
 
-                object? value = member.GetValue(null);
+                object? value = stat.GetValue(null);
                 if (value != null) return value;
             }
             catch (Exception) { }
