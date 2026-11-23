@@ -15,7 +15,13 @@ Six kinds, every one of which has cost a round trip through a real machine:
 5. An accessor is called by name, unit.get_ThreatningMissile(). CS0571, every time.
 6. A method is called by name that nothing in the project declares - a helper that was referenced
    from one place and never written. CS0103, and it reads exactly like the calls around it.
-7. A compiled executable is committed. Not a compile error at all - a distribution one. A single
+7. A member is called on a GAME type that the build has already proved absent, or a type is used
+   from a namespace whose assembly this project does not reference. CS1061 and CS0234. Both are
+   invisible to every other check here, because the game's own API is not in this repository.
+8. A possibly-null expression passed as an argument (CS8604) - a warning, which is why it survived
+   being "fixed": the first pass guarded the two calls it could see and left the one in the catch
+   block, and the next build reported the same warning from a different line.
+9. A compiled executable is committed. Not a compile error at all - a distribution one. A single
    unsigned .exe in the tree made browsers and antivirus products refuse the whole release archive
    ("couldn't download, virus detected"), so the mod never reached the people it is for.
 
@@ -465,6 +471,104 @@ def undeclared_call_problems(files) -> list[str]:
             problems.append(
                 f"{path.relative_to(ROOT)}:{line}: {name}() is called but nothing in the project "
                 f"declares it (CS0103)")
+
+    return problems
+
+
+# ---------------------------------------------------------------------------------------------
+# Game members the compiler has already told us about.
+#
+# The mod calls dozens of methods on the game's own types, and nothing here knows what that build
+# declares - try to list them and the list is wrong within a release. So this is not a list of what
+# exists: it is a list of names the game's types were PROVEN not to have, by a build error, and the
+# name that replaced them. A name invented by pattern ("everything has getX") lands here the moment
+# it costs a build, and never again.
+#
+#   MapProjection.cs(207): error CS1061: 'ObjectBase' does not contain a definition for 'getUnitName'
+#   MapProjection.cs(256): error CS1061: 'ObjectBase' does not contain a definition for 'getUnitName'
+#
+# Both of those were written by the same hand, in the same file, minutes apart: the first cost nothing
+# to recognise in hindsight and everything to catch at the time.
+# ---------------------------------------------------------------------------------------------
+
+ABSENT_GAME_MEMBERS = {
+    "getUnitName": "ObjectBase has getName() and DisplayNameShort; there is no getUnitName",
+}
+
+
+# ---------------------------------------------------------------------------------------------
+# Namespaces whose assemblies this project does not reference.
+#
+# A project compiles against the assemblies it is given, and a Unity mod is given very few: the game's
+# own DLLs plus what BepInEx needs. UnityEngine.UI is a PACKAGE, not part of UnityEngine.dll, so a type
+# in it is not available just because it exists in the game's install. Reaching for one is CS0234 at
+# the reference level and, worse, adding the reference to satisfy it would produce a DLL that fails to
+# load on an install that does not carry that package.
+#
+#   MapProjection.cs(262): error CS0234: The type or namespace name 'Text' does not exist in the
+#                          namespace 'UnityEngine.UI'
+# ---------------------------------------------------------------------------------------------
+
+NOT_REFERENCED = {
+    "UnityEngine.UI": "the UI package is not referenced; draw with IMGUI (GUI.*) or use scene objects",
+    "UnityEngine.EventSystems": "the event-system package is not referenced",
+    "UnityEngine.Video": "the video module is not referenced",
+    "UnityEngine.Animations": "the animation module is not referenced",
+    "UnityEngine.AI": "the AI module is not referenced",
+    "UnityEngine.Android": "an Android-only module",
+}
+
+
+def nullable_argument_problems(files) -> list[str]:
+    """
+    A possibly-null expression passed where the call cannot take null. CS8604, which is a warning -
+    and a warning is how it survived being "fixed": the first pass guarded the two calls it could see
+    in the body and left the one in the catch block, so the next build reported the same warning from
+    a different line.
+
+    The shapes that have actually happened are `Remove(entry.Key)` on a dictionary being walked and
+    the same thing inside a catch cleaning up after a failure - the second matters more than the
+    warning suggests, because the whole reason that line runs is that something already threw.
+    """
+    problems: list[str] = []
+
+    for path in files:
+        code = strip_noise(path.read_text(encoding="utf-8"))
+        lines = code.split("\n")
+
+        for match in re.finditer(r"\b(\w+)\.Remove\(\s*([A-Za-z_]\w*)\.[A-Za-z_]\w*\s*\)", code):
+            owner, keyed = match.group(1), match.group(2)
+
+            # Only the dictionary being iterated: `foreach (var x in Y)` with `Y.Remove(x.Key)`.
+            if not re.search(rf"foreach\s*\([^)]*\bin\s+{re.escape(owner)}\b", code):
+                continue
+
+            line = code.count("\n", 0, match.start()) + 1
+            problems.append(
+                f"{path.relative_to(ROOT)}:{line}: {owner}.Remove({keyed}.<key>) - a possible-null "
+                f"argument (CS8604); hold the key in a local and test it first")
+
+    return problems
+
+
+def unreferenced_type_problems(files) -> list[str]:
+    """A type used from a namespace whose assembly is not referenced, and game members proven absent."""
+    problems: list[str] = []
+
+    for path in files:
+        code = strip_noise(path.read_text(encoding="utf-8"))
+
+        for absent, advice in ABSENT_GAME_MEMBERS.items():
+            for match in re.finditer(rf"\.{absent}\b", code):
+                line = code.count("\n", 0, match.start()) + 1
+                problems.append(
+                    f"{path.relative_to(ROOT)}:{line}: .{absent} - {advice} (CS1061)")
+
+        for space, why in NOT_REFERENCED.items():
+            for match in re.finditer(rf"\b{re.escape(space)}\.(\w+)", code):
+                line = code.count("\n", 0, match.start()) + 1
+                problems.append(
+                    f"{path.relative_to(ROOT)}:{line}: {space}.{match.group(1)} - {why} (CS0234)")
 
     return problems
 
@@ -937,6 +1041,8 @@ def main() -> int:
 
     problems.extend(scope_problems(files))
     problems.extend(undeclared_call_problems(files))
+    problems.extend(unreferenced_type_problems(files))
+    problems.extend(nullable_argument_problems(files))
     # Reflection calls that exist on FieldInfo/PropertyInfo/MethodInfo but NOT on MemberInfo, the
     # abstract base. Holding a GetField() result in a MemberInfo and calling GetValue on it is
     # CS1061 - the error that stopped the 0.27.0 build in DatalinkControl.
@@ -983,7 +1089,8 @@ def main() -> int:
 
     if not problems:
         print(f"clean: {len(files)} file(s), no missing namespaces, UnitRecord consistent, "
-              f"no out-of-scope locals, no undeclared calls, no binaries committed")
+              f"no out-of-scope locals, no undeclared calls, no absent game members, "
+              f"no unreferenced assemblies, no possible-null arguments, no binaries committed")
         return 0
 
     print()

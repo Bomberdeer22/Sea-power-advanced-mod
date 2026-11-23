@@ -573,7 +573,7 @@ timer: the beam.
 **The beam is drawn whether or not it has found anything.** A scanner looking at empty sea - most of
 the time - still shows where it is, which way it points and how fast it is going round.
 
-| **Overlay view** (default) | The map under a **dark green tint** with a vignette, and the scanner as its only light: a **glow and a ring** at the emitter, the **beam** to the far edge of the range with a wider faint halo under it, a **fading trail** behind the head so the turn is legible, the **range ring** at 15 nm, the **beam's two edges**, and the numbers on the hull - `15 nm, 12 rpm, beam 6 deg` |
+| **Overlay view** (default) | The map under a **dark green tint** with a vignette — how dark is **`LidarShade`** (0.72; at **0** the map is untouched and the beams are still drawn), and the scanner as its only light: a **glow and a ring** at the emitter, the **beam** to the far edge of the range with a wider faint halo under it, a **fading trail** behind the head so the turn is legible, the **range ring** at 15 nm, the **beam's two edges**, and the numbers on the hull - `15 nm, 12 rpm, beam 6 deg` |
 |---|---|
 | **Infrared view** | **`F10`** (`LidarOverlayKey`), or the menu entry: the game's own map, undarkened, with the beams bright over it. Both are **filters over the game's map**, not a different sensor picture - the mod cannot replace the game's map materials, and painting fake infrared terrain over the real map would be an invented sensor |
 | When it is holding something | A **soft dot** at the far end of the beam and the contact named beside the hull. The label and the dot only appear on a sighting; everything else is drawn always |

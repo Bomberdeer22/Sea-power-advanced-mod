@@ -4,7 +4,7 @@ An advanced mod for **Sea Power: Naval Combat in the Missile Age**, built as an
 [Anchor Chain](https://github.com/SeaPower-Modders/AnchorChain) code mod and loadable as a plain
 BepInEx plugin.
 
-**Version 0.28.0** — the first public release: sixteen advanced features for your own ships,
+**Version 0.28.1** — the first public release: sixteen advanced features for your own ships,
 plus per-cell hatch control. Everything is reached through the game's own right-click menus; there
 is no mod window and no hotkey.
 

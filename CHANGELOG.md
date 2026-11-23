@@ -1,5 +1,53 @@
 # Changelog
 
+## 0.28.1 - the calibration reading compiles
+
+**0.28.0 did not build.** Four errors, all of them in the one new file that was written last and
+checked least, and every one of them avoidable:
+
+| Error | Cause | Fix |
+|---|---|---|
+| **CS1061** ×2, `'ObjectBase' does not contain a definition for 'getUnitName'` | I invented the name by pattern. The game has **`getName()`** and `DisplayNameShort`, and `HatchControl` has read hull names that way since the first release | read it the same way |
+| **CS0234** ×2, `'Text' does not exist in the namespace 'UnityEngine.UI'` | `UnityEngine.UI` is a **package**, not part of `UnityEngine.dll`. It is not referenced here, and referencing it to satisfy the compiler would produce a DLL that fails to load on an install without that package | anchor on the scene instead |
+
+**The label anchor is now something that needs no reference at all.** The calibration wanted an
+independent screen position for a hull to compare the projection against, and reached for the game's
+interface label. It now looks for a scene object with that hull's exact name and uses its position -
+and when there is none, the reading says so rather than inventing an anchor. A wrong anchor is worse
+than no anchor: it would send a report chasing a difference that is not there.
+
+**CS8604 fixed properly this time.** The warning was on `Recovering.Remove(entry.Key)` inside a catch
+block. 0.27.1 guarded the two calls in the body and left that one, so the next build reported the same
+warning from a different line. The rule now guards every key taken from a dictionary being walked, and
+that turned up **two more of the same shape** in the same file, both of which would have been the next
+warning.
+
+### One addition while the file was open
+
+**`Features/LidarShade`** (0.72) sets how dark the overlay view is, from 0 to 1. A fixed darkness is
+a guess about somebody else's monitor and somebody else's map colours, and at **0** the same code
+gives a "beams only, nothing dimmed" mode for free. The vignette fades with it, so 0 means no black
+bars either.
+
+### Three gate rules, each proved against the mistake
+
+- **`ABSENT_GAME_MEMBERS`** - names the game's types have been *proven* not to have, with what to use
+  instead. `getUnitName` is the first entry. This is deliberately not a list of the game's API: that
+  list cannot be written correctly from here, and a wrong list fails clean builds. It is a list of
+  things a build has already disproved.
+- **`NOT_REFERENCED`** - namespaces whose assemblies this project does not reference, so
+  `UnityEngine.UI.Text` is caught by name rather than by a build.
+- **possible-null arguments** - `SomeMap.Remove(entry.Key)` while walking `SomeMap` (CS8604).
+
+Each was tested by putting the original mistake back and watching it fire, then removing it again.
+
+```text
+python tools/check-source.py      :: clean: 58 file(s), ...
+python tools/check-batch.py       :: clean: 6 batch file(s), ...
+python tools/check-versions.py    :: clean: 0.28.1 in all seven places
+python tools/check-docs.py        :: clean: 7 plain-text twin(s)
+```
+
 ## 0.28.0 - you can see the LIDAR now
 
 **The beam is drawn whether or not it has found anything.** That was the whole complaint, and it was

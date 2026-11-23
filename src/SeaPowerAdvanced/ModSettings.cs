@@ -42,6 +42,7 @@ internal static class ModSettings
     private static ConfigEntry<bool>? lidarOverlay;
     private static ConfigEntry<KeyCode>? lidarKey;
     private static ConfigEntry<float>? lidarSeconds;
+    private static ConfigEntry<float>? lidarShade;
     private static ConfigEntry<float>? coopDatalinkSeconds;
 
     internal static bool Enabled => enabled?.Value ?? true;
@@ -99,6 +100,11 @@ internal static class ModSettings
 
     /// <summary>Draw the beams on the map.</summary>
     internal static bool LidarOverlay => lidarOverlay?.Value ?? true;
+
+    /// <summary>How dark the overlay view is: 0 is the game's map untouched, 1 is black. A fixed
+    /// darkness is a guess about somebody else's monitor and somebody else's map colours, so it is a
+    /// setting - and 0 gives a "beams only, nothing dimmed" mode for free.</summary>
+    internal static float LidarShade => lidarShade?.Value ?? 0.72f;
 
     /// <summary>The key that flips the map into the infrared view.</summary>
     internal static KeyCode LidarOverlayKey => lidarKey?.Value ?? KeyCode.F10;
@@ -371,6 +377,13 @@ internal static class ModSettings
             lidarOverlay = file.Bind("Features", "LidarOverlay", true,
                 "Draw the scanning beams on the map. The infrared view (default key F10) shows them "
                 + "without the rest of the map furniture.");
+
+            // Bound plain, and clamped where it is used: ConfigDescription and AcceptableValueRange
+            // are BepInEx types this project has never proved it can see, and a possible 0.28.1 to
+            // save one line is a bad trade.
+            lidarShade = file.Bind("Features", "LidarShade", 0.72f,
+                "How dark the overlay view is, 0 to 1. 0 leaves the game's map untouched and still "
+                + "draws the beams; 0.9 makes the beam the only thing on it.");
 
             lidarKey = file.Bind("Features", "LidarOverlayKey", KeyCode.F10,
                 "The key that flips the map into the infrared view and back. Default F10. Set it to "

@@ -287,14 +287,18 @@ public sealed class LidarOverlay : MonoBehaviour
     {
         Color previous = GUI.color;
 
-        GUI.color = new Color(0.01f, 0.04f, 0.02f, 0.72f);
+        // How dark is a setting, not a decision made here: a fixed value is a guess about somebody
+        // else's monitor, and at 0 the same code gives a "beams only, nothing dimmed" mode.
+        float shade = Mathf.Clamp01(ModSettings.LidarShade);
+
+        GUI.color = new Color(0.01f, 0.04f, 0.02f, shade);
         GUI.DrawTexture(new Rect(0f, 0f, Screen.width, Screen.height), white);
 
         // Vignette: four bars round the edge. Cheaper than a texture, and it needs no shader the
         // game's interface may not have.
         float edge = Mathf.Min(Screen.width, Screen.height) * 0.07f;
 
-        GUI.color = new Color(0f, 0f, 0f, 0.5f);
+        GUI.color = new Color(0f, 0f, 0f, 0.5f * shade);
         GUI.DrawTexture(new Rect(0f, 0f, Screen.width, edge), white);
         GUI.DrawTexture(new Rect(0f, Screen.height - edge, Screen.width, edge), white);
         GUI.DrawTexture(new Rect(0f, 0f, edge, Screen.height), white);

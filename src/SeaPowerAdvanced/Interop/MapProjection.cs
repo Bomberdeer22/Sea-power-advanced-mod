@@ -203,8 +203,7 @@ internal static class MapProjection
             // answer turns "the beam is in the wrong place" into two numbers that can be subtracted.
             if (anchor != null)
             {
-                string name;
-                try { name = anchor.getUnitName() ?? "?"; } catch (Exception) { name = "?"; }
+                string name = UnitName(anchor);
 
                 if (TryCameraScreen(anchor.getGeoPosition(), out Vector3 mine))
                 {
@@ -213,10 +212,10 @@ internal static class MapProjection
                               + "   -> drawn at " + mine.x.ToString("0") + ", "
                               + (Screen.height - mine.y).ToString("0"));
 
-                    Vector3 label = LabelScreenPoint(anchor);
+                    Vector3 label = AnchorScreenPoint(anchor);
                     if (label != Vector3.zero)
                     {
-                        lines.Add("   label at       camera " + label.x.ToString("0") + ", "
+                        lines.Add("   game's anchor  camera " + label.x.ToString("0") + ", "
                                   + label.y.ToString("0"));
                         lines.Add("   DIFFERENCE     "
                                   + (label.x - mine.x).ToString("+0;-0;0") + " px across, "
@@ -224,8 +223,8 @@ internal static class MapProjection
                     }
                     else
                     {
-                        lines.Add("   label at       not read - no interface object on screen for this hull,"
-                                  + " so there is nothing to compare against");
+                        lines.Add("   game's anchor  not read - no scene object for this hull, so there "
+                                  + "is nothing to compare the projection against");
                     }
                 }
             }
@@ -241,37 +240,62 @@ internal static class MapProjection
     }
 
     /// <summary>
-    /// Where the game's interface is drawing this hull, if it is drawing it at all.
+    /// A screen point for the hull that does NOT come from this file's own arithmetic, so there is
+    /// something to check the arithmetic against.
     ///
-    /// Sea Power's units are data, so there is no transform to ask; but the map interface puts a
-    /// label beside each contact it shows, and that label is a real screen object. It is found by
-    /// name rather than by a reference the mod does not have, and every failure is "<not read>"
-    /// rather than a guess - a wrong anchor would be worse than no anchor.
+    /// The first attempt at this looked for the game's interface label with
+    /// <c>UnityEngine.UI.Text</c>, which does not compile here: that assembly is not referenced by
+    /// this project, and a mod that adds a reference to reach it would fail to load on a machine whose
+    /// install does not carry it. So the anchor is the scene instead - Sea Power's units are data, but
+    /// a hull can still have a scene object somewhere (a marker, a renderer, a controller), and if it
+    /// does, where that object is on screen is a fact independent of the map arithmetic below.
+    ///
+    /// Every failure is <c>Vector3.zero</c> rather than a guess. A wrong anchor would be worse than no
+    /// anchor: it would send a report chasing a difference that is not there.
     /// </summary>
-    private static Vector3 LabelScreenPoint(ObjectBase unit)
+    private static Vector3 AnchorScreenPoint(ObjectBase unit)
     {
         try
         {
-            string name;
-            try { name = unit.getUnitName() ?? ""; } catch (Exception) { return Vector3.zero; }
+            Camera? view = ActiveCamera();
+            if (view == null) return Vector3.zero;
 
+            // The unit's own scene object, if the build gives it one. Searched by name because the
+            // mod has no reference to the interface, and only an exact name match counts - a partial
+            // match would anchor a hull to a different ship.
+            string name = UnitName(unit);
             if (name.Length == 0) return Vector3.zero;
 
-            // Only a handful of objects carry this name, and the scan is done once per report rather
-            // than per frame, so a plain walk is the honest implementation.
-            var labels = UnityEngine.Object.FindObjectsOfType<UnityEngine.UI.Text>();
-
-            foreach (UnityEngine.UI.Text label in labels)
+            foreach (GameObject candidate in UnityEngine.SceneManagement.SceneManager.GetActiveScene()
+                                                        .GetRootGameObjects())
             {
-                if (label == null || label.text == null) continue;
-                if (!label.text.Contains(name)) continue;
+                if (candidate == null || candidate.name != name) continue;
 
-                return label.transform.position;
+                Vector3 point = view.WorldToScreenPoint(candidate.transform.position);
+                return point.z >= 0f ? point : Vector3.zero;
             }
         }
         catch (Exception) { }
 
         return Vector3.zero;
+    }
+
+    /// <summary>The hull's name, read the way the rest of the project reads it: the short display name
+    /// first, then <c>getName()</c>. There is no <c>getUnitName</c> on this build, which cost a build
+    /// to find out.</summary>
+    private static string UnitName(ObjectBase unit)
+    {
+        try
+        {
+            string? display = unit.DisplayNameShort;
+            if (!string.IsNullOrWhiteSpace(display)) return display!.Trim();
+
+            string? plain = unit.getName();
+            if (!string.IsNullOrWhiteSpace(plain)) return plain!.Trim();
+        }
+        catch (Exception) { }
+
+        return "";
     }
 
     /// <summary>The interface scale, because an overlay in raw pixels and a game scaled to 1.25 are
