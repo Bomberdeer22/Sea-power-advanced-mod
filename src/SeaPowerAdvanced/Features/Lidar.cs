@@ -59,6 +59,20 @@ internal static class Lidar
 
     private static float lastLoggedAt = -60f;
 
+    /// <summary>
+    /// The overlay's calibration reading, kept so it reaches <c>lidar.txt</c>.
+    ///
+    /// The overlay is the only thing that can measure where the projection actually lands, and the
+    /// report is the only thing that leaves the machine, so the two have to meet somewhere. They meet
+    /// here rather than in the overlay, because a report is written on a click and a calibration is
+    /// written on the first frame - either may come first.
+    /// </summary>
+    private static List<string>? calibration;
+
+    /// <summary>Set when the overlay has measured something new; cleared by the ticker, which does
+    /// the writing.</summary>
+    private static bool calibrationPending;
+
     /// <summary>Contacts this machine has put on a hull's picture with the laser, this sweep.</summary>
     private static int sighted;
 
@@ -262,6 +276,30 @@ internal static class Lidar
             }
 
             text.AppendLine();
+            text.AppendLine("Where the beam was actually drawn");
+            text.AppendLine("----------------------------------");
+            text.AppendLine("  The one thing the mod cannot know is where the game's map is on the screen:");
+            text.AppendLine("  the projection's arithmetic comes from the game's own tile grid, but the");
+            text.AppendLine("  camera it is projected through is a choice, and an error of half a screen");
+            text.AppendLine("  looks exactly like a beam that is not being drawn at all.");
+            text.AppendLine();
+
+            if (calibration == null || calibration.Count == 0)
+            {
+                text.AppendLine("  not measured yet - the overlay writes this the first time it draws a");
+                text.AppendLine("  beam. If the scanner has been running and this is still empty, the");
+                text.AppendLine("  overlay never got as far as drawing, which is itself the answer.");
+            }
+            else
+            {
+                foreach (string line in calibration) text.AppendLine("  " + line);
+                text.AppendLine();
+                text.AppendLine("  The DIFFERENCE line is the number that matters: it is the projection's");
+                text.AppendLine("  answer subtracted from where the game draws that hull's own label. A few");
+                text.AppendLine("  pixels is a font's width; hundreds means the camera choice is wrong.");
+            }
+
+            text.AppendLine();
             text.AppendLine("What to send back if a hull is refused that should not be");
             text.AppendLine("--------------------------------------------------------");
             text.AppendLine("  Send this file. It names each hull class and the sensor families its own");
@@ -278,10 +316,32 @@ internal static class Lidar
         }
     }
 
+    /// <summary>Records the overlay's calibration reading, and logs it once.</summary>
+    internal static void WriteCalibration(List<string> lines)
+    {
+        if (lines == null || lines.Count == 0) return;
+
+        calibration = lines;
+
+        // Kept, and written by the ticker rather than here: this is called from the overlay's draw
+        // callback, and walking every hull through reflection and writing a file in the middle of a
+        // GUI event is the sort of thing that shows up as a stutter.
+        calibrationPending = true;
+    }
+
     /// <summary>Called from the ticker.</summary>
     internal static void Tick()
     {
         if (!ModSettings.FeaturesEnabled) return;
+
+        // Before any of the early returns below: a reading is worth writing whether or not a hull is
+        // currently looking, because it is the answer to "why did I see nothing".
+        if (calibrationPending)
+        {
+            calibrationPending = false;
+            WriteReport("the overlay drew its first beam");
+        }
+
         if (!ModSettings.LidarEnabled) return;
 
         // No hull looking means no work: this is on by default, and reading the whole contact
@@ -293,6 +353,12 @@ internal static class Lidar
         // driven by the clock rather than by a sweep interval. What each frame can do is bounded by
         // the beam pointing at a contact, so the cost is a sector test, not a table walk.
         Spin(Time.unscaledDeltaTime);
+
+        // The head keeps turning while the game is paused, because that is the mod's own drawing and
+        // watching it turn is the point of the overlay. The SWEEP does not run: it writes tracks onto
+        // the fleet's picture through the game's reveal call, and a paused simulation is not a
+        // simulation that can be told anything new.
+        if (Time.timeScale <= 0f) return;
 
         if (Time.unscaledTime < nextSweep) return;
 

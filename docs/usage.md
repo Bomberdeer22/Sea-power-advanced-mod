@@ -3,7 +3,7 @@
 How to open hatches by hand. Thirty seconds of clicking, plus what the menu is telling you.
 
 The sixteen advanced features - radar blink, the two ECM features, the force datalink, the laser
-LIDAR (a rotating 360-degree scanner with an infrared map view), salvo deconfliction, readiness,
+LIDAR (a rotating 360-degree scanner: the map goes dark and the beam is the light, with `F10` for the game's own map and bright beams), salvo deconfliction, readiness,
 formations, air operations and the rest - are documented feature by feature, with the settings and the
 limits, in [features.md](features.md). What to check after installing is in [testing.md](testing.md).
 

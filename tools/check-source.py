@@ -533,6 +533,15 @@ SHADOWED_TYPES = {
 }
 
 
+# A member declaration: one or more modifiers, then a type, then the name. Modifiers are
+# REQUIRED - that is what stops a ternary's `? new Type(...)` from being read as a declaration.
+DECLARATION = re.compile(
+    r"^[ \t]*(?:(?:internal|private|public|protected|static|sealed|override|virtual|async|new|"
+    r"readonly|extern|unsafe|partial|volatile)[ \t]+)+"
+    r"(?:[\w.]+(?:<[^>()]*>)?(?:\[\])?\??)[ \t]+(?:([A-Za-z_]\w*)[ \t]*)?[({;=]",
+    re.M)
+
+
 def shadowing_problems(files) -> list[str]:
     """A method or property named after a type the file also uses."""
     problems: list[str] = []
@@ -541,11 +550,15 @@ def shadowing_problems(files) -> list[str]:
         code = strip_noise(path.read_text(encoding="utf-8"))
 
         # Declarations only: `private static Vector2 Screen(GeoPosition ...)`, `internal bool Input`.
-        for match in re.finditer(
-                r"^\s*(?:internal|private|public|protected|static|sealed|override|virtual|async|"
-                r"new|readonly|extern|unsafe|partial|\s)+[\w<>?\[\],\s]+?\s+(\w+)\s*[({;]",
-                code, re.M):
-            name = match.group(1)
+        #
+        # The line has to START with a modifier. An earlier version allowed the modifiers to be
+        # optional, and then `\s*[\w<>?\[\],\s]+?\s+(\w+)\s*[({;]` matched the second half of
+        #     ? new Color(0.35f, 1f, 0.5f, ...)
+        # in a conditional - the `?` was eaten by the type part and `Color` was reported as a member
+        # hiding UnityEngine.Color. A false positive on a ternary is worse than no check, because a
+        # gate that cries wolf gets switched off.
+        for match in DECLARATION.finditer(code):
+            name = match.group(match.lastindex or 1)
             if name not in SHADOWED_TYPES:
                 continue
 
@@ -944,6 +957,25 @@ def main() -> int:
                         f"{path.relative_to(ROOT)}:{line}: MemberInfo '{name}' used with .{call} - "
                         f"that member is on FieldInfo/PropertyInfo/MethodInfo, not on MemberInfo "
                         f"(CS1061). Hold it as the concrete type, or go through MemberProbe")
+
+    # A keyboard shortcut that only exists on the old Input Manager. A build running the new Input
+    # System only throws from Input.GetKeyDown, so a hotkey wired that way alone does nothing at all,
+    # with the throw swallowed by the same try/catch that keeps the overlay alive. The mod already
+    # learned this on the civilian-traffic panel (0.11.0) and then repeated it in the LIDAR overlay,
+    # which is exactly why it is a rule now.
+    for path in files:
+        code = strip_noise(path.read_text(encoding="utf-8"))
+        if "Input.GetKeyDown" not in code and "Input.GetKeyUp" not in code:
+            continue
+
+        if "EventType.KeyDown" in code:
+            continue
+
+        line = code.count("\n", 0, code.index("Input.GetKey")) + 1
+        problems.append(
+            f"{path.relative_to(ROOT)}:{line}: the shortcut is read with Input.GetKey* and nowhere "
+            f"else - on a build running the new Input System only, that throws and the key does "
+            f"nothing; also check Event.current.keyCode in OnGUI")
 
     problems.extend(shadowing_problems(files))
     problems.extend(nested_shadowing_problems(files))

@@ -489,22 +489,33 @@ internal static class FleetMenu
         if (ModSettings.LidarEnabled && ModSettings.LidarOverlay)
         {
             Add(LidarOverlay.Infrared
-                ? Action("LIDAR: infrared view on - click for the normal map",
-                    "Returns the map to its own colours. The beams are still drawn - this only "
-                    + "removes the filter.", () =>
+                ? Action("LIDAR: infrared view on - click for the dark overlay",
+                    "The game's own map, with the beams drawn over it. Click again for the dark "
+                    + "overlay, which is the one that makes a thin beam easy to see.", () =>
                     {
                         LidarOverlay.ToggleInfrared();
-                        ModLog.Info("Menu: LIDAR infrared view off");
+                        ModLog.Info("Menu: LIDAR back to the overlay view");
                     })
-                : Action("LIDAR: infrared view - click to see the beams",
-                    "Darkens the map and pulls the eye in, so the rotating beams are what you see. "
-                    + "The key is " + ModSettings.LidarOverlayKey + " as well. This is a filter over "
-                    + "the game's own map, not a different sensor picture.",
-                    () =>
+                : Action("LIDAR: overlay view on - click for infrared",
+                    "The dark sea with the beam as the only light: emitter glowing, trail fading "
+                    + "behind the head, ring at the range. The key is "
+                    + ModSettings.LidarOverlayKey + " as well. Both views are drawn over the game's "
+                    + "map - the mod cannot replace it, and does not pretend to.", () =>
                     {
                         LidarOverlay.ToggleInfrared();
                         ModLog.Info("Menu: LIDAR infrared view on");
                     }), MenuRouting.Sensors);
+
+            // The one entry that answers "I turned it on and I see nothing". It writes the same
+            // file as everything else, but it says in one line which of the four causes it is,
+            // instead of leaving a person to read a report to find out.
+            Add(Action("LIDAR: nothing on the map? - click to check why",
+                LidarOverlay.Diagnose(),
+                () =>
+                {
+                    Lidar.WriteReport("the menu asked why the overlay is empty");
+                    ModLog.Info("Menu: LIDAR diagnosis written to lidar.txt");
+                }), MenuRouting.Sensors);
         }
 
         // --- ECM: only on hulls that actually carry it --------------------------------------

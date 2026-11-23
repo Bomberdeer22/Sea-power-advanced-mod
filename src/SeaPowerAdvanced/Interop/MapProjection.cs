@@ -121,6 +121,172 @@ internal static class MapProjection
         return lines;
     }
 
+    /// <summary>
+    /// Where a position is on the CAMERA's screen, in pixels, before any interface scaling.
+    ///
+    /// <see cref="TryScreen"/> is the one an overlay uses: it inverts y and works in IMGUI's
+    /// coordinates. This raw form exists for the calibration test, which compares a projection
+    /// against something that is definitely on the map, and needs the screen nothing has been done
+    /// to yet.
+    /// </summary>
+    internal static bool TryCameraScreen(GeoPosition position, out Vector3 screen)
+    {
+        screen = Vector3.zero;
+
+        Discover();
+        if (failed) return false;
+
+        try
+        {
+            if (!TryMapWorld(position, out Vector3 world)) return false;
+
+            Camera? view = ActiveCamera();
+            if (view == null) return false;
+
+            screen = view.WorldToScreenPoint(world);
+            return screen.z >= 0f;
+        }
+        catch (Exception) { return false; }
+    }
+
+    /// <summary>
+    /// The calibration reading: a known position, where the projection puts it, and - when a hull has
+    /// been handed in - where the game's own interface puts that hull's label.
+    ///
+    /// The two numbers are the point. The map arithmetic can be exactly right about world space and
+    /// still be wrong on screen, because the one thing this cannot know is which camera draws the map
+    /// and where its origin is; an overlay offset by a constant is invisible as a bug and obvious as a
+    /// measurement. So the first beam is always drawn with both numbers written down, and the
+    /// difference between them is the number to report.
+    /// </summary>
+    internal static List<string> Calibrate(ObjectBase? anchor)
+    {
+        var lines = new List<string>();
+        Discover();
+
+        try
+        {
+            // The centre tile is the map's own origin, so it is the strongest fixed point available:
+            // it is where the game says the middle of the world is, by construction.
+            var probe = new GeoPosition(0, 0, 0);
+
+            lines.Add("projection route  " + (geoToWorld != null
+                ? "map arithmetic, with " + geoToWorldOwner + "." + geoToWorld.Name + " as fallback"
+                : "map arithmetic only"));
+
+            if (TryCameraScreen(probe, out Vector3 raw))
+            {
+                lines.Add("lat/lon 0,0 ->    camera " + raw.x.ToString("0.0") + ", " + raw.y.ToString("0.0")
+                          + "   screen " + Screen.width + "x" + Screen.height);
+
+                lines.Add("   drawn at       " + raw.x.ToString("0") + ", "
+                          + (Screen.height - raw.y).ToString("0") + "   (imuGUI coords, after the y flip)");
+
+                 lines.Add("   on screen?     " + (raw.x >= 0f && raw.x <= Screen.width
+                                                  && raw.y >= 0f && raw.y <= Screen.height
+                    ? "yes" : "NO - the projection is off the visible screen, which is why nothing draws"));
+            }
+            else
+            {
+                lines.Add("lat/lon 0,0 ->    could not be projected: " + mapWhy);
+            }
+
+            lines.Add("camera            " + (camera == null
+                ? "<none>"
+                : camera.name + (camera.orthographic ? " [ortho]" : "") + " " + camera.pixelWidth
+                  + "x" + camera.pixelHeight));
+
+            lines.Add("all cameras       " + Cameras());
+
+            // The cross-check: the game draws a label for a hull, so where that label is on screen is
+            // the game telling us where it thinks that hull is. Comparing it with the projection's
+            // answer turns "the beam is in the wrong place" into two numbers that can be subtracted.
+            if (anchor != null)
+            {
+                string name;
+                try { name = anchor.getUnitName() ?? "?"; } catch (Exception) { name = "?"; }
+
+                if (TryCameraScreen(anchor.getGeoPosition(), out Vector3 mine))
+                {
+                    lines.Add("hull             " + name);
+                    lines.Add("   projected at   camera " + mine.x.ToString("0") + ", " + mine.y.ToString("0")
+                              + "   -> drawn at " + mine.x.ToString("0") + ", "
+                              + (Screen.height - mine.y).ToString("0"));
+
+                    Vector3 label = LabelScreenPoint(anchor);
+                    if (label != Vector3.zero)
+                    {
+                        lines.Add("   label at       camera " + label.x.ToString("0") + ", "
+                                  + label.y.ToString("0"));
+                        lines.Add("   DIFFERENCE     "
+                                  + (label.x - mine.x).ToString("+0;-0;0") + " px across, "
+                                  + (label.y - mine.y).ToString("+0;-0;0") + " px up");
+                    }
+                    else
+                    {
+                        lines.Add("   label at       not read - no interface object on screen for this hull,"
+                                  + " so there is nothing to compare against");
+                    }
+                }
+            }
+
+            lines.Add("interface scale   " + ScaleText());
+        }
+        catch (Exception error)
+        {
+            lines.Add("calibration failed: " + error.GetType().Name + " - " + error.Message);
+        }
+
+        return lines;
+    }
+
+    /// <summary>
+    /// Where the game's interface is drawing this hull, if it is drawing it at all.
+    ///
+    /// Sea Power's units are data, so there is no transform to ask; but the map interface puts a
+    /// label beside each contact it shows, and that label is a real screen object. It is found by
+    /// name rather than by a reference the mod does not have, and every failure is "<not read>"
+    /// rather than a guess - a wrong anchor would be worse than no anchor.
+    /// </summary>
+    private static Vector3 LabelScreenPoint(ObjectBase unit)
+    {
+        try
+        {
+            string name;
+            try { name = unit.getUnitName() ?? ""; } catch (Exception) { return Vector3.zero; }
+
+            if (name.Length == 0) return Vector3.zero;
+
+            // Only a handful of objects carry this name, and the scan is done once per report rather
+            // than per frame, so a plain walk is the honest implementation.
+            var labels = UnityEngine.Object.FindObjectsOfType<UnityEngine.UI.Text>();
+
+            foreach (UnityEngine.UI.Text label in labels)
+            {
+                if (label == null || label.text == null) continue;
+                if (!label.text.Contains(name)) continue;
+
+                return label.transform.position;
+            }
+        }
+        catch (Exception) { }
+
+        return Vector3.zero;
+    }
+
+    /// <summary>The interface scale, because an overlay in raw pixels and a game scaled to 1.25 are
+    /// drawn at different sizes and it looks exactly like a positioning bug.</summary>
+    private static string ScaleText()
+    {
+        try
+        {
+            return "GUI.matrix scale " + (GUI.matrix.m00).ToString("0.##") + " x "
+                   + (GUI.matrix.m11).ToString("0.##")
+                   + ", resolution " + Screen.width + "x" + Screen.height;
+        }
+        catch (Exception) { return "unreadable"; }
+    }
+
     /// <summary>False when no projection exists; the overlay stops trying.</summary>
     internal static bool Available
     {

@@ -1,5 +1,70 @@
 # Changelog
 
+## 0.28.0 - you can see the LIDAR now
+
+**The beam is drawn whether or not it has found anything.** That was the whole complaint, and it was
+right: 0.27.0 only lit the beam once the set was holding a contact, and a rotating scanner that is
+looking at empty sea - which is most of the time - drew a line you could barely see on a map drawn in
+map colours. So the overlay view is now dark.
+
+### The overlay view
+
+By default the map is drawn under a dark green tint with a vignette, and the scanner is the light:
+
+- **a glow at the emitter**, with a ring, so the ship carrying the set is findable instantly;
+- **a beam to the far edge of the range** - 15 nm - with a wider fainter glow underneath it, because a
+  hairline on a map is invisible and a 3-pixel line with a halo is not;
+- **a fading trail** behind the head, thinning as it goes, so the thing reads as *turning* rather than
+  as a line that happens to be there;
+- **the range ring**, with the two beam-edge spokes so a 6-degree beam looks narrower than a 30-degree
+  one;
+- **the numbers on the hull**, next to it: `15 nm, 12 rpm, beam 6 deg`, so the screen agrees with the
+  config file;
+- **a soft dot** at the far end when the beam is holding something, with that contact named.
+
+F10 (or the menu entry) flips to the **infrared view**: the game's own map, undarkened, with the beams
+bright over it. That is the view for when the point is the game's picture rather than the scanner.
+
+`LidarOverlay` off still turns the drawing off, but the key now works from the interface event as well
+as from `Input`, so it functions on builds running the new Input System only - where reading `Input`
+throws and the key otherwise does nothing at all.
+
+### If the map is still empty: one entry that answers it
+
+`Sensors > LIDAR: nothing on the map? - click to check why` tests the four ways this can happen and
+says which one it is, in one sentence:
+
+1. the feature is off in the settings, or the scanner is off in the settings;
+2. **no ship has the order** - the commonest by far, and the one a person cannot tell apart from a
+   broken overlay;
+3. the map cannot be projected on this build at all;
+4. **the beams are being drawn off screen** - which looks exactly like 1 to 3.
+
+That fourth one is the reason this release exists beyond the darkening. The projection arithmetic
+comes from the game's own tile grid and can be exactly right about world space while landing in the
+wrong place on screen, because which camera draws the map is a choice the mod has to make and cannot
+verify offline. An overlay offset by half a screen is invisible as a bug and obvious as a number. So:
+
+- the first beam drawn writes a **calibration reading** into `lidar.txt`: a known position, where the
+  projection puts it on screen and in interface coordinates, whether that is inside the visible
+  screen, the camera chosen, every camera available, the interface scale, and - when the game is
+  drawing that hull's label - where the game itself puts it, with the **difference in pixels**.
+- the reading is logged once and written to the file by the ticker, not during the draw.
+
+If the beams are on screen but somewhere unexpected, that block is the thing to send back. It answers
+"where does the mod think the ship is" with arithmetic instead of a screenshot.
+
+Nothing else changed. The scanner still confirms only contacts the force's picture already holds,
+still reports position only, still switches no radar on or off, still refuses submarines, and still
+writes down what each hull's own sensor list actually contains.
+
+```text
+python tools/check-source.py      :: clean: 58 file(s), ...
+python tools/check-batch.py       :: clean: 6 batch file(s), ...
+python tools/check-versions.py    :: clean: 0.28.0 in all seven places
+python tools/check-docs.py        :: clean: 7 plain-text twin(s)
+```
+
 ## 0.27.1 - build fix: 0.27.0 would not compile
 
 **0.27.0 failed to compile**, with sixteen errors. Every one was real, none was in the feature's logic,
