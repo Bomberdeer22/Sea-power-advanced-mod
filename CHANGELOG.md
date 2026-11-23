@@ -29,6 +29,31 @@ So the gate grew four checks that would each have caught one of these:
 Each check was tested by putting the original bug back and confirming it fires, then removing it
 again - a check nobody has seen fail is a check nobody knows works.
 
+### A build now says which copy of the source it is
+
+The sixteen errors above were reported twice, identically, including a line number for a field that
+had been bound in the first fix. That is impossible from one tree, and it is what a second download
+looks like: drop the source into `Downloads` twice and you get two folders whose names differ only by
+a suffix the browser adds, with the same `build.cmd` in each.
+
+So `build.cmd` states it before it compiles:
+
+```text
+============================================================
+ Sea Power Advanced - build
+============================================================
+ Folder  : C:\Users\you\Downloads\Sea-power-advanced-mod-arena-f334fa73-sea-power-advanced-mod
+ Version : 0.27.1   (commit 38c380f)
+ Action  : install
+```
+
+On a git clone the commit is real; on a plain download it says `commit unknown`, which is the honest
+answer and the cue to read the version number instead. `version.txt` gains the commit too, so the
+installed copy can be identified afterwards. And because the usual cause is two folders side by side,
+`build.cmd` looks one level up and names any other copy of this project it can see, with that copy's
+version - so if the folder being built is the older one, the log says so instead of leaving it to be
+worked out from the errors.
+
 **No behaviour changed.** The scanner, the overlay, the infrared view and the 15 nm range are exactly
 as described in 0.27.0.
 

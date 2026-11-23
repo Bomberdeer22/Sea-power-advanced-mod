@@ -85,6 +85,18 @@ def check_file(path: pathlib.Path) -> list[str]:
     assigned_at: dict[int, set[str]] = {}
 
     for number, line in enumerate(lines, start=1):
+        # Comments are checked before they are stripped to nothing, and against the depth
+        # reached by the lines above: inside a ( ) block cmd has already parsed the whole
+        # block, so a bracket in a comment closes it early. During 0.27.1 exactly this broke
+        # a block while every other check stayed green.
+        if depth > 0 and re.match(r"\s*(rem\b|::)", line, re.IGNORECASE):
+            if "(" in line or ")" in line:
+                problems.append(
+                    f"{name}:{number}: a comment inside a ( ) block contains a bracket - cmd "
+                    f"parses the block before it knows it is a comment, so the bracket closes "
+                    f"the block; reword it"
+                )
+
         code = strip_comment(line)
         if not code.strip():
             continue
@@ -135,7 +147,10 @@ def check_file(path: pathlib.Path) -> list[str]:
 
         # %VAR% read inside a block that assigned VAR earlier in the same block
         if "(" in outside or depth > 0:
-            for read in re.finditer(r"%([A-Za-z_][A-Za-z0-9_]*)%", outside):
+            # %VAR% and %VAR:...% are the same thing to cmd.exe: both are expanded when the
+            # block is parsed, so a self-referential set "V=%V:;=%" inside a block reads the
+            # value from *before* the block and can silently blank the variable.
+            for read in re.finditer(r"%([A-Za-z_][A-Za-z0-9_]*)(?::[^%]*)?%", outside):
                 var = read.group(1).lower()
                 for level, names in assigned_at.items():
                     if depth >= level > 0 and var in names:
@@ -145,6 +160,30 @@ def check_file(path: pathlib.Path) -> list[str]:
                             f"!{read.group(1)}! with enabledelayedexpansion"
                         )
                         break
+
+        # Self-referential set with immediate expansion: set "X=%X:;=%". Whether or not this
+        # line sits in a block, the working form is !X! on every file that turns delayed
+        # expansion on, and the immediate form is only correct by luck at top level. This
+        # check does not depend on knowing the block depth, which cmd's nested quoting
+        # (findstr /c:"...") makes unreliable.
+        # A quoted set whose value ends in a quote: set "X=!X:"=!" ends the string at the
+        # inner quote instead of stripping it from the value.
+        if re.search(r'^\s*set\s+"[A-Za-z_][A-Za-z0-9_]*=.*:"=!', line, re.IGNORECASE):
+            problems.append(
+                f"{name}:{number}: set with a quote at the end of the value - the closing quote "
+                f"in the string ends it early; write it unquoted, as set X=!X:\"=!"
+            )
+
+        if depth > 0:
+            for assign in re.finditer(r"\bset\s+\"?([A-Za-z_][A-Za-z0-9_]*)=(.*)",
+                                      code, re.IGNORECASE):
+                var, rhs = assign.group(1), assign.group(2)
+                if re.search(rf"%{re.escape(var)}(?::[^%]*)?%", rhs, re.IGNORECASE):
+                    problems.append(
+                        f"{name}:{number}: set \"{var}=\" re-reads %{var}% inside a ( ) block - "
+                        f"the whole block is expanded before it runs, so that is the value from "
+                        f"before the block; use !{var}! instead"
+                    )
 
         for assign in re.finditer(r"\bset\s+\"?([A-Za-z_][A-Za-z0-9_]*)=", code, re.IGNORECASE):
             if depth > 0:

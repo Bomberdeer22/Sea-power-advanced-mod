@@ -229,6 +229,16 @@ Useful to know:
 
 ## Updating
 
+### Before you blame the code: which folder are you building?
+
+`build.cmd` prints its version and commit in the first five lines, and warns if another copy of this
+project is sitting next to it. If those two versions differ, you are building the older one - a second
+download produces a folder name like `...-mod-arena-f334fa73-sea-power-advanced-mod-2`, and its
+`build.cmd` looks identical.
+
+Two identical error lists on two different days, with the same line numbers, is almost always this.
+Delete the older folder rather than keeping both.
+
 Double-click **`update.cmd`**. It reads the version that is already in the game folder, compares it
 with the version in this folder, and does only what that version still needs — the changes are listed
 release by release in [docs/updating.md](docs/updating.md), taken from `CHANGELOG.md`.

@@ -312,7 +312,7 @@ if defined VLT call :note "0.24.2 - the whole-task-force defensive ECM entry is 
 call :ver_lt "!INSTALLED!" "0.25.0"
 if defined VLT call :note "0.25.0 - the force datalink: in a co-op session, contacts this force holds are handed to the other player's force. A new setting appears (CoopDatalink, on). No files: all in the DLL."
 call :ver_lt "!INSTALLED!" "0.27.1"
-if defined VLT call :note "0.27.1 - build fix: 0.27.0 would not compile (a method called Screen hid the game's Screen, plus two errors in the datalink and one unbound setting). No behaviour change. No files: all in the DLL."
+if defined VLT call :note "0.27.1 - build fix: 0.27.0 would not compile (a method called Screen hid the game's Screen, the datalink had two, and one setting was never bound). build.cmd now prints the version and commit at the top, and names any other copy of the project next to it. No behaviour change. No files: all in the DLL."
 call :ver_lt "!INSTALLED!" "0.27.0"
 if defined VLT call :note "0.27.0 - the LIDAR is a rotating 360-degree scanner now: 15 nm, every ship, and a beam you can SEE on the map. F10 flips the map into the infrared view. New settings appear (LidarSpinRpm 12, LidarBeamDeg 6, LidarOverlay on, LidarOverlayKey F10, LidarRangeNm now 15). No files: all in the DLL."
 call :ver_lt "!INSTALLED!" "0.26.2"

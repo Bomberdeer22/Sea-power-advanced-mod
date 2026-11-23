@@ -63,18 +63,28 @@ goto build_args
 
 :build_args_done
 
+call :read_version
+call :read_commit
+
 > "%LOG%" echo Sea Power Advanced - build log
 >> "%LOG%" echo started %DATE% %TIME%
 >> "%LOG%" echo folder  %ROOT%
+>> "%LOG%" echo version %VERSION%  commit %COMMIT%
+>> "%LOG%" echo branch  %BRANCH%
 >> "%LOG%" echo action  %ACTION%
 >> "%LOG%" echo.
+
+rem After the log is created, not before: :warn_siblings appends to it, and the
+rem line above truncates the file.
+call :warn_siblings
 
 echo ============================================================
 echo  Sea Power Advanced - build
 echo ============================================================
-echo  Folder : %ROOT%
-echo  Action : %ACTION%
-echo  Log    : %LOG%
+echo  Folder  : %ROOT%
+echo  Version : %VERSION%   (commit %COMMIT%)
+echo  Action  : %ACTION%
+echo  Log     : %LOG%
 echo.
 echo  If this window ever closes by itself, open build-log.txt and send it.
 echo.
@@ -538,20 +548,77 @@ exit /b 0
 rem  %1 = the folder to put version.txt in
 :write_version
 if not exist "%~1" exit /b 0
-set "VER="
-for /f "tokens=2 delims==" %%v in ('findstr /c:"const string Version" "%ROOT%\src\SeaPowerAdvanced\ModInfo.cs" 2^>nul') do if not defined VER set "VER=%%v"
-if not defined VER set "VER=unknown"
-set "VER=!VER:;=!"
-set VER=%VER:"=%
-for /f "tokens=1" %%w in ("%VER%") do set "VER=%%w"
-if not defined VER set "VER=unknown"
-> "%~1\version.txt" echo !VER!
+call :read_version
+> "%~1\version.txt" echo %VERSION%
 >> "%~1\version.txt" echo Sea Power Advanced
+>> "%~1\version.txt" echo commit %COMMIT%
 >> "%~1\version.txt" echo built %DATE% %TIME%
->> "%LOG%" echo       version.txt !VER! in %~1
-echo       version     !VER!
+>> "%LOG%" echo       version.txt %VERSION% %COMMIT% in %~1
+echo       version     %VERSION%  (commit %COMMIT%)
 exit /b 0
 
+
+rem =========================================================================
+rem  Which copy is this? A person who has downloaded the source twice ends up with two
+rem  folders whose names differ only by a suffix the browser adds, and building the old one
+rem  wastes a round trip: the errors are real, they are just from code that was already fixed.
+rem  So the header states the version and commit, and any other copy next door is named.
+rem =========================================================================
+:read_version
+set "VERSION="
+for /f "tokens=2 delims==" %%v in ('findstr /c:"const string Version" "%ROOT%\src\SeaPowerAdvanced\ModInfo.cs" 2^>nul') do if not defined VERSION set "VERSION=%%v"
+if not defined VERSION set "VERSION=unknown"
+set "VERSION=%VERSION:;=%"
+set VERSION=%VERSION:"=%
+for /f "tokens=1" %%w in ("%VERSION%") do set "VERSION=%%w"
+if not defined VERSION set "VERSION=unknown"
+exit /b 0
+
+:read_commit
+rem  "unknown" is the honest answer on a download that was never a git clone, and it is
+rem  also the one that tells you to look at the version number instead.
+set "COMMIT=unknown"
+set "BRANCH=download"
+set "DIRTY="
+where git >nul 2>&1
+if errorlevel 1 exit /b 0
+if not exist "%ROOT%\.git" exit /b 0
+for /f "tokens=*" %%c in ('git -C "%ROOT%" rev-parse --short HEAD 2^>nul') do set "COMMIT=%%c"
+for /f "tokens=*" %%b in ('git -C "%ROOT%" rev-parse --abbrev-ref HEAD 2^>nul') do set "BRANCH=%%b"
+for /f "tokens=*" %%d in ('git -C "%ROOT%" status --porcelain 2^>nul') do set "DIRTY=1"
+if defined DIRTY set "COMMIT=%COMMIT% with local edits"
+exit /b 0
+
+:warn_siblings
+rem  One level up only, and only folders that actually hold this project's ModInfo.cs.
+set "SIBLINGS="
+if not exist "%ROOT%\.." exit /b 0
+for /d %%S in ("%ROOT%\..\*") do (
+    if not "%%~fS"=="%ROOT%" if exist "%%~fS\src\SeaPowerAdvanced\ModInfo.cs" (
+        set "SIB="
+        for /f "tokens=2 delims==" %%v in ('findstr /c:"const string Version" "%%~fS\src\SeaPowerAdvanced\ModInfo.cs" 2^>nul') do if not defined SIB set "SIB=%%v"
+        rem  Delayed expansion throughout: a block is expanded before any of it runs, so
+        rem  the immediate form would read the value from before the loop and blank it.
+        rem  The quotes are stripped from the variable itself, so that line cannot be
+        rem  quoted - putting quotes round it would end the string at the inner one.
+        set "SIB=!SIB:;=!"
+        set SIB=!SIB:"=!
+        for /f "tokens=1" %%w in ("!SIB!") do set "SIB=%%w"
+        set "SIBLINGS=1"
+        echo.
+        echo  NOTE: another copy of this project is next to this one:
+        echo          %%~fS   version !SIB!
+        >> "%LOG%" echo       sibling copy %%~fS version !SIB!
+    )
+)
+if not defined SIBLINGS exit /b 0
+echo  This build uses only the folder above. If that version is not the newest,
+echo  build the other folder instead - or delete the old one so this cannot happen.
+echo.
+>> "%LOG%" echo       more than one copy of the project found
+exit /b 0
+
+rem =========================================================================
 :package_missing
 echo       The build reported success but produced no DLL at:
 echo         %DLL%
