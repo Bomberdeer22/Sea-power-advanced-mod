@@ -18,7 +18,7 @@ namespace SeaPowerAdvanced.Menu;
 /// <code>
 /// Sensors / EMCON    radars, air/surface search, active sonar, towed array,
 ///                    EMCON profiles, radar blink, auto-ARM, commercial disguise
-/// Weapons / Engage   salvo deconfliction (it is about who may fire, and when)
+/// Weapons / Engage   salvo deconfliction (it is about who may fire, and when), the decoy screen
 /// Rules of engagement  action stations, cold cruise, crew fatigue
 /// Formation          sprint and drift, turning the screen onto the threat
 /// Air operations     helicopter search patterns
@@ -614,6 +614,18 @@ internal static class FleetMenu
 
         Add(Action("Release everyone now", "Cancels the plan and lets every ship fire.",
             () => Fleet("salvo release", SalvoPlan.Release(out string r), r)), MenuRouting.Weapons);
+
+        // The screen. Worded as what it is: every hull's own decoy launchers, fired together. It is
+        // not gun smoke and the description says so before the click, not after the disappointment.
+        Add(Action("Smoke screen: every ship fires its decoys",
+            "Fires the decoy launchers of every hull under command at once, so a salvo arriving "
+            + "from one bearing meets a screen instead of a row of clean hulls. This is CHAFF - the "
+            + "launchers a ship carries on deck - and it degrades terminal radar and infrared "
+            + "seekers. It is not gun-launched smoke and it does not blind anything optical: this "
+            + "game models no laser or optronic sensor to blind, and the mod will not pretend "
+            + "otherwise. A hull with no launcher in its own mounts is refused and named in "
+            + "smoke-screen.txt rather than reported as having fired.",
+            () => Fleet("smoke screen", SmokeScreen.Fire(out string r), r)), MenuRouting.Weapons);
 
         // --- Rules of engagement -------------------------------------------------------------
         Add(Readiness.AtActionStations(unit)

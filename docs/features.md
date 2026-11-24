@@ -10,6 +10,7 @@ one submenu. There is no mod window and no hotkey.
 |---|---|
 | Radars, air/surface search only, active sonar, towed array, EMCON profiles | **Sensors** |
 | Radar blink, auto-ARM shutoff, **defensive ECM**, **offensive ECM**, commercial disguise | **Sensors** (they are emission decisions) |
+| **Smoke screen** - every hull fires its own decoy launchers at once | **Weapons / Engage** |
 | **Force datalink** to the other player's force | **Sensors** (it is about the picture the force holds) |
 | **ECM cones on the map** | Not a menu entry - drawn over the map whenever a set is aimed |
 | Salvo deconfliction | **Engage** (it is about who may fire, and when) |
@@ -545,6 +546,39 @@ must not be handed our picture.
 its co-op flag is the answer more often than not; then try *Datalink: resynchronise both pictures*;
 then check that both players have this build, because a picture handed over by one build and read by
 another is not a thing the game can do.
+
+## 2h. The smoke screen — `Weapons / Engage`
+
+**What it is.** One order fires the **deck decoy launchers of every hull under command at once**, so a
+salvo arriving from one bearing meets a screen of radar-reflecting cloud instead of a row of clean
+hulls.
+
+| Uses | `ObjectBase.LaunchChaff(bool)` - the game's own decoy launcher, the same lever Breakaway uses. The class of the hull's own mounts is read first, so a hull with no launcher is refused rather than reported |
+|---|---|
+| Against | Terminal **radar** and **infrared** seekers. What the chaff does to them is the game's maths, not the mod's |
+| Report | `smoke-screen.txt` - the outcome, every hull, and which of the three cases it was: no launcher in its mounts, launcher present but the call refused, or fired |
+| Refused for | A submarine (no deck launchers, and it is under water); a hull whose mounts show no launcher; any hull that is not this machine's to order |
+
+### Why this is chaff and not gun smoke
+
+The order was for **star shells** and **smoke rounds fired from deck guns**. That is not what this is,
+and the difference is not a detail:
+
+- **Rounds in this game are data, not code.** A shell is an entry under the game's `Ammunition`
+  folder, referenced by a magazine's own `Ammunition1=` line. A BepInEx plugin cannot add a shell type
+  the install does not have.
+- **The mod has no fire-at-a-point order.** Its whole firing vocabulary is *hold fire* / *weapons
+  free* (`SetWeaponStatus`) and the salvo release. Ordering a gun to put a round over a particular
+  bearing is a lever that does not exist here.
+- **A flare would still be the game's maths.** Making an illumination round brighten a target means the
+  game's own visual detection consulting a value it never stored - the same wall as signature spoofing.
+
+So the menu entry says **chaff** before you click it, and the report repeats it. A "star shell" button
+that changed nothing would be a decoration, and this mod does not ship those.
+
+**One more thing the changelog shows, which is worth knowing:** the game does model optics with a night
+term - *"very slight night vision for the 'Eyes' and 'Optics' visual sensors"*. So illumination is not
+absurd on paper. It is unreachable from a plugin, which is a different problem from being pointless.
 
 ## 3. Commercial signature spoofing — `Deception`
 

@@ -3,7 +3,7 @@
 Run this once per game version, and after any change to `HatchControl`, `HatchMenu` or the
 feature menus.
 
-Version under test: **0.29.0**. Mod id `io.github.bomberdeer22.seapoweradvanced`.
+Version under test: **0.30.0**. Mod id `io.github.bomberdeer22.seapoweradvanced`.
 
 **Read the log, do not guess.** Everything below is confirmed by two files:
 
@@ -145,6 +145,8 @@ Full description of each: [features.md](features.md). Right-click one of your sh
       click clears every armed ship - the per-ship entries all read *off* again, and each hull's
       air-search radar is back to the state it was found in. Arm two ships by hand, reopen the menu,
       and check the count says 2 of N and that one click clears both
+- [ ] **The screen fires on the whole force.** *Weapons / Engage → Smoke screen: every ship fires its decoys*. The log line names how many hulls fired and which; `smoke-screen.txt` lists every hull with one of three verdicts - no launcher in its mounts, launcher fitted but the call refused, or chaff away. If every hull reads "no launcher", that is the hulls' own data and not the mod: send the file
+- [ ] **A submarine is refused, and so is a hull with no launcher.** Neither is reported as having fired, and both are named with the reason
 - [ ] **A hull with no jammer gets no ECM entries.** Right-click a ship whose only electronic warfare
       fit is a receiver - the Huak class is one: a radar and an RWR - and there is no *Defensive ECM*,
       no *Offensive ECM* and no channel line. All it has is one entry, *ECM: no jammer on this hull -

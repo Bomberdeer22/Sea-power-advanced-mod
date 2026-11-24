@@ -9,7 +9,7 @@ An advanced mod for Sea Power: Naval Combat in the Missile Age, built as an
 Anchor Chain (https://github.com/SeaPower-Modders/AnchorChain) code mod and
 loadable as a plain BepInEx plugin.
 
-Version 0.29.0  -  the first public release: fifteen advanced features for
+Version 0.30.0  -  the first public release: sixteen advanced features for
 your own ships, plus per-cell hatch control. Everything is reached through the
 game's own right-click menus; there is no mod window and no hotkey.
 
@@ -33,7 +33,7 @@ shutters without launching a weapon.
           Close all hatches
           Log hatch report
 
-2. Fifteen advanced features, in the right-click menu
+2. Sixteen advanced features, in the right-click menu
 
 Right-click one of your ships. Each feature appears in the section of the menu
 where a player would look for it, rather than in one long submenu:
@@ -115,6 +115,17 @@ why. What it cannot do is decide what the other player's screen shows: that is
 their machine and that mod's own contact sync, and the report names the
 switches to check when the two pictures still differ. See docs/features.md
 (docs/features.md#2g-the-force-datalink--sensors-and-emcon).
+
+The smoke screen is one order in Weapons / Engage: every hull under command
+fires its own deck decoy launchers at once, so a salvo arriving from one
+bearing meets a screen of chaff rather than a row of clean hulls. It is
+deliberately described as what it is - a countermeasure screen against
+terminal radar and infrared seekers, using the game's own LaunchChaff. It is
+not gun-launched smoke and it does not blind anything optical: this game
+models no laser sensor to blind, and a mod that claimed otherwise would be
+selling a decoration. A hull with no launcher in its own mounts is refused and
+named in smoke-screen.txt. See docs/features.md (docs/features.md#2h-the-
+smoke-screen--weapons--engage).
 
 ------------------------------------------------------------------------------
 

@@ -1,5 +1,53 @@
 # Changelog
 
+## 0.30.0 - the smoke screen
+
+One order in **Weapons / Engage**: every hull under command fires its own **deck decoy launchers** at
+once, so a salvo arriving from one bearing meets a screen of chaff instead of a row of clean hulls.
+
+It uses `ObjectBase.LaunchChaff(bool)` - the lever Breakaway already uses, and the only smoke-adjacent
+call this game exposes. What the chaff does to a terminal seeker afterwards is the game's maths, not
+the mod's.
+
+### It is chaff, and the menu says so before you click
+
+The request was for **star shells** and **gun-launched smoke rounds**. Those cannot be built from a
+plugin, and the reasons are worth writing down rather than burying:
+
+- **Rounds are data in this game.** A shell is a file under `Ammunition/`, referenced by a magazine's
+  own `Ammunition1=` line. A BepInEx plugin cannot add a shell type the install does not have.
+- **There is no fire-at-a-point order.** The mod's whole firing vocabulary is *hold fire* / *weapons
+  free* and the salvo release; it has never fired for the player, by design.
+- **A flare would still be the game's maths.** The game does model optics with a night term - its own
+  changelog mentions *"very slight night vision for the 'Eyes' and 'Optics' visual sensors"* - so
+  illumination is not absurd on paper. It is unreachable: making a flare brighten a target means the
+  game's visual detection consulting a value it never stored, the same wall as signature spoofing.
+
+So the entry is named **Smoke screen: every ship fires its decoys**, the description says *"this is
+CHAFF ... it does not blind anything optical: this game models no laser or optronic sensor to blind"*,
+and `smoke-screen.txt` repeats it. A star-shell button that changed nothing would be a decoration, and
+0.29.0 removed a feature for being one.
+
+### The three cases are separated, not averaged
+
+`smoke-screen.txt` gives every hull one of three verdicts, because from the outside they all look like
+"nothing happened":
+
+| Verdict | What it means |
+|---|---|
+| **no decoy launcher in its mounts** | the hull's own data - nothing to fire. The mod will not report a decoy it does not carry |
+| **launcher fitted but the game refused the call** | `LaunchChaff` exists but did not take on this build |
+| **chaff away** | the call was made; the launchers are the game's from that point |
+
+A submarine is refused by rule (no deck launchers, and it is under water). Every refusal is named.
+
+```text
+python tools/check-source.py      :: clean: 56 file(s), ...
+python tools/check-batch.py       :: clean: 6 batch file(s), ...
+python tools/check-versions.py    :: clean: 0.30.0 in all seven places
+python tools/check-docs.py        :: clean: 7 plain-text twin(s)
+```
+
 ## 0.29.0 - the LIDAR is removed
 
 The feature is gone. Not hidden behind a setting, not disabled by default: **removed**, in one commit,
