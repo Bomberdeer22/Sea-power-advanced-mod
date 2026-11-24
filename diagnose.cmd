@@ -256,7 +256,7 @@ REM ===========================================================================
 set "MODDIR=%HERE%"
 if defined GAME if exist "!GAME!\BepInEx\plugins\SeaPowerAdvanced" set "MODDIR=!GAME!\BepInEx\plugins\SeaPowerAdvanced"
 >> "%LOG%" echo folder: !MODDIR!
-for %%F in (version.txt update.txt capabilities.txt ecm-report.txt ecm-cone.txt offensive-ecm.txt ecm-dive.txt multiplayer.txt menu-report.txt seapoweradvanced.log hatch-report.txt) do call :show_report "%%F"
+for %%F in (version.txt update.txt capabilities.txt ecm-report.txt ecm-cone.txt offensive-ecm.txt ecm-dive.txt multiplayer.txt datalink.txt smoke-screen.txt menu-report.txt seapoweradvanced.log hatch-report.txt) do call :show_report "%%F"
 rem  update.txt and uninstall-report.txt are also written next to the scripts; show
 rem  them from there when the mod folder does not have a copy.
 for %%F in (update.txt uninstall-report.txt check-batch.txt) do call :show_report_here "%%F"

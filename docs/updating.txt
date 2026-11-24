@@ -193,6 +193,34 @@ explains the version jump rather than just announcing it.
       What update.cmd does: nothing beyond the DLL
       note only
 
+  < 0.29.0
+      Release: the LIDAR is removed - the menu entries, the map overlay, the
+        infrared view, the key and every one of its settings
+      On disk: none: LidarEnabled, LidarAnyHull, LidarRangeNm, LidarSpinRpm,
+        LidarBeamDeg, LidarShade, LidarOverlay, LidarOverlayKey, LidarSeconds
+        all go
+      What update.cmd does: nothing beyond the DLL
+      if you had a hull scanning, it stops. Nothing else is affected. A
+        leftover lidar.txt in the mod folder can be deleted
+
+  < 0.25.0
+      Release: new: the force datalink between a co-op host and guest. In a
+        mission with a side per player the two pictures are joined: contacts
+        this force holds are handed to the other, position only
+      On disk: a new setting appears with its default (CoopDatalink true,
+        CoopDatalinkSeconds 3)
+      What update.cmd does: nothing beyond the DLL
+      update.cmd says so. Nothing is shared in a PvP session, and nothing
+        outside one - the switch is in Sensors and EMCON -> Datalink
+
+  < 0.24.2
+      Release: Defensive ECM for the whole task force is a switch: the same
+        entry disarms
+      On disk: nothing - all in the DLL, and no setting changes meaning
+      What update.cmd does: nothing beyond the DLL
+      update.cmd says so. A force left armed for defensive ECM stays armed -
+        the new entry will read on for N of M and clears it in one click
+
   every release
       Release: -
       On disk: SeaPowerAdvanced.dll, _info.ini

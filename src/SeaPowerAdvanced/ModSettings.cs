@@ -2,6 +2,7 @@ using System;
 using System.IO;
 using BepInEx;
 using BepInEx.Configuration;
+using UnityEngine;
 
 namespace SeaPowerAdvanced;
 
@@ -32,6 +33,8 @@ internal static class ModSettings
     private static ConfigEntry<int>? ecmJamChannels;
     private static ConfigEntry<float>? ecmJamHoldSeconds;
     private static ConfigEntry<float>? ecmJamRecoverySeconds;
+    private static ConfigEntry<bool>? coopDatalink;
+    private static ConfigEntry<float>? coopDatalinkSeconds;
 
     internal static bool Enabled => enabled?.Value ?? true;
     internal static bool IncludeGuns => includeGuns?.Value ?? false;
@@ -42,6 +45,20 @@ internal static class ModSettings
 
     /// <summary>Master switch for the menu features (hatch control is unaffected).</summary>
     internal static bool FeaturesEnabled => featuresEnabled?.Value ?? true;
+
+    /// <summary>
+    /// Hand this force's contact picture to the other player's force in a co-op session.
+    ///
+    /// On by default, because the gap it fills is one a mission with a side per player creates
+    /// without anybody asking for it, and the player who notices is the one who cannot see what
+    /// their friend can. It does nothing at all outside a co-op session - the multiplayer mod's
+    /// own co-op flag is required - and it never passes identity, only a position.
+    /// </summary>
+    internal static bool CoopDatalink => coopDatalink?.Value ?? true;
+
+    /// <summary>Seconds between datalink sweeps (1-30). Three is inside the ten-second life of an
+    /// air track, so a track the other force is given does not flicker while it is still true.</summary>
+    internal static float CoopDatalinkSeconds => coopDatalinkSeconds?.Value ?? 3f;
 
     /// <summary>Seconds between radar blink flips. Short enough to see in a test mission.</summary>
     internal static float BlinkSeconds => blinkSeconds?.Value ?? 6f;
@@ -278,6 +295,18 @@ internal static class ModSettings
 
             salvoSpacingSeconds = file.Bind("Features", "SalvoSpacingSeconds", 8f,
                 "Seconds between ships being released to fire in a deconflicted salvo (1-60).");
+
+            coopDatalink = file.Bind("Features", "CoopDatalink", true,
+                "Hand this force's contact picture to the other player's force in a co-op "
+                + "session, through the game's own intel-sharing call. Only in a session the "
+                + "multiplayer mod considers co-op, only to a force that is not flying a contact "
+                + "in our own picture, and position only - never an identity. This is what makes "
+                + "a mission with a side per player behave like one shared picture.");
+
+            coopDatalinkSeconds = file.Bind("Features", "CoopDatalinkSeconds", 3f,
+                "Seconds between datalink sweeps (1-30). An air track only lives about ten "
+                + "seconds without a refresh, so a longer gap lets the far side's picture "
+                + "flicker.");
 
         }
         catch (Exception error)

@@ -3,7 +3,7 @@
 Run this once per game version, and after any change to `HatchControl`, `HatchMenu` or the
 feature menus.
 
-Version under test: **0.24.1**. Mod id `io.github.bomberdeer22.seapoweradvanced`.
+Version under test: **0.30.0**. Mod id `io.github.bomberdeer22.seapoweradvanced`.
 
 **Read the log, do not guess.** Everything below is confirmed by two files:
 
@@ -127,8 +127,26 @@ Full description of each: [features.md](features.md). Right-click one of your sh
 - [ ] **Countermeasures → Auto-ARM shutoff** goes dark when a missile is inbound, then recovers
 - [ ] **Sensors → Defensive ECM: ... - click to arm** arms one ship; the label then reads
       *armed, waiting for a vampire*
-- [ ] **Sensors → Defensive ECM for the whole task force** arms every ship at once, and the report
-      names any ship it skipped because its sensor fit could not be read
+- [ ] **Sensors → Defensive ECM: task force off - click to arm N ship(s)** arms every ship at once,
+      and the report names any ship it skipped because its sensor fit could not be read
+- [ ] **Datalink, in a co-op session with a side per player.** Put the host on Blue and the guest
+      on Cyan, the two sides friendly and both hostile to Red, and check *Sensors and EMCON →
+      Datalink* on the host: the label reads *Datalink: on, sharing N track(s)* once both players
+      hold contacts. `datalink.txt` lists both forces, the tracks each holds, and how many of the
+      host's own tracks are detected here rather than received
+- [ ] **A force we are plotting as a contact is never shared with.** In the same session, look at
+      `datalink.txt`: the Red force must be listed as refused, with the reason naming a unit we are
+      plotting. If Red appears as shared with, that is a bug - send the file
+- [ ] **A PvP session shares nothing.** Turn the multiplayer mod's own PvP setting on and load the
+      same mission: *Datalink* says the co-op flag is off and names the switch, and no track is
+      handed over. `datalink.txt` records the flag and the CfgPvP / CfgContactSync settings
+- [ ] **The same entry clicked again stands the force down.** After arming, reopen *Sensors → ECM* on
+      any ship: the entry now reads *on for N of M ship(s) - click to disarm the task force*, and one
+      click clears every armed ship - the per-ship entries all read *off* again, and each hull's
+      air-search radar is back to the state it was found in. Arm two ships by hand, reopen the menu,
+      and check the count says 2 of N and that one click clears both
+- [ ] **The screen fires on the whole force.** *Weapons / Engage → Smoke screen: every ship fires its decoys*. The log line names how many hulls fired and which; `smoke-screen.txt` lists every hull with one of three verdicts - no launcher in its mounts, launcher fitted but the call refused, or chaff away. If every hull reads "no launcher", that is the hulls' own data and not the mod: send the file
+- [ ] **A submarine is refused, and so is a hull with no launcher.** Neither is reported as having fired, and both are named with the reason
 - [ ] **A hull with no jammer gets no ECM entries.** Right-click a ship whose only electronic warfare
       fit is a receiver - the Huak class is one: a radar and an RWR - and there is no *Defensive ECM*,
       no *Offensive ECM* and no channel line. All it has is one entry, *ECM: no jammer on this hull -
@@ -313,8 +331,9 @@ mod folder is the file that answers everything below.
 - [ ] **Commercial disguise** on a client says `signature left to the host` and still sends the
       radars and the telegraph
 - [ ] **Neither client arms the other's ECM.** In a co-op session with ships split between the two
-      players: on client A, *Defensive ECM for the whole task force* reports `N left alone: not this
-      machine's to command`, and player B's ships do **not** start radiating or jamming. Right-click
+      players: on client A the *Defensive ECM* entries are refused - the whole-task-force switch is
+      not offered there at all, and the one line that is says the host runs missile defence - so
+      player B's ships do **not** start radiating or jamming. Right-click
       one of B's ships on A's screen and the ECM submenu holds one line, *this ship is not this
       machine's to command*, with no switches in it
 - [ ] **Contact menu jam picks only your own ship**: with the nearest ECM hull belonging to the other

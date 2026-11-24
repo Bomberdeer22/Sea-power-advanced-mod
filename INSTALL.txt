@@ -204,13 +204,13 @@ Two things to look at.
 
 1. BepInEx's plugin list, near the top of BepInEx\LogOutput.log. It must say:
 
-    [Info   :   BepInEx] Loading [Sea Power Advanced 0.24.1]
+    [Info   :   BepInEx] Loading [Sea Power Advanced 0.30.0]
 
 2. The mod's own log, BepInEx\plugins\SeaPowerAdvanced\seapoweradvanced.log.
 This file only exists if the code actually ran, which makes "did it load?"
 unambiguous:
 
-    ================ Sea Power Advanced 0.24.1 ================
+    ================ Sea Power Advanced 0.30.0 ================
     Entry point:  BepInEx plugin
     Settings: enabled=True includeGuns=False allowEnemyUnits=False showWhenNoMounts=True
     Patched MapUnitViewModel.GetContextMenuItems.
@@ -261,6 +261,17 @@ Useful to know:
 
 UPDATING
 --------
+
+Before you blame the code: which folder are you building?
+
+build.cmd prints its version and commit in the first five lines, and warns if
+another copy of this project is sitting next to it. If those two versions
+differ, you are building the older one - a second download produces a folder
+name like ...-mod-arena-f334fa73-sea-power-advanced-mod-2, and its build.cmd
+looks identical.
+
+Two identical error lists on two different days, with the same line numbers,
+is almost always this. Delete the older folder rather than keeping both.
 
 Double-click update.cmd. It reads the version that is already in the game
 folder, compares it with the version in this folder, and does only what that

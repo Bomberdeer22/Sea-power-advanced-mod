@@ -307,6 +307,14 @@ call :ver_lt "!INSTALLED!" "0.24.0"
 if defined VLT call :note "0.24.0 - Sensors is grouped into two submenus instead of twenty-odd entries, and the multiplayer client paths are declared and self-reporting. No files: all in the DLL."
 call :ver_lt "!INSTALLED!" "0.24.1"
 if defined VLT call :note "0.24.1 - build fix: the DLL released as 0.24.0 did not compile (a missing using in Multiplayer.cs). No files: all in the DLL."
+call :ver_lt "!INSTALLED!" "0.24.2"
+if defined VLT call :note "0.24.2 - the whole-task-force defensive ECM entry is a switch: click it again to stand the force down. No files: all in the DLL."
+call :ver_lt "!INSTALLED!" "0.25.0"
+if defined VLT call :note "0.25.0 - the force datalink: in a co-op session, contacts this force holds are handed to the other player's force. A new setting appears (CoopDatalink, on). No files: all in the DLL."
+call :ver_lt "!INSTALLED!" "0.30.0"
+if defined VLT call :note "0.30.0 - new: the smoke screen. Weapons/Engage > Smoke screen fires every hull's own deck decoy launchers at once, so a salvo arriving from one bearing meets a screen instead of a row of clean hulls. This is CHAFF against terminal radar and IR seekers - NOT gun-launched smoke, and it does not blind anything optical (this game models no laser sensor to blind). Hulls with no launcher are refused and named in smoke-screen.txt. No files: all in the DLL."
+call :ver_lt "!INSTALLED!" "0.29.0"
+if defined VLT call :note "0.29.0 - the LIDAR is gone. It could not be made to work reliably: a laser that only confirms contacts the force ALREADY holds is not a sensor, it is a harder way to read a picture you already have, and every version of it cost a build. Removed whole - the menu entries, the map overlay, the infrared view, the key and every one of its settings. Nothing else is affected. No files: all in the DLL. Any lidar.txt already in the mod folder is now just a leftover and can be deleted."
 exit /b 0
 
 :mig_dive_limits
@@ -423,6 +431,14 @@ call :ver_lt "!INSTALLED!" "0.24.0"
 if defined VLT call :say "0.24.0  the Sensors menu is two submenus instead of a long list, and every multiplayer client path now states what it does and records whether it was tried"
 call :ver_lt "!INSTALLED!" "0.24.1"
 if defined VLT call :say "0.24.1  build fix - the 0.24.0 DLL did not compile; replace it with this one"
+call :ver_lt "!INSTALLED!" "0.24.2"
+if defined VLT call :say "0.24.2  defensive ECM for the whole task force is a switch now: click it again to stand the force down"
+call :ver_lt "!INSTALLED!" "0.25.0"
+if defined VLT call :say "0.25.0  new: the force datalink. In a co-op session, contacts your force holds are handed to the other player's force; datalink.txt says what was shared"
+call :ver_lt "!INSTALLED!" "0.30.0"
+if defined VLT call :say "0.30.0  new: the smoke screen - every hull fires its own deck decoy launchers at once. Chaff, not gun smoke; it does not blind anything optical"
+call :ver_lt "!INSTALLED!" "0.29.0"
+if defined VLT call :say "0.29.0  the LIDAR has been removed entirely - the menu entries, the map overlay, the infrared view and all of its settings"
 exit /b 0
 
 

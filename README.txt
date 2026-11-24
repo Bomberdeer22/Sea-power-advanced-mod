@@ -9,7 +9,7 @@ An advanced mod for Sea Power: Naval Combat in the Missile Age, built as an
 Anchor Chain (https://github.com/SeaPower-Modders/AnchorChain) code mod and
 loadable as a plain BepInEx plugin.
 
-Version 0.24.1  -  the first public release: fourteen advanced features for
+Version 0.30.0  -  the first public release: sixteen advanced features for
 your own ships, plus per-cell hatch control. Everything is reached through the
 game's own right-click menus; there is no mod window and no hotkey.
 
@@ -33,7 +33,7 @@ shutters without launching a weapon.
           Close all hatches
           Log hatch report
 
-2. Fourteen advanced features, in the right-click menu
+2. Sixteen advanced features, in the right-click menu
 
 Right-click one of your ships. Each feature appears in the section of the menu
 where a player would look for it, rather than in one long submenu:
@@ -65,25 +65,26 @@ Every entry that is a toggle shows its current state in the label, and every
 one reports what happened through the game's own order-feedback text as well
 as the log.
 
-Defensive ECM arms itself. Arm it on a ship (or on the whole task force) and
-its jammer comes up automatically the moment a vampire is in the air -
-pointing at the missile itself and holding the lock, at the price of radiating
-air search while it works, because a jammer needs a fire-control quality
-bearing to know where to point. It stands down six seconds after the sky is
-clear and puts the radar back as it found it. What it cannot promise is that
-the missile misses - that is the game's own jamming model, not the mod's - but
-inside ten miles it does two more things: it breaks the weapon's guidance link
-the way the game itself does, and flies it into the water over a planned 2.5
-to 20 seconds with the nose stopping at ninety degrees - using the flight
-model's own numbers, its orientation and velocity vector, not a dragged model.
-At the waterline the game's own water-dip path removes it. It is limited the
-way a real ship is - three guidance channels, two seconds between engagements,
-one second to react, and radar seekers only, because jamming cannot blind a
-heat seeker - and all four are settings, documented in docs/features.md under
-"Making it less powerful". Nothing in the feature nulls a reference, destroys
-a weapon, or sets a warhead off; ecm-report.txt and ecm-dive.txt say exactly
-which members your install exposes and what the mod does with them, down to
-the weapon type's whole member list.
+Defensive ECM arms itself. Arm it on a ship, or for the whole task force from
+one entry that is a switch - click it again and every armed ship in the force
+stands down at once - and its jammer comes up automatically the moment a
+vampire is in the air - pointing at the missile itself and holding the lock,
+at the price of radiating air search while it works, because a jammer needs a
+fire-control quality bearing to know where to point. It stands down six
+seconds after the sky is clear and puts the radar back as it found it. What it
+cannot promise is that the missile misses - that is the game's own jamming
+model, not the mod's - but inside ten miles it does two more things: it breaks
+the weapon's guidance link the way the game itself does, and flies it into the
+water over a planned 2.5 to 20 seconds with the nose stopping at ninety
+degrees - using the flight model's own numbers, its orientation and velocity
+vector, not a dragged model. At the waterline the game's own water-dip path
+removes it. It is limited the way a real ship is - three guidance channels,
+two seconds between engagements, one second to react, and radar seekers only,
+because jamming cannot blind a heat seeker - and all four are settings,
+documented in docs/features.md under "Making it less powerful". Nothing in the
+feature nulls a reference, destroys a weapon, or sets a warhead off; ecm-
+report.txt and ecm-dive.txt say exactly which members your install exposes and
+what the mod does with them, down to the weapon type's whole member list.
 
 Offensive ECM is the deliberate half. Right-click an enemy contact -> Jam with
 ECM and the nearest of your ships that carries a jammer points it at that
@@ -100,33 +101,31 @@ for fifteen seconds before it can be held down again. Both are settings
 in the menu before you click. The game's own jam keeps running on every lock
 whether or not it has a channel.
 
-Multiplayer
+The force datalink is the one built for co-op. A mission with a side per
+player - Blue for the host, Cyan for the guest, the two friendly - has two
+task forces, and every contact picture in this game belongs to one of them, so
+the two players can genuinely see different things: "I could see it and he
+could not." With the datalink on, each contact a force holds is handed to the
+other through the game's own intel-sharing call, position only - never an
+identity, a class or an identification - and never to a force we are plotting
+as a contact. It runs only in a session the multiplayer mod considers co-op,
+it re-reads the other force's table after every sweep to check the tracks
+actually arrived, and datalink.txt says what was shared, what was refused and
+why. What it cannot do is decide what the other player's screen shows: that is
+their machine and that mod's own contact sync, and the report names the
+switches to check when the two pictures still differ. See docs/features.md
+(docs/features.md#2g-the-force-datalink--sensors-and-emcon).
 
-Works with the community multiplayer mod (SeapowerMultiplayer), host or
-client, and is unchanged without it. Every feature has one stated route into
-the simulation - an order the session forwards, a call on the game's own
-object, a read, or a write only the host may make - and what a client gets
-follows from that route rather than from a guess. multiplayer.txt in the mod
-folder prints that table, says which side of the session this machine is on,
-and - the honest part - counts how many of the paths have actually been tried
-this session, because only a client can prove one.
-
-"Virus detected" when downloading the zip? It is a false positive, and it was
-mine: an earlier archive carried one compiled test fixture. It is gone as of
-0.24.1, and the repository now holds no binaries at all - every file is text
-you can open in Notepad. See the install guide (INSTALL.md#if-your-browser-or-
-antivirus-refuses-the-download) for what the tools do, and how to get the
-files another way.
-
-Something not working? Run diagnose.cmd  -  one double-click, one text file to
-send. Then open an issue here and attach it; the bug report template
-(.github/ISSUE_TEMPLATE/bug_report.md) lists the report files and what each
-one answers, so a report can be acted on rather than guessed at.
-
-Plain-text copies are included for every document a player might open in
-Notepad - this file (README.txt), the install guide (INSTALL.txt), and the
-player-facing documents in docs/ - each .txt next to its .md, kept in step by
-a check that runs on every push.
+The smoke screen is one order in Weapons / Engage: every hull under command
+fires its own deck decoy launchers at once, so a salvo arriving from one
+bearing meets a screen of chaff rather than a row of clean hulls. It is
+deliberately described as what it is - a countermeasure screen against
+terminal radar and infrared seekers, using the game's own LaunchChaff. It is
+not gun-launched smoke and it does not blind anything optical: this game
+models no laser sensor to blind, and a mod that claimed otherwise would be
+selling a decoration. A hull with no launcher in its own mounts is refused and
+named in smoke-screen.txt. See docs/features.md (docs/features.md#2h-the-
+smoke-screen--weapons--engage).
 
 ------------------------------------------------------------------------------
 
@@ -625,7 +624,10 @@ ROADMAP
 -------
 
   * [x] Open and close individual silo hatches without launching
-  * [x] The fourteen advanced features, each in the game's own menu section
+  * [x] The fourteen original advanced features, each in the game's own menu
+    section
+  * [x] Defensive ECM, offensive ECM in two modes, the force datalink a co-op
+    pair needs, and the laser rangefinder
   * [x] Defensive ECM that jams a missile and flies it into the sea
   * [x] Offensive ECM through the game's own jam order, on unidentified
     contacts

@@ -1,5 +1,594 @@
 # Changelog
 
+## 0.30.0 - the smoke screen
+
+One order in **Weapons / Engage**: every hull under command fires its own **deck decoy launchers** at
+once, so a salvo arriving from one bearing meets a screen of chaff instead of a row of clean hulls.
+
+It uses `ObjectBase.LaunchChaff(bool)` - the lever Breakaway already uses, and the only smoke-adjacent
+call this game exposes. What the chaff does to a terminal seeker afterwards is the game's maths, not
+the mod's.
+
+### It is chaff, and the menu says so before you click
+
+The request was for **star shells** and **gun-launched smoke rounds**. Those cannot be built from a
+plugin, and the reasons are worth writing down rather than burying:
+
+- **Rounds are data in this game.** A shell is a file under `Ammunition/`, referenced by a magazine's
+  own `Ammunition1=` line. A BepInEx plugin cannot add a shell type the install does not have.
+- **There is no fire-at-a-point order.** The mod's whole firing vocabulary is *hold fire* / *weapons
+  free* and the salvo release; it has never fired for the player, by design.
+- **A flare would still be the game's maths.** The game does model optics with a night term - its own
+  changelog mentions *"very slight night vision for the 'Eyes' and 'Optics' visual sensors"* - so
+  illumination is not absurd on paper. It is unreachable: making a flare brighten a target means the
+  game's visual detection consulting a value it never stored, the same wall as signature spoofing.
+
+So the entry is named **Smoke screen: every ship fires its decoys**, the description says *"this is
+CHAFF ... it does not blind anything optical: this game models no laser or optronic sensor to blind"*,
+and `smoke-screen.txt` repeats it. A star-shell button that changed nothing would be a decoration, and
+0.29.0 removed a feature for being one.
+
+### The three cases are separated, not averaged
+
+`smoke-screen.txt` gives every hull one of three verdicts, because from the outside they all look like
+"nothing happened":
+
+| Verdict | What it means |
+|---|---|
+| **no decoy launcher in its mounts** | the hull's own data - nothing to fire. The mod will not report a decoy it does not carry |
+| **launcher fitted but the game refused the call** | `LaunchChaff` exists but did not take on this build |
+| **chaff away** | the call was made; the launchers are the game's from that point |
+
+A submarine is refused by rule (no deck launchers, and it is under water). Every refusal is named.
+
+```text
+python tools/check-source.py      :: clean: 56 file(s), ...
+python tools/check-batch.py       :: clean: 6 batch file(s), ...
+python tools/check-versions.py    :: clean: 0.30.0 in all seven places
+python tools/check-docs.py        :: clean: 7 plain-text twin(s)
+```
+
+## 0.29.0 - the LIDAR is removed
+
+The feature is gone. Not hidden behind a setting, not disabled by default: **removed**, in one commit,
+so there is no half-working code left to load, draw, tick or explain.
+
+### Why
+
+The idea was a laser rangefinder that would let a ship with every radar silent still fix a contact. It
+could not be made honest. Sea Power has no optical or laser sensor to hook into - the families a hull's
+parameter block holds are radar, sonar, ESM/RWR and ECM - so the only lever is the game's own reveal
+call, and the rule that kept it from being a wallhack was that **it could only ever confirm a contact
+the force already had**. Which leaves a sensor that tells you where something is *that you have
+already been told about*. That is not a sensor. It is a harder way to read a picture you can already
+see, and everything built on top of it inherited that.
+
+The rest was cost: five releases (0.26.0 to 0.28.1), three of them entirely build fixes, and two rounds
+of "I turned it on and there is nothing on the map". The honest reading is that the feature was never
+going to earn what it kept spending.
+
+### What went
+
+| Removed | Was |
+|---|---|
+| `Features/Lidar.cs`, `Interop/LidarControl.cs`, `UI/LidarOverlay.cs` | the scanner, its fit detection, its report and the map overlay |
+| Nine settings | `LidarEnabled`, `LidarAnyHull`, `LidarRangeNm`, `LidarSpinRpm`, `LidarBeamDeg`, `LidarShade`, `LidarOverlay`, `LidarOverlayKey`, `LidarSeconds` |
+| The Sensors entries | the start/stop order, the lookouts report, the two view toggles and the "nothing on the map?" check |
+| `F10` | the overlay key |
+| `lidar.txt` | the report |
+| `UnitRecord` fields | `Lidar`, `LidarBearing`, `LidarSpun`, `LidarSighted` |
+| The `MapProjection` additions | `TryCameraScreen`, `Calibrate`, `AnchorScreenPoint`, `UnitName`, `ScaleText` - all five existed only for the LIDAR |
+
+**Not removed:** `MapProjection` itself, and the ECM cones that use it. That capability came before the
+LIDAR and stays; the file is back to its 0.26.2 state. Nor is anything else touched - the datalink,
+the two ECM features, the dive limits, the hatches and the rest are exactly as they were.
+
+### The gates stay
+
+The rules added while chasing this feature are general and are staying, because none of them was about
+the LIDAR:
+
+- members named after a type the file uses (CS0119);
+- a nested type shadowing an enclosing method at a different arity (CS1501);
+- `MemberInfo` used with `FieldInfo`-only members (CS1061);
+- a `ConfigEntry` declared and never bound (CS0649);
+- game members a build has disproved (`getUnitName`) and assemblies this project does not have
+  (`UnityEngine.UI`) - CS1061 and CS0234;
+- a possible-null argument taken from a dictionary being walked (CS8604);
+- a key read only through `Input.GetKey*`, which throws on a build running the Input System only.
+
+```text
+python tools/check-source.py      :: clean: 55 file(s), ...
+python tools/check-batch.py       :: clean: 6 batch file(s), ...
+python tools/check-versions.py    :: clean: 0.29.0 in all seven places
+python tools/check-docs.py        :: clean: 7 plain-text twin(s)
+```
+
+## 0.28.1 - the calibration reading compiles
+
+**0.28.0 did not build.** Four errors, all of them in the one new file that was written last and
+checked least, and every one of them avoidable:
+
+| Error | Cause | Fix |
+|---|---|---|
+| **CS1061** ×2, `'ObjectBase' does not contain a definition for 'getUnitName'` | I invented the name by pattern. The game has **`getName()`** and `DisplayNameShort`, and `HatchControl` has read hull names that way since the first release | read it the same way |
+| **CS0234** ×2, `'Text' does not exist in the namespace 'UnityEngine.UI'` | `UnityEngine.UI` is a **package**, not part of `UnityEngine.dll`. It is not referenced here, and referencing it to satisfy the compiler would produce a DLL that fails to load on an install without that package | anchor on the scene instead |
+
+**The label anchor is now something that needs no reference at all.** The calibration wanted an
+independent screen position for a hull to compare the projection against, and reached for the game's
+interface label. It now looks for a scene object with that hull's exact name and uses its position -
+and when there is none, the reading says so rather than inventing an anchor. A wrong anchor is worse
+than no anchor: it would send a report chasing a difference that is not there.
+
+**CS8604 fixed properly this time.** The warning was on `Recovering.Remove(entry.Key)` inside a catch
+block. 0.27.1 guarded the two calls in the body and left that one, so the next build reported the same
+warning from a different line. The rule now guards every key taken from a dictionary being walked, and
+that turned up **two more of the same shape** in the same file, both of which would have been the next
+warning.
+
+### One addition while the file was open
+
+**`Features/LidarShade`** (0.72) sets how dark the overlay view is, from 0 to 1. A fixed darkness is
+a guess about somebody else's monitor and somebody else's map colours, and at **0** the same code
+gives a "beams only, nothing dimmed" mode for free. The vignette fades with it, so 0 means no black
+bars either.
+
+### Three gate rules, each proved against the mistake
+
+- **`ABSENT_GAME_MEMBERS`** - names the game's types have been *proven* not to have, with what to use
+  instead. `getUnitName` is the first entry. This is deliberately not a list of the game's API: that
+  list cannot be written correctly from here, and a wrong list fails clean builds. It is a list of
+  things a build has already disproved.
+- **`NOT_REFERENCED`** - namespaces whose assemblies this project does not reference, so
+  `UnityEngine.UI.Text` is caught by name rather than by a build.
+- **possible-null arguments** - `SomeMap.Remove(entry.Key)` while walking `SomeMap` (CS8604).
+
+Each was tested by putting the original mistake back and watching it fire, then removing it again.
+
+```text
+python tools/check-source.py      :: clean: 58 file(s), ...
+python tools/check-batch.py       :: clean: 6 batch file(s), ...
+python tools/check-versions.py    :: clean: 0.28.1 in all seven places
+python tools/check-docs.py        :: clean: 7 plain-text twin(s)
+```
+
+## 0.28.0 - you can see the LIDAR now
+
+**The beam is drawn whether or not it has found anything.** That was the whole complaint, and it was
+right: 0.27.0 only lit the beam once the set was holding a contact, and a rotating scanner that is
+looking at empty sea - which is most of the time - drew a line you could barely see on a map drawn in
+map colours. So the overlay view is now dark.
+
+### The overlay view
+
+By default the map is drawn under a dark green tint with a vignette, and the scanner is the light:
+
+- **a glow at the emitter**, with a ring, so the ship carrying the set is findable instantly;
+- **a beam to the far edge of the range** - 15 nm - with a wider fainter glow underneath it, because a
+  hairline on a map is invisible and a 3-pixel line with a halo is not;
+- **a fading trail** behind the head, thinning as it goes, so the thing reads as *turning* rather than
+  as a line that happens to be there;
+- **the range ring**, with the two beam-edge spokes so a 6-degree beam looks narrower than a 30-degree
+  one;
+- **the numbers on the hull**, next to it: `15 nm, 12 rpm, beam 6 deg`, so the screen agrees with the
+  config file;
+- **a soft dot** at the far end when the beam is holding something, with that contact named.
+
+F10 (or the menu entry) flips to the **infrared view**: the game's own map, undarkened, with the beams
+bright over it. That is the view for when the point is the game's picture rather than the scanner.
+
+`LidarOverlay` off still turns the drawing off, but the key now works from the interface event as well
+as from `Input`, so it functions on builds running the new Input System only - where reading `Input`
+throws and the key otherwise does nothing at all.
+
+### If the map is still empty: one entry that answers it
+
+`Sensors > LIDAR: nothing on the map? - click to check why` tests the four ways this can happen and
+says which one it is, in one sentence:
+
+1. the feature is off in the settings, or the scanner is off in the settings;
+2. **no ship has the order** - the commonest by far, and the one a person cannot tell apart from a
+   broken overlay;
+3. the map cannot be projected on this build at all;
+4. **the beams are being drawn off screen** - which looks exactly like 1 to 3.
+
+That fourth one is the reason this release exists beyond the darkening. The projection arithmetic
+comes from the game's own tile grid and can be exactly right about world space while landing in the
+wrong place on screen, because which camera draws the map is a choice the mod has to make and cannot
+verify offline. An overlay offset by half a screen is invisible as a bug and obvious as a number. So:
+
+- the first beam drawn writes a **calibration reading** into `lidar.txt`: a known position, where the
+  projection puts it on screen and in interface coordinates, whether that is inside the visible
+  screen, the camera chosen, every camera available, the interface scale, and - when the game is
+  drawing that hull's label - where the game itself puts it, with the **difference in pixels**.
+- the reading is logged once and written to the file by the ticker, not during the draw.
+
+If the beams are on screen but somewhere unexpected, that block is the thing to send back. It answers
+"where does the mod think the ship is" with arithmetic instead of a screenshot.
+
+Nothing else changed. The scanner still confirms only contacts the force's picture already holds,
+still reports position only, still switches no radar on or off, still refuses submarines, and still
+writes down what each hull's own sensor list actually contains.
+
+```text
+python tools/check-source.py      :: clean: 58 file(s), ...
+python tools/check-batch.py       :: clean: 6 batch file(s), ...
+python tools/check-versions.py    :: clean: 0.28.0 in all seven places
+python tools/check-docs.py        :: clean: 7 plain-text twin(s)
+```
+
+## 0.27.1 - build fix: 0.27.0 would not compile
+
+**0.27.0 failed to compile**, with sixteen errors. Every one was real, none was in the feature's logic,
+and they are listed here because the way they got through matters more than the errors themselves.
+
+| Error | Cause | Fix |
+|---|---|---|
+| **CS0119**, many times: `'LidarOverlay.Screen(GeoPosition)' is a method, which is not valid in the given context` | A helper method named **`Screen`** hid `UnityEngine.Screen`, so every `Screen.width` and `Screen.height` in the file stopped resolving | renamed `OnScreen` |
+| **CS1061**, `GeoPosition does not contain a definition for 'Height'` | `GeoPosition` is `(latitude, longitude, height)` and this build exposes no `Height` property | pass `0` |
+| **CS1501**, `No overload for method 'Add' takes 2 arguments` | A nested class declared `Add(unit)`, which hid the enclosing type's `Add(list, item)` from every call inside it | renamed `Track` / `TrackLocal` / `TrackUnknown`, called through the class |
+| **CS1061**, `'MemberInfo' does not contain a definition for 'GetValue'` | `typeof(Globals).GetField(...)` returns a **`FieldInfo`**, held in a `MemberInfo` | declared as `FieldInfo` |
+| **CS0649**, `ModSettings.lidarSeconds is never assigned` | An edit removed the `file.Bind` line but not the field - the setting silently fell back to its default | bound again |
+
+**Why the gate missed them, and what changed.** `check-source.py` is a source checker, not a compiler:
+it validates namespaces, member names, UnitRecord use, scope and batch syntax, and a tree-sitter pass
+proves the files parse. None of that can see overload resolution, name hiding or definite assignment.
+So the gate grew four checks that would each have caught one of these:
+
+- **member names that hide a type the file uses** - `Screen`, `Time`, `Input`, `Color`, `Camera`,
+  `Object`, `Random`, `Mathf`, `Application`, `Debug` (catches CS0119);
+- **a nested type declaring a method the enclosing type also declares, where the nested one calls the
+  name with an argument count only the enclosing version takes** (catches CS1501);
+- **a `MemberInfo` variable used with `GetValue`/`SetValue`/`Invoke`/`IsInitOnly`**, which are on the
+  concrete reflection types only (catches CS1061);
+- **a `ConfigEntry` declared and read but never bound** (catches CS0649, and the silent default).
+
+Each check was tested by putting the original bug back and confirming it fires, then removing it
+again - a check nobody has seen fail is a check nobody knows works.
+
+### A build now says which copy of the source it is
+
+The sixteen errors above were reported twice, identically, including a line number for a field that
+had been bound in the first fix. That is impossible from one tree, and it is what a second download
+looks like: drop the source into `Downloads` twice and you get two folders whose names differ only by
+a suffix the browser adds, with the same `build.cmd` in each.
+
+So `build.cmd` states it before it compiles:
+
+```text
+============================================================
+ Sea Power Advanced - build
+============================================================
+ Folder  : C:\Users\you\Downloads\Sea-power-advanced-mod-arena-f334fa73-sea-power-advanced-mod
+ Version : 0.27.1   (commit 38c380f)
+ Action  : install
+```
+
+On a git clone the commit is real; on a plain download it says `commit unknown`, which is the honest
+answer and the cue to read the version number instead. `version.txt` gains the commit too, so the
+installed copy can be identified afterwards. And because the usual cause is two folders side by side,
+`build.cmd` looks one level up and names any other copy of this project it can see, with that copy's
+version - so if the folder being built is the older one, the log says so instead of leaving it to be
+worked out from the errors.
+
+**No behaviour changed.** The scanner, the overlay, the infrared view and the 15 nm range are exactly
+as described in 0.27.0.
+
+```text
+python tools/check-source.py      :: clean: 58 file(s), ...
+python tools/check-batch.py       :: clean: 6 batch file(s), ...
+python tools/check-versions.py    :: clean: 0.27.1 in all seven places
+python tools/check-docs.py        :: clean: 7 plain-text twin(s)
+```
+
+## 0.27.0 - the LIDAR becomes a rotating scanner you can watch
+
+Asked for in the plainest terms: *15 nm, 360 degrees, no matter what ship or sensor - a 360-degree
+rotating LIDAR placed on the ship, and an infrared layer you can flip to so you can actually see the
+beam being emitted.*
+
+**What it is now.** The set is the mod's own. Every hull under command can run it, it reaches
+**15 nm**, it covers **360 degrees**, and how it covers them is the point: **the head turns**. At
+`LidarSpinRpm` (12 rpm by default) the beam sweeps the full circle in about five seconds, and a contact
+is sighted **when the beam is on it** - not because it is nearby, not because it is inside an arc, not
+on a timer. A hull that has been left pointing at empty water reports empty water.
+
+**You can see it.** A new map overlay draws, for every ship with the scanner running:
+
+- **the spoke** - a bright line from the ship to the far edge of its range, turning at the configured
+  rate; brighter when the beam is actually holding something;
+- **the range ring** - 15 nm drawn at 15 nm, computed in the game's own coordinates and projected, so
+  it is right at every zoom level rather than a fixed number of pixels;
+- **the beam width** - two thin edge spokes at `LidarBeamDeg` (6 by default), so a tight beam looks
+  tight;
+- **a mark and a label** on whatever the beam has sighted, with the range.
+
+**The infrared view.** `F10` (`LidarOverlayKey`), or the menu entry, flips the map into a dark green
+filter with a vignette, so the spokes are the thing you see. **It is a filter over the game's own map,
+not a different sensor picture** - the mod cannot replace the game's map materials, and drawing a fake
+infrared terrain over the real one would be exactly the kind of invented sensor the rest of this mod
+refuses to build. What is real is the beam: it is a real rotating look at real contacts, and the
+overlay draws where the head is pointing.
+
+**What did not change, and will not.** A contact is still only ever sighted if **the force already
+holds it** - the scanner confirms and fixes, it does not search; position only, classification `0`,
+never an identity; no radar switched, so it works at EMCON silent; submarines still refused; a contact
+the force's own sensors already hold is still skipped; every sighting is still verified by re-reading
+the hull's table. What the hull's own data holds is still printed in `lidar.txt` as *LASER DIRECTOR*,
+*LOOKOUTS LISTED* or *LOOKOUTS ASSUMED*, because mounting a set on every ship is an assumption and the
+report says so.
+
+**Settings** (new or changed): `LidarRangeNm` **15** (was 12), `LidarSpinRpm` **12**,
+`LidarBeamDeg` **6**, `LidarOverlay` **on**, `LidarOverlayKey` **F10**, `LidarAnyHull` on,
+`LidarLookoutNm` kept (no longer limits the range - the set is the mod's - but still reported).
+
+**Retired:** `LidarArcDegrees` and `LidarLookoutNm`. A rotating set covers the circle, so the fixed
+arc was two incompatible ideas in one setting; and with the set mounted on every hull and reaching the
+same 15 nm, a separate lookouts range no longer limited anything. A setting that does nothing is worse
+than no setting - the hull's real fit is still reported in `lidar.txt`, it just no longer scores the
+range.
+
+```text
+python tools/check-source.py      :: clean: 58 file(s), ...
+python tools/check-batch.py       :: clean: 6 batch file(s), ...
+python tools/check-versions.py    :: clean: 0.27.0 in all seven places
+python tools/check-docs.py        :: clean: 7 plain-text twin(s)
+```
+
+## 0.26.2 - every ship may look; the reach still depends on what it has
+
+Asked as a question and answered as one: *what if we didn't lock the LIDAR to a specific sensor and
+allowed it for all ships?* The honest answer was that the sensor gate was never what kept this feature
+honest. The guard is - and always was - **a sighting is only ever a contact the force already holds**.
+Locking the fit only added a case where a hull with perfectly good lookouts was refused because its
+parameter block did not spell them out.
+
+**So the gate is now a setting, on by default.** `LidarAnyHull = true` offers the order on every hull
+under command. Set it to `false` and the old behaviour returns exactly: only a hull whose own sensor
+list names lookouts (`Eyes` ...) or a laser director may look.
+
+**What did not move an inch:**
+
+- still only contacts **the force already holds**; nothing is ever searched for;
+- still **position only** - classification `0`, no side, no class, no identification;
+- still **no radar switched**, either way, so it works at EMCON silent;
+- still refused for a **submarine** - a boat at depth has no line of sight;
+- still skipped for a contact the force's **own sensors** already hold - that fix is better than a
+  reveal;
+- still verified: the hull's table is re-read and the track has to be in it.
+
+**The reach is what the fit decides, not the permission.** A laser or optronic director reaches
+`LidarRangeNm` (**12 nm**). Lookouts reach `LidarLookoutNm` (**6 nm**) - and that includes a hull whose
+data names no optical set at all, because the assumption being made is *a warship has lookouts*, not
+*a warship has an instrument*. Handing every hull the director's range would have been the actual
+overreach in this change; it is the one thing that stays tied to the hull's data.
+
+**And the assumption is said out loud.** A hull looking without an optical entry in its own data gets
+a second menu line - *Rangefinder: lookouts assumed - click for the report* - and `lidar.txt` marks
+that hull class `LOOKOUTS ASSUMED`. The menu label also carries the range it will actually get, so no
+one has to guess what the click bought.
+
+**Worth stating plainly:** this is the mod asserting something about a hull that the hull's own data
+does not say. It is a defensible assertion - lookouts are the one sensor every warship in this era
+genuinely had - but it *is* an assertion, and the feature now reports it as one instead of hiding it
+behind a silent pass.
+
+```text
+python tools/check-source.py      :: clean: 57 file(s), ...
+python tools/check-batch.py       :: clean: 6 batch file(s), ...
+python tools/check-versions.py    :: clean: 0.26.2 in all seven places
+python tools/check-docs.py        :: clean: 7 plain-text twin(s)
+```
+
+## 0.26.1 - the rangefinder looks through the lookouts, too
+
+Asked for, and the question was the correction: *does it work through their optical sensors - what the
+base game calls Eyes Mk 1?* It did not, and that was a real gap rather than a detail. **Eyes Mk 1** is
+the game's own name for a hull's visual watch - a look-out with binoculars, filed as an optical sensor
+in the hull's parameter block - and 0.26.0 only looked for a laser or optronic director. So the one
+optical sensor *every* ship carries was the one the feature refused.
+
+**What changed.** The fit is now two kinds, and the difference is range and nothing else:
+
+| Fit | Read from the hull's own sensor list | Reach |
+|---|---|---|
+| **Laser or optronic director** | `Optronic`, `Optical`, `ElectroOptical`, `Laser`, `Rangefinder`, `Designator`, `IRST`, `Infrared`, `FLIR`, `Television`, `Sight` | `LidarRangeNm` (**12 nm**) |
+| **Lookouts - Eyes Mk 1** | the word `Eyes`, matched inside the class name so `SensorSystemEyesMk1` and a spaced display name both read | `LidarLookoutNm` (**6 nm**), never more than the director's range |
+
+A man with binoculars is not an instrument, so the lookouts reach less: handing them a director's
+twelve miles would make every ship in the game a sensor the game does not have. The menu says which fit
+is being used - *Laser rangefinder: off - click to look with it (lookouts)* - and the tooltip says the
+range it will actually get.
+
+**What did not change, because it is the point of the feature.** It still only ever looks at contacts
+**the force already holds**, still writes position only (classification `0`), still switches no radar,
+still refuses a submarine, and still stops for a contact the force's own sensors already hold. The
+lookouts are an existing sensor in the game, not a licence to search.
+
+**`lidar.txt`** now labels each hull's fit *LASER DIRECTOR*, *LOOKOUTS ONLY* or *nothing to look
+through*, with the sensor families that decided it - so a hull that should be looking and is not can be
+checked in one file.
+
+**Worth knowing:** whether a given hull's `Eyes Mk 1` appears in its parameter block's sensor list is
+the game's business, not the mod's. If `lidar.txt` shows *nothing to look through* for a hull whose
+lookouts you can see in the game, send the file - the class names are printed there, and a name the
+match does not cover can be added without guessing.
+
+```text
+python tools/check-source.py      :: clean: 57 file(s), ...
+python tools/check-batch.py       :: clean: 6 batch file(s), ...
+python tools/check-versions.py    :: clean: 0.26.1 in all seven places
+python tools/check-docs.py        :: clean: 7 plain-text twin(s)
+```
+
+## 0.26.0 - the laser rangefinder: a silent look at what the force already holds
+
+Requested, and the request is worth quoting because it set the design: *a LIDAR feature*. What a
+warship's optronics give a watch team is a glass on a bearing and a range on it - and Sea Power has
+none of it. The sensor families a hull's parameter block lists are radar, sonar, ESM/RWR and ECM.
+There is no optical director, no laser rangefinder and no passive visual set in that list, so a ship
+with every radar silent is blind beyond what its ESM hears, however many optronic masts it carries.
+
+**What was built.** A hull whose own sensor list holds an optical, infrared or laser director can be
+ordered to *look* with it, from one entry in *Sensors and EMCON*. Every few seconds, for as long as the
+order stands, each contact **the force already holds** that is inside the range and inside the arc is
+put on the ship's own picture through the game's own reveal call - `Utils.RevealContactToObject`, the
+route a reconnaissance report uses. Position only, never an identity.
+
+**The rule that makes it a sight and not a wallhack.** It *never* looks for a contact the force has not
+already seen. The picture is read first; a unit that is not in it is not a candidate, not "dim", not
+"probable" - absent. That is also how the real thing works: a rangefinder is pointed on a bearing
+somebody else's picture gave you, it does not sweep the sea. Without that rule this feature would be
+the mod deciding what exists in the world, with a laser's name on it.
+
+**The limits, all real, all in the menu's tooltip before the click:**
+
+- **Range.** `LidarRangeNm`, default **12 nm**. A director is an eye with a rangefinder: the horizon,
+  not the ocean.
+- **One bearing.** `LidarArcDegrees`, default **90** - a quarter of the horizon either side of the
+  bow. The nearest eligible contact in the arc is what the beam goes on, because one hull has one
+  beam. A heading the build does not publish means the arc is not applied, and `lidar.txt` says so
+  rather than pretending the ship can only see forward.
+- **A director, or nothing.** The fit is read from the hull's **own sensor list**, by class name, and
+  the answer is positive evidence only - a matching entry, or no feature. A hull whose list cannot be
+  read is refused rather than offered a maybe. This is where the 0.24.0 Huak-class lesson is applied
+  before the fact: no fallback of "it is a surface hull, so it probably has one".
+- **Not a submarine.** A boat at depth has no line of sight, and the menu says exactly that.
+- **Nothing already detected.** If the force's own sensors are on the contact, its own fix stands; a
+  reveal writes a zero-error position and that is not an improvement, it is a different game. A track
+  the force holds only because it was handed one *is* refreshed - that is what keeps it alive.
+- **Verified.** After every look the hull's table is read again and the contact has to be in it.
+  Success is *the track appeared*, not *the call returned* - and the report says which.
+
+**`lidar.txt`** carries the truth about your install: the settings in force, the order in force on each
+hull, the last sweep's verdict per ship, and **every hull class with the sensor families its own
+parameter block holds** - so a hull refused for having no director can be checked in a file rather
+than argued about. If a class carries an optronic director under a name the mod does not recognise,
+that name will be in the file and can be added.
+
+**Not proved here.** That this build's reveal call writes onto a hull other than the one the player
+commands - the same unknown 0.25.0 lives with. `lidar.txt` answers it either way: *sighted X at 6.2 nm*
+or *revealed X but its picture did not gain it*.
+
+**Settings:** `LidarEnabled` (on), `LidarRangeNm` (**12**), `LidarArcDegrees` (**90**), `LidarSeconds`
+(**4**).
+
+```text
+python tools/check-source.py      :: clean: 57 file(s), ...
+python tools/check-batch.py       :: clean: 6 batch file(s), ...
+python tools/check-versions.py    :: clean: 0.26.0 in all seven places
+python tools/check-docs.py        :: clean: 7 plain-text twin(s)
+```
+
+## 0.25.0 - the force datalink: two players, two sides, one picture
+
+A co-op mission built with a side per player - Blue for the host, Cyan for the guest, the two marked
+friendly, both hostile to Red - has **two task forces**, and every contact picture in this game
+belongs to a task force. Each machine detects with its own sensors and writes what it found to its
+own force's table. Nothing in the game joins the two, so the host holds tracks the guest has never
+been given and the reverse: *"I could see the contact on my screen and he could not see it on his."*
+
+**This is the switch that hands one force's picture to the other.** On a sweep, every contact the
+local picture holds is given to the other force through the game's own intel-sharing call -
+`Utils.RevealContactToObject`, the route a reconnaissance report or a radio link uses. The game builds
+the track; the mod supplies only the pairing.
+
+**Three rules, and each one is a limit the feature accepts rather than works around:**
+
+- **Only tracks this machine really holds.** The source is the player's own plotting table and
+  spotted list - the same picture the offensive jammer is aimed from. A contact nobody holds is never
+  relayed, and nothing is invented to fill a gap.
+- **Position only, never identity.** The sharing call's classification argument is passed as `0`,
+  which attaches neither a side nor a class. The receiving force learns *something is there and
+  where*; whose it is, what class it is and whether anybody has identified it stay theirs to work
+  out. (The multiplayer mod's own working code documents why `1`, `2` and `3` are not used: `2` and
+  `3` attach a side, and `1`, which reads like the mildest, ends up attaching both.)
+- **Only to a force that is friendly by evidence.** A force is refused when it is the game's neutral
+  force, the game's enemy force, or a force any of whose units is currently in **our own picture as a
+  contact** - in which case we are already treating it as hostile, and handing it our picture would be
+  the opposite of a favour. The whole feature is also off unless the multiplayer mod says the session
+  is a co-op one: in a PvP session the other player is an opponent.
+
+**Nothing is claimed that was not seen.** Every sweep re-reads the receiving force's table afterwards
+and counts what is actually in it. A build whose reveal writes only to the player's own side would
+otherwise give a switch that reports success every time and changes nothing; that case is detected,
+written to `datalink.txt`, and the handing stops after three sweeps instead of pretending.
+
+**The limit, stated plainly.** This runs on the machine that calls it: it makes the picture on *this*
+machine hold what this machine's sensors hold for the allied force. What the other player's **screen**
+shows is decided on *their* machine, by their own detection and by the multiplayer mod's contact sync -
+which is the only thing that carries a contact from one computer to another. That mod shares only when
+it considers the session co-op, and **a mission with a side per player is exactly the case where it
+may decide this is PvP** and keep the two pictures apart on purpose. So the feature reads that mod's
+own switches and co-op flag, writes them to `datalink.txt`, and says which one to change - it cannot
+set them.
+
+**In the menu** - *Sensors and EMCON → Datalink*, three entries:
+
+| Entry | What it does |
+|---|---|
+| *Datalink: on, sharing N track(s) - click to stop sharing* | The switch. Off, and nothing more is handed over; the tracks already passed age out on the game's own sensor clock |
+| *Datalink: resynchronise both pictures* | Takes a sweep here and asks the multiplayer mod to re-run its own contact sweeps - the cheapest first thing to try when one side has gone stale |
+| *Datalink: what either side can see* | Writes `datalink.txt` |
+
+**Settings:** `CoopDatalink` (default **true**) and `CoopDatalinkSeconds` (default **3**, 1-30). Three
+seconds is inside the ten-second life of an air track, so a track handed over does not flicker; a track
+the receiving force detects with its own sensors is left to its own fix and never refreshed from here.
+
+`datalink.txt` records: session state and role, the multiplayer mod's co-op flag and its `CfgPvP` /
+`CfgContactSync` switches, every force on this machine with its unit count, plotting table and tracks
+held, how many of our own tracks are detected here rather than received, and the per-force result of
+the last sweep - handed, already held, or refused with the reason.
+
+```text
+python tools/check-source.py      :: clean: 55 file(s), ...
+python tools/check-batch.py       :: clean: 6 batch file(s), ...
+python tools/check-versions.py    :: clean: 0.25.0 in all seven places
+python tools/check-docs.py        :: clean: 7 plain-text twin(s)
+```
+
+Not proved here: that this build's `Utils.RevealContactToObject` writes into a force that is not the
+player's own. That is what the verification step above exists for - `datalink.txt` will say either
+"handed N, now holding N" or "its picture did not gain them", and the second answer is a limit of the
+game's call, reported rather than papered over.
+
+## 0.24.2 - the task force's defensive ECM is a switch
+
+The entry in *Sensors → ECM* read **"Defensive ECM for the whole task force"** and there was only one
+thing it could do: arm. Clicking it a second time ran the same arming path again, found everything
+already armed, changed nothing, and left the label saying what it said before. Standing the force down
+meant going into each ship in turn.
+
+It is one switch now, and it says which way it is pointing:
+
+```
+Defensive ECM: task force off - click to arm 6 ship(s)
+Defensive ECM: on for 4 of 6 ship(s) - click to disarm the task force
+Defensive ECM: task force armed (6 ship(s)) - click to disarm
+```
+
+- **The count is the click.** Both lines are built from `DefensiveEcm.FleetState()`, which counts the
+  fleet with the arming's own rule: this machine's ship, and a jammer positively found in that hull's
+  own sensor list. So the number on the label is the number of ships the click will change.
+- **Any ship armed means the next click stands the force down.** A half-armed force reads *on for 4 of
+  6* and one click clears all four, rather than arming the last two and leaving the player clicking
+  twice to get back where they started.
+- **The disarm is unconditional**, exactly as before: it does not ask the fit, so a ship armed by an
+  earlier build - or left armed with no jammer by 0.23.x - is stood down by the same click that stands
+  down the rest of the force. Each ship's radar goes back to the state it was found in.
+- **Nothing to arm says so, instead of doing nothing.** A force where no hull carries a jammer gets a
+  grey entry naming the counts: how many carry no ECM set, how many could not be read, how many are
+  not this machine's to command. That is the same rule that keeps the Huak class from being armed.
+- **The result is on screen, not only in the log.** Arm, disarm and refusal all go through the game's
+  own order feedback, and a click that changes nothing now reports
+  `nothing to do: defensive ECM was already off across the task force` rather than
+  `disarmed on 0 ship(s)`, which looked like a failure.
+- `ecm-report.txt` gained the same counts, so the state the menu is reading can be checked in a file.
+
+A multiplayer client still does not get the entry: the host simulates weapons, so missile defence is
+armed there, and the menu says so. Disarming a client side would clear a flag that the machine which
+actually runs the jam never sees.
+
 ## 0.24.1 - build fix, and an archive that downloads
 
 `Multiplayer.cs` grew a `List<ClientRule>` and a `Dictionary<string, Attempted>` in 0.24.0 and did not

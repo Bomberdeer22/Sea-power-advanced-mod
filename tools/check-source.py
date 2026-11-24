@@ -15,7 +15,13 @@ Six kinds, every one of which has cost a round trip through a real machine:
 5. An accessor is called by name, unit.get_ThreatningMissile(). CS0571, every time.
 6. A method is called by name that nothing in the project declares - a helper that was referenced
    from one place and never written. CS0103, and it reads exactly like the calls around it.
-7. A compiled executable is committed. Not a compile error at all - a distribution one. A single
+7. A member is called on a GAME type that the build has already proved absent, or a type is used
+   from a namespace whose assembly this project does not reference. CS1061 and CS0234. Both are
+   invisible to every other check here, because the game's own API is not in this repository.
+8. A possibly-null expression passed as an argument (CS8604) - a warning, which is why it survived
+   being "fixed": the first pass guarded the two calls it could see and left the one in the catch
+   block, and the next build reported the same warning from a different line.
+9. A compiled executable is committed. Not a compile error at all - a distribution one. A single
    unsigned .exe in the tree made browsers and antivirus products refuse the whole release archive
    ("couldn't download, virus detected"), so the mod never reached the people it is for.
 
@@ -150,6 +156,9 @@ PROVEN_TYPES = {
     # SeaPower, proven by a build
     "ObjectBase", "ObjectType", "GeoPosition", "WeaponSystem", "WeaponContainer",
     "CivilianRoute", "GameMain", "ObjectBaseParameters",
+    # Globals is the game's static world state: 0.24.x read Globals._playerTaskforce and shipped,
+    # and 0.25.0 reads the enemy and neutral task forces off it the same way. Proved by a build.
+    "Globals",
     # the game's UI assembly
     "ContextMenuItem", "DelegateCommand", "MapUnitViewModel", "ObjectBaseViewModel",
     "TrulyObservableCollection", "ReactiveProperty",
@@ -467,6 +476,104 @@ def undeclared_call_problems(files) -> list[str]:
 
 
 # ---------------------------------------------------------------------------------------------
+# Game members the compiler has already told us about.
+#
+# The mod calls dozens of methods on the game's own types, and nothing here knows what that build
+# declares - try to list them and the list is wrong within a release. So this is not a list of what
+# exists: it is a list of names the game's types were PROVEN not to have, by a build error, and the
+# name that replaced them. A name invented by pattern ("everything has getX") lands here the moment
+# it costs a build, and never again.
+#
+#   MapProjection.cs(207): error CS1061: 'ObjectBase' does not contain a definition for 'getUnitName'
+#   MapProjection.cs(256): error CS1061: 'ObjectBase' does not contain a definition for 'getUnitName'
+#
+# Both of those were written by the same hand, in the same file, minutes apart: the first cost nothing
+# to recognise in hindsight and everything to catch at the time.
+# ---------------------------------------------------------------------------------------------
+
+ABSENT_GAME_MEMBERS = {
+    "getUnitName": "ObjectBase has getName() and DisplayNameShort; there is no getUnitName",
+}
+
+
+# ---------------------------------------------------------------------------------------------
+# Namespaces whose assemblies this project does not reference.
+#
+# A project compiles against the assemblies it is given, and a Unity mod is given very few: the game's
+# own DLLs plus what BepInEx needs. UnityEngine.UI is a PACKAGE, not part of UnityEngine.dll, so a type
+# in it is not available just because it exists in the game's install. Reaching for one is CS0234 at
+# the reference level and, worse, adding the reference to satisfy it would produce a DLL that fails to
+# load on an install that does not carry that package.
+#
+#   MapProjection.cs(262): error CS0234: The type or namespace name 'Text' does not exist in the
+#                          namespace 'UnityEngine.UI'
+# ---------------------------------------------------------------------------------------------
+
+NOT_REFERENCED = {
+    "UnityEngine.UI": "the UI package is not referenced; draw with IMGUI (GUI.*) or use scene objects",
+    "UnityEngine.EventSystems": "the event-system package is not referenced",
+    "UnityEngine.Video": "the video module is not referenced",
+    "UnityEngine.Animations": "the animation module is not referenced",
+    "UnityEngine.AI": "the AI module is not referenced",
+    "UnityEngine.Android": "an Android-only module",
+}
+
+
+def nullable_argument_problems(files) -> list[str]:
+    """
+    A possibly-null expression passed where the call cannot take null. CS8604, which is a warning -
+    and a warning is how it survived being "fixed": the first pass guarded the two calls it could see
+    in the body and left the one in the catch block, so the next build reported the same warning from
+    a different line.
+
+    The shapes that have actually happened are `Remove(entry.Key)` on a dictionary being walked and
+    the same thing inside a catch cleaning up after a failure - the second matters more than the
+    warning suggests, because the whole reason that line runs is that something already threw.
+    """
+    problems: list[str] = []
+
+    for path in files:
+        code = strip_noise(path.read_text(encoding="utf-8"))
+        lines = code.split("\n")
+
+        for match in re.finditer(r"\b(\w+)\.Remove\(\s*([A-Za-z_]\w*)\.[A-Za-z_]\w*\s*\)", code):
+            owner, keyed = match.group(1), match.group(2)
+
+            # Only the dictionary being iterated: `foreach (var x in Y)` with `Y.Remove(x.Key)`.
+            if not re.search(rf"foreach\s*\([^)]*\bin\s+{re.escape(owner)}\b", code):
+                continue
+
+            line = code.count("\n", 0, match.start()) + 1
+            problems.append(
+                f"{path.relative_to(ROOT)}:{line}: {owner}.Remove({keyed}.<key>) - a possible-null "
+                f"argument (CS8604); hold the key in a local and test it first")
+
+    return problems
+
+
+def unreferenced_type_problems(files) -> list[str]:
+    """A type used from a namespace whose assembly is not referenced, and game members proven absent."""
+    problems: list[str] = []
+
+    for path in files:
+        code = strip_noise(path.read_text(encoding="utf-8"))
+
+        for absent, advice in ABSENT_GAME_MEMBERS.items():
+            for match in re.finditer(rf"\.{absent}\b", code):
+                line = code.count("\n", 0, match.start()) + 1
+                problems.append(
+                    f"{path.relative_to(ROOT)}:{line}: .{absent} - {advice} (CS1061)")
+
+        for space, why in NOT_REFERENCED.items():
+            for match in re.finditer(rf"\b{re.escape(space)}\.(\w+)", code):
+                line = code.count("\n", 0, match.start()) + 1
+                problems.append(
+                    f"{path.relative_to(ROOT)}:{line}: {space}.{match.group(1)} - {why} (CS0234)")
+
+    return problems
+
+
+# ---------------------------------------------------------------------------------------------
 # No executables in the tree.
 #
 # Not a compiler rule - a distribution one. 0.24.0's archive contained
@@ -509,6 +616,216 @@ SKIP_DIRS = {".git", ".github", "node_modules", "__pycache__", ".venv", "build",
 ENCODED_PE = b"TVqQ" + b"AAMAA" + b"AAE"
 
 SCRIPT_SUFFIXES = {".bat", ".cmd", ".ps1", ".vbs", ".vbe", ".js", ".jse", ".wsf", ".wsh", ".hta"}
+
+
+# A handful of names that mean something to the C# compiler even though this project never declares
+# them. A member of a mod type with one of these names hides the real thing for the whole file, and
+# the compiler says so with an error that is hard to connect to the cause: CS0119 ("'X.Screen(...)'
+# is a method, which is not valid in the given context") arrived sixteen times from one method called
+# Screen in an overlay that also draws to Screen.width.
+SHADOWED_TYPES = {
+    "Screen": "UnityEngine.Screen - every Screen.width and Screen.height in the file fails (CS0119)",
+    "Application": "UnityEngine.Application",
+    "Time": "UnityEngine.Time",
+    "Debug": "UnityEngine.Debug",
+    "Object": "System.Object",
+    "Random": "UnityEngine.Random",
+    "Camera": "UnityEngine.Camera",
+    "Input": "UnityEngine.Input",
+    "Mathf": "UnityEngine.Mathf",
+    "Color": "UnityEngine.Color",
+}
+
+
+# A member declaration: one or more modifiers, then a type, then the name. Modifiers are
+# REQUIRED - that is what stops a ternary's `? new Type(...)` from being read as a declaration.
+DECLARATION = re.compile(
+    r"^[ \t]*(?:(?:internal|private|public|protected|static|sealed|override|virtual|async|new|"
+    r"readonly|extern|unsafe|partial|volatile)[ \t]+)+"
+    r"(?:[\w.]+(?:<[^>()]*>)?(?:\[\])?\??)[ \t]+(?:([A-Za-z_]\w*)[ \t]*)?[({;=]",
+    re.M)
+
+
+def shadowing_problems(files) -> list[str]:
+    """A method or property named after a type the file also uses."""
+    problems: list[str] = []
+
+    for path in files:
+        code = strip_noise(path.read_text(encoding="utf-8"))
+
+        # Declarations only: `private static Vector2 Screen(GeoPosition ...)`, `internal bool Input`.
+        #
+        # The line has to START with a modifier. An earlier version allowed the modifiers to be
+        # optional, and then `\s*[\w<>?\[\],\s]+?\s+(\w+)\s*[({;]` matched the second half of
+        #     ? new Color(0.35f, 1f, 0.5f, ...)
+        # in a conditional - the `?` was eaten by the type part and `Color` was reported as a member
+        # hiding UnityEngine.Color. A false positive on a ternary is worse than no check, because a
+        # gate that cries wolf gets switched off.
+        for match in DECLARATION.finditer(code):
+            name = match.group(match.lastindex or 1)
+            if name not in SHADOWED_TYPES:
+                continue
+
+            line = code.count("\n", 0, match.start()) + 1
+            problems.append(
+                f"{path.relative_to(ROOT)}:{line}: a member called {name} hides "
+                f"{SHADOWED_TYPES[name]} (CS0119 the moment the file uses it)")
+
+    return problems
+
+
+def _type_bodies(code: str):
+    """Every type declaration in a file, with its body span. Brace scan, no regex nesting games."""
+    found = []
+
+    for match in re.finditer(r"\b(?:class|struct)\s+(\w+)", code):
+        # The body opens at the next '{' after the header.
+        brace = code.find("{", match.end())
+        if brace < 0:
+            continue
+
+        depth = 0
+        end = -1
+        for i in range(brace, len(code)):
+            if code[i] == "{":
+                depth += 1
+            elif code[i] == "}":
+                depth -= 1
+                if depth == 0:
+                    end = i
+                    break
+
+        if end > 0:
+            found.append((match.group(1), brace, end))
+
+    return found
+
+
+def _arities(body: str, name: str) -> set[int]:
+    """How many parameters each declaration of `name` in this body takes."""
+    found = set()
+
+    for match in re.finditer(rf"\b{name}\s*\(", body):
+        head = body[max(0, match.start() - 80):match.start()].rstrip()
+
+        # `=> ` ends with '>', which the type-word test below would take for a declaration. An
+        # expression body is the commonest shape in this project, so it is handled first.
+        if head.endswith("=>") or head.endswith("="):
+            continue
+        if not re.search(r"[\w>\]?]\s+$", head + " "):
+            continue
+
+        close = _matching(body, match.end() - 1)
+        if close < 0:
+            continue
+
+        inner = body[match.end():close].strip()
+        found.add(0 if not inner else inner.count(",") + 1)
+
+    return found
+
+
+def _call_arities(body: str, name: str) -> set[int]:
+    """How many arguments each *call* to `name` in this body passes."""
+    found = set()
+
+    for match in re.finditer(rf"\b{name}\s*\(", body):
+        head = body[max(0, match.start() - 80):match.start()].rstrip()
+        if head.endswith("=>") or head.endswith("="):
+            pass                           # an expression body: still a declaration, skipped above
+        elif re.search(r"[\w>\]?]\s+$", head + " "):
+            continue                       # a declaration, handled above
+        if head.endswith("new"):
+            continue
+
+        close = _matching(body, match.end() - 1)
+        if close < 0:
+            continue
+
+        inner = body[match.end():close].strip()
+        found.add(0 if not inner else inner.count(",") + 1)
+
+    return found
+
+
+def _matching(body: str, open_paren: int) -> int:
+    depth = 0
+    for i in range(open_paren, len(body)):
+        if body[i] == "(":
+            depth += 1
+        elif body[i] == ")":
+            depth -= 1
+            if depth == 0:
+                return i
+    return -1
+
+
+METHOD_DECL = re.compile(
+    r"^\s*(?:(?:internal|private|public|protected|static|sealed|override|virtual|async|"
+    r"readonly|extern|unsafe|new|partial)\s+)+[\w<>?\[\],.\s]+?\s(\w+)\s*\(", re.M)
+
+
+def nested_shadowing_problems(files) -> list[str]:
+    """A nested type declaring a method the enclosing type also declares.
+
+    Not a style point - CS1501. Calls inside the nested type resolve to its own member first, so a
+    nested class whose `Add(unit)` shares a name with the enclosing type's `Add(list, item)` makes
+    every call to the enclosing one a "no overload takes 2 arguments" error. That cost a build on
+    0.27.0; this checks it with a brace scan instead of another compile.
+    """
+    problems: list[str] = []
+
+    for path in files:
+        code = strip_noise(path.read_text(encoding="utf-8"))
+        types = _type_bodies(code)
+
+        for outer_name, outer_open, outer_close in types:
+            for inner_name, inner_open, inner_close in types:
+                # Directly nested only: inside the outer body, and not inside a third type.
+                if not (outer_open < inner_open < inner_close < outer_close):
+                    continue
+
+                inside_another = False
+                for _, other_open, other_close in types:
+                    if other_open == outer_open:
+                        continue
+                    if outer_open < other_open < inner_open and inner_close < other_close < outer_close:
+                        inside_another = True
+                        break
+                if inside_another:
+                    continue
+
+                outer_body = code[outer_open:inner_open] + code[inner_close:outer_close]
+                inner_body = code[inner_open:inner_close]
+
+                outer_methods = set(METHOD_DECL.findall(outer_body))
+                inner_methods = set(METHOD_DECL.findall(inner_body))
+
+                # A constructor is named after its type: not a shadowing member.
+                inner_methods.discard(inner_name)
+                inner_methods.discard(outer_name)
+
+                for shared in sorted(outer_methods & inner_methods):
+                    # Only a real error when the nested type calls the name with a shape its own
+                    # overloads cannot take: member lookup inside a nested type stops at that type,
+                    # so a 2-argument call to a name it declares with 1 parameter is CS1501.
+                    outer_arity = _arities(outer_body, shared)
+                    inner_arity = _arities(inner_body, shared)
+
+                    for called in _call_arities(inner_body, shared):
+                        if called in inner_arity:
+                            continue
+                        if called not in outer_arity:
+                            continue
+
+                        line = code.count("\n", 0, inner_open + inner_body.find(shared)) + 1
+                        problems.append(
+                            f"{path.relative_to(ROOT)}:{line}: '{shared}' is called with {called} "
+                            f"argument(s) inside the nested {inner_name}, which declares it with "
+                            f"{'/'.join(str(a) for a in sorted(inner_arity))} - the enclosing "
+                            f"{outer_name} version is not in scope there (CS1501). Rename one")
+
+    return problems
 
 
 def binary_problems() -> list[str]:
@@ -687,7 +1004,7 @@ def main() -> int:
     # it cannot be seen without a compiler.
     unit_state = SRC / "SeaPowerAdvanced" / "Interop" / "UnitState.cs"
     if unit_state.exists():
-        record_members = set(re.findall(r"internal\s+[\w<>?\[\]]+\s+(\w+)\s*;",
+        record_members = set(re.findall(r"internal\s+[\w<>?\[\]]+\s+(\w+)\s*(?:=\s*[^;]+)?;",
                                        unit_state.read_text(encoding="utf-8")))
         for path in files:
             code = strip_noise(path.read_text(encoding="utf-8"))
@@ -708,13 +1025,72 @@ def main() -> int:
                 problems.append(
                     f"UnitState.cs: UnitRecord.{member} is never read - it is written and forgotten")
 
+    # A ConfigEntry declared, read and never *bound* is CS0649 - and it is a feature whose setting
+    # silently falls back to its default, which is worse than the warning. This is how
+    # ModSettings.lidarSeconds was caught only by a real compile.
+    settings = SRC / "SeaPowerAdvanced" / "ModSettings.cs"
+    if settings.exists():
+        text = settings.read_text(encoding="utf-8")
+        declared = set(re.findall(r"private static ConfigEntry<[^>]+>\?\s+(\w+);", text))
+        bound = set(re.findall(r"\b(\w+)\s*=\s*file\.Bind\(", text))
+
+        for field in sorted(declared - bound):
+            problems.append(
+                f"ModSettings.cs: ConfigEntry '{field}' is never assigned - CS0649, and the setting "
+                f"silently falls back to its default. Add a file.Bind for it")
+
     problems.extend(scope_problems(files))
     problems.extend(undeclared_call_problems(files))
+    problems.extend(unreferenced_type_problems(files))
+    problems.extend(nullable_argument_problems(files))
+    # Reflection calls that exist on FieldInfo/PropertyInfo/MethodInfo but NOT on MemberInfo, the
+    # abstract base. Holding a GetField() result in a MemberInfo and calling GetValue on it is
+    # CS1061 - the error that stopped the 0.27.0 build in DatalinkControl.
+    reflection_only = ("GetValue", "SetValue", "GetGetMethod", "GetSetMethod", "Invoke",
+                       "GetIndexParameters", "IsInitOnly", "IsLiteral", "CanWrite")
+    for path in files:
+        code = strip_noise(path.read_text(encoding="utf-8"))
+
+        # A variable typed MemberInfo? (or MemberInfo) ...
+        for match in re.finditer(r"\bMemberInfo\??\s+(\w+)\s*=", code):
+            name = match.group(1)
+            after = code[match.end():match.end() + 600]
+
+            for call in reflection_only:
+                if re.search(rf"\b{name}\.{call}\b", after):
+                    line = code.count("\n", 0, match.start()) + 1
+                    problems.append(
+                        f"{path.relative_to(ROOT)}:{line}: MemberInfo '{name}' used with .{call} - "
+                        f"that member is on FieldInfo/PropertyInfo/MethodInfo, not on MemberInfo "
+                        f"(CS1061). Hold it as the concrete type, or go through MemberProbe")
+
+    # A keyboard shortcut that only exists on the old Input Manager. A build running the new Input
+    # System only throws from Input.GetKeyDown, so a hotkey wired that way alone does nothing at all,
+    # with the throw swallowed by the same try/catch that keeps the overlay alive. The mod already
+    # learned this on the civilian-traffic panel (0.11.0) and then repeated it in a later overlay,
+    # which is exactly why it is a rule now.
+    for path in files:
+        code = strip_noise(path.read_text(encoding="utf-8"))
+        if "Input.GetKeyDown" not in code and "Input.GetKeyUp" not in code:
+            continue
+
+        if "EventType.KeyDown" in code:
+            continue
+
+        line = code.count("\n", 0, code.index("Input.GetKey")) + 1
+        problems.append(
+            f"{path.relative_to(ROOT)}:{line}: the shortcut is read with Input.GetKey* and nowhere "
+            f"else - on a build running the new Input System only, that throws and the key does "
+            f"nothing; also check Event.current.keyCode in OnGUI")
+
+    problems.extend(shadowing_problems(files))
+    problems.extend(nested_shadowing_problems(files))
     problems.extend(binary_problems())
 
     if not problems:
         print(f"clean: {len(files)} file(s), no missing namespaces, UnitRecord consistent, "
-              f"no out-of-scope locals, no undeclared calls, no binaries committed")
+              f"no out-of-scope locals, no undeclared calls, no absent game members, "
+              f"no unreferenced assemblies, no possible-null arguments, no binaries committed")
         return 0
 
     print()

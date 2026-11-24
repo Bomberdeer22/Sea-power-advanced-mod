@@ -1088,7 +1088,11 @@ internal static class OffensiveEcm
                 // one to remove - the same rule the lock loop follows.
                 if (entry.Key == null || entry.Key.IsDestroyed)
                 {
-                    Recovering.Remove(entry.Key);
+                    // Remove through a local that the compiler can see is not null: `entry.Key` on
+                    // its own is a possible-null argument (CS8604), because the null test is on a
+                    // compound condition and the flow analysis does not carry it into the call.
+                    ObjectBase? gone = entry.Key;
+                    if (gone != null) Recovering.Remove(gone);
                     continue;
                 }
 
@@ -1108,7 +1112,11 @@ internal static class OffensiveEcm
             }
             catch (Exception)
             {
-                Recovering.Remove(entry.Key);
+                // Not the bare key: it is a possible-null argument to Remove (CS8604), and the whole
+                // reason this line runs is that something already went wrong - a second throw while
+                // cleaning up after the first would lose the real error.
+                ObjectBase? key = entry.Key;
+                if (key != null) Recovering.Remove(key);
             }
         }
     }
@@ -1197,7 +1205,14 @@ internal static class OffensiveEcm
             {
                 // Unity's == reports true for a destroyed object even though the reference is
                 // real, so the entry has to be removed by the key that is actually in the map.
-                if (ship == null) { Held.Remove(entry.Key); continue; }
+                // Through a local, tested: entry.Key is a possible-null argument to Remove
+                // (CS8604), and Unity's == reports a destroyed object as equal to null.
+                ObjectBase? gone = entry.Key;
+                if (ship == null)
+                {
+                    if (gone != null) Held.Remove(gone);
+                    continue;
+                }
                 if (ModeOf(ship) != Mode.SignatureLock) { Release(ship, out _); continue; }
 
                 ObjectBase? target = hold.Target;
@@ -1291,7 +1306,9 @@ internal static class OffensiveEcm
             catch (Exception error)
             {
                 ModLog.Error("Offensive ECM failed for a ship", error);
-                Held.Remove(ship);
+
+                ObjectBase? lost = entry.Key;
+                if (lost != null) Held.Remove(lost);
             }
         }
     }
