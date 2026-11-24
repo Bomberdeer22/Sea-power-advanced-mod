@@ -1,5 +1,61 @@
 # Changelog
 
+## 0.29.0 - the LIDAR is removed
+
+The feature is gone. Not hidden behind a setting, not disabled by default: **removed**, in one commit,
+so there is no half-working code left to load, draw, tick or explain.
+
+### Why
+
+The idea was a laser rangefinder that would let a ship with every radar silent still fix a contact. It
+could not be made honest. Sea Power has no optical or laser sensor to hook into - the families a hull's
+parameter block holds are radar, sonar, ESM/RWR and ECM - so the only lever is the game's own reveal
+call, and the rule that kept it from being a wallhack was that **it could only ever confirm a contact
+the force already had**. Which leaves a sensor that tells you where something is *that you have
+already been told about*. That is not a sensor. It is a harder way to read a picture you can already
+see, and everything built on top of it inherited that.
+
+The rest was cost: five releases (0.26.0 to 0.28.1), three of them entirely build fixes, and two rounds
+of "I turned it on and there is nothing on the map". The honest reading is that the feature was never
+going to earn what it kept spending.
+
+### What went
+
+| Removed | Was |
+|---|---|
+| `Features/Lidar.cs`, `Interop/LidarControl.cs`, `UI/LidarOverlay.cs` | the scanner, its fit detection, its report and the map overlay |
+| Nine settings | `LidarEnabled`, `LidarAnyHull`, `LidarRangeNm`, `LidarSpinRpm`, `LidarBeamDeg`, `LidarShade`, `LidarOverlay`, `LidarOverlayKey`, `LidarSeconds` |
+| The Sensors entries | the start/stop order, the lookouts report, the two view toggles and the "nothing on the map?" check |
+| `F10` | the overlay key |
+| `lidar.txt` | the report |
+| `UnitRecord` fields | `Lidar`, `LidarBearing`, `LidarSpun`, `LidarSighted` |
+| The `MapProjection` additions | `TryCameraScreen`, `Calibrate`, `AnchorScreenPoint`, `UnitName`, `ScaleText` - all five existed only for the LIDAR |
+
+**Not removed:** `MapProjection` itself, and the ECM cones that use it. That capability came before the
+LIDAR and stays; the file is back to its 0.26.2 state. Nor is anything else touched - the datalink,
+the two ECM features, the dive limits, the hatches and the rest are exactly as they were.
+
+### The gates stay
+
+The rules added while chasing this feature are general and are staying, because none of them was about
+the LIDAR:
+
+- members named after a type the file uses (CS0119);
+- a nested type shadowing an enclosing method at a different arity (CS1501);
+- `MemberInfo` used with `FieldInfo`-only members (CS1061);
+- a `ConfigEntry` declared and never bound (CS0649);
+- game members a build has disproved (`getUnitName`) and assemblies this project does not have
+  (`UnityEngine.UI`) - CS1061 and CS0234;
+- a possible-null argument taken from a dictionary being walked (CS8604);
+- a key read only through `Input.GetKey*`, which throws on a build running the Input System only.
+
+```text
+python tools/check-source.py      :: clean: 55 file(s), ...
+python tools/check-batch.py       :: clean: 6 batch file(s), ...
+python tools/check-versions.py    :: clean: 0.29.0 in all seven places
+python tools/check-docs.py        :: clean: 7 plain-text twin(s)
+```
+
 ## 0.28.1 - the calibration reading compiles
 
 **0.28.0 did not build.** Four errors, all of them in the one new file that was written last and

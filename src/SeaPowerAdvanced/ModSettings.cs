@@ -34,15 +34,6 @@ internal static class ModSettings
     private static ConfigEntry<float>? ecmJamHoldSeconds;
     private static ConfigEntry<float>? ecmJamRecoverySeconds;
     private static ConfigEntry<bool>? coopDatalink;
-    private static ConfigEntry<bool>? lidarEnabled;
-    private static ConfigEntry<float>? lidarRangeNm;
-    private static ConfigEntry<bool>? lidarAnyHull;
-    private static ConfigEntry<float>? lidarSpinRpm;
-    private static ConfigEntry<float>? lidarBeamDeg;
-    private static ConfigEntry<bool>? lidarOverlay;
-    private static ConfigEntry<KeyCode>? lidarKey;
-    private static ConfigEntry<float>? lidarSeconds;
-    private static ConfigEntry<float>? lidarShade;
     private static ConfigEntry<float>? coopDatalinkSeconds;
 
     internal static bool Enabled => enabled?.Value ?? true;
@@ -68,49 +59,6 @@ internal static class ModSettings
     /// <summary>Seconds between datalink sweeps (1-30). Three is inside the ten-second life of an
     /// air track, so a track the other force is given does not flicker while it is still true.</summary>
     internal static float CoopDatalinkSeconds => coopDatalinkSeconds?.Value ?? 3f;
-
-    /// <summary>Whether the laser rangefinder order may be given at all.</summary>
-    internal static bool LidarEnabled => lidarEnabled?.Value ?? true;
-
-    /// <summary>How far a laser director can see, in nautical miles. Short by design: this is an
-    /// eye with a rangefinder on it, not a search set.</summary>
-    internal static float LidarRangeNm => lidarRangeNm?.Value ?? 15f;
-
-    /// <summary>
-    /// Whether every hull under command may look, or only those whose own sensor list shows an
-    /// optical set.
-    ///
-    /// On by default, because the sensor check could never have been a wallhack guard - the guard is
-    /// that only contacts the force already holds can be sighted - and because a warship's lookouts
-    /// are the one sensor that is not really in question. What it costs is the mod's ability to say
-    /// "this hull has no eyes"; what it keeps is the ability to say it, in <c>lidar.txt</c>, for any
-    /// hull whose data is silent about it.
-    /// </summary>
-    internal static bool LidarAnyHull => lidarAnyHull?.Value ?? true;
-
-    /// <summary>
-    /// How fast the scanner's head turns, in revolutions per minute. This is the whole feature: a set
-    /// that covers 360 degrees by turning, and only sees what the beam happens to be on.
-    /// </summary>
-    internal static float LidarSpinRpm => lidarSpinRpm?.Value ?? 12f;
-
-    /// <summary>Full width of the beam, in degrees: what the set sees as the head passes over
-    /// something. A tight beam is a real scanner; a wide one would be a sensor the mod invented.</summary>
-    internal static float LidarBeamDeg => lidarBeamDeg?.Value ?? 6f;
-
-    /// <summary>Draw the beams on the map.</summary>
-    internal static bool LidarOverlay => lidarOverlay?.Value ?? true;
-
-    /// <summary>How dark the overlay view is: 0 is the game's map untouched, 1 is black. A fixed
-    /// darkness is a guess about somebody else's monitor and somebody else's map colours, so it is a
-    /// setting - and 0 gives a "beams only, nothing dimmed" mode for free.</summary>
-    internal static float LidarShade => lidarShade?.Value ?? 0.72f;
-
-    /// <summary>The key that flips the map into the infrared view.</summary>
-    internal static KeyCode LidarOverlayKey => lidarKey?.Value ?? KeyCode.F10;
-
-    /// <summary>Seconds between looks. A laser is a glass on a bearing, not a scanning set.</summary>
-    internal static float LidarSeconds => lidarSeconds?.Value ?? 4f;
 
     /// <summary>Seconds between radar blink flips. Short enough to see in a test mission.</summary>
     internal static float BlinkSeconds => blinkSeconds?.Value ?? 6f;
@@ -354,51 +302,6 @@ internal static class ModSettings
                 + "multiplayer mod considers co-op, only to a force that is not flying a contact "
                 + "in our own picture, and position only - never an identity. This is what makes "
                 + "a mission with a side per player behave like one shared picture.");
-
-            lidarEnabled = file.Bind("Features", "LidarEnabled", true,
-                "Allow a ship with an optical or laser director in its own sensor list to look with "
-                + "it: contacts the force already holds, inside range and inside the arc, are put on "
-                + "the ship's own picture through the game's own reveal call. Position only. It "
-                + "never looks for a contact the force has not already seen.");
-
-            lidarRangeNm = file.Bind("Features", "LidarRangeNm", 15f,
-                "How far the scanner sees (1-40 nm). Now that the set is the mod's own - mounted on "
-                + "every hull and turning through 360 degrees - this is the one range every ship "
-                + "gets, and 15 nm is the default.");
-
-            lidarSpinRpm = file.Bind("Features", "LidarSpinRpm", 12f,
-                "How fast the scanner's head turns, in revolutions per minute (1-120). This is how "
-                + "the set covers 360 degrees: it looks where the beam is, and the beam moves.");
-
-            lidarBeamDeg = file.Bind("Features", "LidarBeamDeg", 6f,
-                "Full width of the scanner's beam, in degrees (1-90). What the set sees as the head "
-                + "passes over something.");
-
-            lidarOverlay = file.Bind("Features", "LidarOverlay", true,
-                "Draw the scanning beams on the map. The infrared view (default key F10) shows them "
-                + "without the rest of the map furniture.");
-
-            // Bound plain, and clamped where it is used: ConfigDescription and AcceptableValueRange
-            // are BepInEx types this project has never proved it can see, and a possible 0.28.1 to
-            // save one line is a bad trade.
-            lidarShade = file.Bind("Features", "LidarShade", 0.72f,
-                "How dark the overlay view is, 0 to 1. 0 leaves the game's map untouched and still "
-                + "draws the beams; 0.9 makes the beam the only thing on it.");
-
-            lidarKey = file.Bind("Features", "LidarOverlayKey", KeyCode.F10,
-                "The key that flips the map into the infrared view and back. Default F10. Set it to "
-                + "None to switch with the menu entry only.");
-
-            lidarSeconds = file.Bind("Features", "LidarSeconds", 4f,
-                "Seconds between scanner reports (1-60). The beam turns every frame; this is how "
-                + "often the sweep re-reads the picture and writes a verdict.");
-
-            lidarAnyHull = file.Bind("Features", "LidarAnyHull", true,
-                "Let every hull under command look with its optics, whether or not its own sensor "
-                + "list shows an optical set. Off means only a hull whose data positively holds "
-                + "lookouts (Eyes Mk 1) or a laser director may look. Either way a sighting is only "
-                + "ever a contact the force already holds, position only - the sensor check was never "
-                + "what kept the feature honest.");
 
             coopDatalinkSeconds = file.Bind("Features", "CoopDatalinkSeconds", 3f,
                 "Seconds between datalink sweeps (1-30). An air track only lives about ten "

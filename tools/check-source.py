@@ -1067,7 +1067,7 @@ def main() -> int:
     # A keyboard shortcut that only exists on the old Input Manager. A build running the new Input
     # System only throws from Input.GetKeyDown, so a hotkey wired that way alone does nothing at all,
     # with the throw swallowed by the same try/catch that keeps the overlay alive. The mod already
-    # learned this on the civilian-traffic panel (0.11.0) and then repeated it in the LIDAR overlay,
+    # learned this on the civilian-traffic panel (0.11.0) and then repeated it in a later overlay,
     # which is exactly why it is a rule now.
     for path in files:
         code = strip_noise(path.read_text(encoding="utf-8"))

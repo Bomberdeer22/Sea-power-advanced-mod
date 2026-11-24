@@ -99,10 +99,6 @@ internal static class Boot
             // The map cones: a beam from every jammer to what it is holding.
             EcmConeOverlay.Install();
 
-            // The LIDAR: a rotating beam on every ship with the scanner running, and the
-            // infrared view that makes it the thing you see.
-            LidarOverlay.Install();
-
             // Timers only: blink, auto-ARM, salvo release, readiness clocks. No interface of its own;
             // every feature is reached through the game's right-click menus.
             FleetTicker.Install();

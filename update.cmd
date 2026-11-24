@@ -311,20 +311,8 @@ call :ver_lt "!INSTALLED!" "0.24.2"
 if defined VLT call :note "0.24.2 - the whole-task-force defensive ECM entry is a switch: click it again to stand the force down. No files: all in the DLL."
 call :ver_lt "!INSTALLED!" "0.25.0"
 if defined VLT call :note "0.25.0 - the force datalink: in a co-op session, contacts this force holds are handed to the other player's force. A new setting appears (CoopDatalink, on). No files: all in the DLL."
-call :ver_lt "!INSTALLED!" "0.28.1"
-if defined VLT call :note "0.28.1 - build fix: 0.28.0 would not compile (an invented getUnitName, and a reference to the UnityEngine.UI package this project does not have). No behaviour change: the dark overlay and the calibration reading are as described in 0.28.0."
-call :ver_lt "!INSTALLED!" "0.28.0"
-if defined VLT call :note "0.28.0 - you can SEE the LIDAR now: the map goes dark and the beam is the light, drawn whether or not it has found anything (glow at the emitter, fading trail behind the head, range ring, the numbers on the hull). F10 shows the game's own map with bright beams instead. Sensors > LIDAR: nothing on the map? tells you which of the four causes it is, and the first beam writes a calibration reading into lidar.txt. No files: all in the DLL."
-call :ver_lt "!INSTALLED!" "0.27.1"
-if defined VLT call :note "0.27.1 - build fix: 0.27.0 would not compile (a method called Screen hid the game's Screen, the datalink had two, and one setting was never bound). build.cmd now prints the version and commit at the top, and names any other copy of the project next to it. No behaviour change. No files: all in the DLL."
-call :ver_lt "!INSTALLED!" "0.27.0"
-if defined VLT call :note "0.27.0 - the LIDAR is a rotating 360-degree scanner now: 15 nm, every ship, and a beam you can SEE on the map. F10 flips the map into the infrared view. New settings appear (LidarSpinRpm 12, LidarBeamDeg 6, LidarOverlay on, LidarOverlayKey F10, LidarRangeNm now 15). No files: all in the DLL."
-call :ver_lt "!INSTALLED!" "0.26.2"
-if defined VLT call :note "0.26.2 - the rangefinder is offered on every ship now, not only one whose data names an optical set; lookouts are assumed where the data is silent, at the lookouts' shorter range. LidarAnyHull (on) turns the sensor check back on if you want it. No files: all in the DLL."
-call :ver_lt "!INSTALLED!" "0.26.1"
-if defined VLT call :note "0.26.1 - the rangefinder now works through the game's own lookouts too (its Eyes Mk 1 optical sensor), not only a laser director. Lookouts reach LidarLookoutNm (6 by default), not the laser's 12. A new setting appears. No files: all in the DLL."
-call :ver_lt "!INSTALLED!" "0.26.0"
-if defined VLT call :note "0.26.0 - the laser rangefinder: a ship with an optical or laser director can look at contacts the force already holds, with its radars silent. New settings appear (LidarEnabled on, LidarRangeNm 12, LidarArcDegrees 90, LidarSeconds 4). No files: all in the DLL."
+call :ver_lt "!INSTALLED!" "0.29.0"
+if defined VLT call :note "0.29.0 - the LIDAR is gone. It could not be made to work reliably: a laser that only confirms contacts the force ALREADY holds is not a sensor, it is a harder way to read a picture you already have, and every version of it cost a build. Removed whole - the menu entries, the map overlay, the infrared view, the key and every one of its settings. Nothing else is affected. No files: all in the DLL. Any lidar.txt already in the mod folder is now just a leftover and can be deleted."
 exit /b 0
 
 :mig_dive_limits
@@ -445,8 +433,8 @@ call :ver_lt "!INSTALLED!" "0.24.2"
 if defined VLT call :say "0.24.2  defensive ECM for the whole task force is a switch now: click it again to stand the force down"
 call :ver_lt "!INSTALLED!" "0.25.0"
 if defined VLT call :say "0.25.0  new: the force datalink. In a co-op session, contacts your force holds are handed to the other player's force; datalink.txt says what was shared"
-call :ver_lt "!INSTALLED!" "0.26.0"
-if defined VLT call :say "0.26.0  new: the laser rangefinder. A ship with an optical or laser director can look at contacts the force already holds, with its radars silent; lidar.txt says what each hull's sensor list really holds"
+call :ver_lt "!INSTALLED!" "0.29.0"
+if defined VLT call :say "0.29.0  the LIDAR has been removed entirely - the menu entries, the map overlay, the infrared view and all of its settings"
 exit /b 0
 
 

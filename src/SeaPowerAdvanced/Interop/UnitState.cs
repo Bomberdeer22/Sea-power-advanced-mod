@@ -129,23 +129,6 @@ internal sealed class UnitRecord
 
     /// <summary>Guns and CIWS are fighting under local control rather than from the ship's picture.</summary>
     internal bool LocalControl;
-
-    // --- the LIDAR ------------------------------------------------------------------------------
-
-    /// <summary>The rotating set on this hull is running.</summary>
-    internal bool Lidar;
-
-    /// <summary>Where the scanner's head is pointing, degrees true. Advanced every frame by
-    /// <c>Features/Lidar</c>; the map overlay draws the beam from it.</summary>
-    internal float LidarBearing;
-
-    /// <summary>Whether the head has been placed yet, so a newly switched-on set does not jump.</summary>
-    internal bool LidarSpun;
-
-    /// <summary>What the last look put on this hull's own picture, in words - "FFG-7 at 6.2 nm" -
-    /// rebuilt on every successful look, and cleared when the contact goes. One beam, one target, so
-    /// one line is the whole state.</summary>
-    internal string LidarSighted = "";
 }
 
 internal static class UnitState

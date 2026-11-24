@@ -9,7 +9,7 @@ An advanced mod for Sea Power: Naval Combat in the Missile Age, built as an
 Anchor Chain (https://github.com/SeaPower-Modders/AnchorChain) code mod and
 loadable as a plain BepInEx plugin.
 
-Version 0.28.1  -  the first public release: sixteen advanced features for
+Version 0.29.0  -  the first public release: fifteen advanced features for
 your own ships, plus per-cell hatch control. Everything is reached through the
 game's own right-click menus; there is no mod window and no hotkey.
 
@@ -33,7 +33,7 @@ shutters without launching a weapon.
           Close all hatches
           Log hatch report
 
-2. Sixteen advanced features, in the right-click menu
+2. Fifteen advanced features, in the right-click menu
 
 Right-click one of your ships. Each feature appears in the section of the menu
 where a player would look for it, rather than in one long submenu:
@@ -115,46 +115,6 @@ why. What it cannot do is decide what the other player's screen shows: that is
 their machine and that mod's own contact sync, and the report names the
 switches to check when the two pictures still differ. See docs/features.md
 (docs/features.md#2g-the-force-datalink--sensors-and-emcon).
-
-The LIDAR is the answer to a sensor this game does not have. A rotating set is
-mounted on the ship: 360 degrees, 15 nm, every hull under command, covered by
-turning - 12 rpm by default - and a contact is sighted when the beam is on it.
-A map overlay draws the spoke turning, the range ring and a mark on what it
-holds, and F10 flips the map into an infrared view so the beams are the thing
-you see (a filter over the game's own map, not a different sensor picture). It
-never looks for a contact nobody has reported: the beam decides which known
-contact is sighted and when, never that something exists. Position only, no
-radar switched, so it works at EMCON silent; lidar.txt prints what each hull's
-own data really holds. See docs/features.md (docs/features.md#2h-the-rotating-
-lidar--sensors-and-emcon).
-
-Multiplayer
-
-Works with the community multiplayer mod (SeapowerMultiplayer), host or
-client, and is unchanged without it. Every feature has one stated route into
-the simulation - an order the session forwards, a call on the game's own
-object, a read, or a write only the host may make - and what a client gets
-follows from that route rather than from a guess. multiplayer.txt in the mod
-folder prints that table, says which side of the session this machine is on,
-and - the honest part - counts how many of the paths have actually been tried
-this session, because only a client can prove one.
-
-"Virus detected" when downloading the zip? It is a false positive, and it was
-mine: an earlier archive carried one compiled test fixture. It is gone as of
-0.24.1, and the repository now holds no binaries at all - every file is text
-you can open in Notepad. See the install guide (INSTALL.md#if-your-browser-or-
-antivirus-refuses-the-download) for what the tools do, and how to get the
-files another way.
-
-Something not working? Run diagnose.cmd  -  one double-click, one text file to
-send. Then open an issue here and attach it; the bug report template
-(.github/ISSUE_TEMPLATE/bug_report.md) lists the report files and what each
-one answers, so a report can be acted on rather than guessed at.
-
-Plain-text copies are included for every document a player might open in
-Notepad - this file (README.txt), the install guide (INSTALL.txt), and the
-player-facing documents in docs/ - each .txt next to its .md, kept in step by
-a check that runs on every push.
 
 ------------------------------------------------------------------------------
 

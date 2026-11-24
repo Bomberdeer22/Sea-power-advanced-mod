@@ -193,50 +193,15 @@ explains the version jump rather than just announcing it.
       What update.cmd does: nothing beyond the DLL
       note only
 
-  < 0.27.1
-      Release: build fix - 0.27.0 would not compile. No behaviour change
-      On disk: nothing new
+  < 0.29.0
+      Release: the LIDAR is removed - the menu entries, the map overlay, the
+        infrared view, the key and every one of its settings
+      On disk: none: LidarEnabled, LidarAnyHull, LidarRangeNm, LidarSpinRpm,
+        LidarBeamDeg, LidarShade, LidarOverlay, LidarOverlayKey, LidarSeconds
+        all go
       What update.cmd does: nothing beyond the DLL
-      nothing to do beyond update.cmd
-
-  < 0.27.0
-      Release: the LIDAR is a rotating 360-degree scanner: 15 nm, every
-        ship, and a beam drawn on the map with an infrared view (F10)
-      On disk: new settings LidarSpinRpm (12), LidarBeamDeg (6),
-        LidarOverlay (on), LidarOverlayKey (F10); LidarRangeNm now 15;
-        LidarArcDegrees retired
-      What update.cmd does: nothing beyond the DLL
-      still only contacts the force already holds, position only, no radar
-        switched
-
-  < 0.26.2
-      Release: the rangefinder is offered on every hull, not only one whose
-        data names an optical set; lookouts are assumed where the data is
-        silent
-      On disk: new setting LidarAnyHull (on) - set it false for the old
-        sensor check
-      What update.cmd does: nothing beyond the DLL
-      the reach still follows the fit: 12 nm with a director, 6 nm with
-        lookouts (LidarLookoutNm)
-
-  < 0.26.1
-      Release: the rangefinder now works through the game's own Eyes Mk 1
-        lookouts as well as a laser director
-      On disk: new setting LidarLookoutNm (6)
-      What update.cmd does: nothing beyond the DLL
-      update.cmd says so. A look-out is not an instrument, so it reaches
-        less than a director
-
-  < 0.26.0
-      Release: new: the laser rangefinder. A hull with an optical or laser
-        director in its own sensor list can look at contacts the force already
-        holds, with its radars silent
-      On disk: new settings (LidarEnabled on, LidarRangeNm 12,
-        LidarArcDegrees 90, LidarSeconds 4)
-      What update.cmd does: nothing beyond the DLL
-      update.cmd says so. It never looks for a contact the force has not
-        already seen, and most hulls have no director - lidar.txt shows what
-        each one really carries
+      if you had a hull scanning, it stops. Nothing else is affected. A
+        leftover lidar.txt in the mod folder can be deleted
 
   < 0.25.0
       Release: new: the force datalink between a co-op host and guest. In a

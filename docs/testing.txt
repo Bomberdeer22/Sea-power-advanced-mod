@@ -8,7 +8,7 @@ TEST PLAN
 Run this once per game version, and after any change to HatchControl,
 HatchMenu or the feature menus.
 
-Version under test: 0.28.1. Mod id io.github.bomberdeer22.seapoweradvanced.
+Version under test: 0.29.0. Mod id io.github.bomberdeer22.seapoweradvanced.
 
 Read the log, do not guess. Everything below is confirmed by two files:
 
@@ -180,27 +180,6 @@ Full description of each: features.md. Right-click one of your ships.
     setting on and load the same mission: Datalink says the co-op flag is off
     and names the switch, and no track is handed over. datalink.txt records
     the flag and the CfgPvP / CfgContactSync settings
-  * [ ] The scanner runs and turns. Sensors and EMCON -> LIDAR: off - click to
-    start the scanner (15 nm, 360 deg). The label becomes LIDAR: on, beam at N
-    deg, nothing on it and the number climbs - that is the head turning.
-    lidar.txt records the beam angle per ship
-  * [ ] The beam is what sights a contact. With a held contact inside 15 nm,
-    the label reads holding <hull> at N.N nm only while the beam is passing
-    over it, and goes back to nothing on it when the head has moved on. That
-    is the feature: it looks where the beam is
-  * [ ] The overlay draws. A spoke from the ship to the edge of its range, a
-    ring at 15 nm, and a mark on whatever is being held. Nothing is drawn at a
-    guessed position - if it cannot project, the screen says so once
-  * [ ] The infrared view. F10 (or LIDAR: infrared view in the menu) darkens
-    the map so the spokes stand out; F10 again returns to normal. The beams
-    keep turning in both views
-  * [ ] A hull whose data names no optical set is still offered the set, with
-    the second line LIDAR: lookouts assumed - click for the report, and
-    lidar.txt marks the class LOOKOUTS ASSUMED. With LidarAnyHull false it is
-    refused instead
-  * [ ] No prior sighting means no sighting. In a mission where the force
-    holds nothing, the entry reports nothing on the force's picture to look at
-    and no contact is created
   * [ ] The same entry clicked again stands the force down. After arming,
     reopen Sensors -> ECM on any ship: the entry now reads on for N of M
     ship(s) - click to disarm the task force, and one click clears every armed
@@ -506,35 +485,6 @@ All four run on every push (.github/workflows/checks.yml). They do not prove
 the mod compiles - only the compiler against your own game DLLs can do that -
 they prove the things a compiler does not look for. What has to be true before
 a release is tagged is in releasing.md.
-
-"THE LIDAR DRAWS NOTHING" - THE FOUR ANSWERS, IN ORDER
-------------------------------------------------------
-
-0.28.0 exists because this took two rounds to diagnose from a distance. The
-overlay now answers it itself; the order below is the order it checks in.
-
-  1. Features/Enabled off, or Features/LidarEnabled off. Nothing draws, and
-     nothing says so except these two settings.
-  2. No ship has the order. The commonest by far, and from the outside
-     indistinguishable from a broken overlay. Sensors > LIDAR: off - click to
-     start the scanner on one hull is enough; the beam appears on that hull at
-     once. The overlay view also prints "no ship has the scanner running"
-     along the bottom of the screen, once, when this is the reason.
-  3. The map cannot be projected on this build. The overlay prints the
-     projection's own report on screen and writes it to lidar.txt. Nothing is
-     drawn at a guessed position, by design.
-  4. The beams are drawn, but off screen. The projection's world-space
-     arithmetic comes from the game's own tile grid and can be right while the
-     screen mapping is wrong, because the camera is a choice. This is the one
-     that looks like 1 to 3 and is not, so it is measured instead of argued
-     about: lidar.txt carries the calibration reading from the first beam - a
-     known position, where it landed, whether that is inside the screen, which
-     camera was chosen, every camera available, the interface scale, and the
-     difference against the game's own label for that hull, in pixels.
-
-What to send back for any of these: lidar.txt, and seapoweradvanced.log lines
-containing LIDAR. The calibration block is the part that can be acted on
-without another build.
 
 WHAT TO SEND BACK
 -----------------
